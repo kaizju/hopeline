@@ -3,49 +3,28 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
+$activeIncidents = $pdo->query("
+    SELECT c.id, c.clip_ref, c.barangay, c.incident_type, c.severity, c.created_at,
+           d.status AS dispatch_status, d.departed_at, u.unit_name
+    FROM clip_reports c
+    LEFT JOIN dispatch d ON d.clip_report_id = c.id
+    LEFT JOIN ptv_units u ON u.id = d.unit_id
+    WHERE c.status != 'resolved'
+    ORDER BY FIELD(c.severity,'Critical','High','Moderate','Low'), c.created_at DESC
+    LIMIT 6
+")->fetchAll(PDO::FETCH_ASSOC);
 
+$unitCounts = $pdo->query("
+    SELECT status, COUNT(*) AS total FROM ptv_units GROUP BY status
+")->fetchAll(PDO::FETCH_KEY_PAIR);
 
-/**
- * Pulls today's key stats + active incidents + unit status.
- * Falls back to demo data if tables don't exist yet, so the page
- * still renders for defense/demo purposes.
- */
-try {
-    $activeIncidents = $pdo->query("
-        SELECT c.id, c.clip_ref, c.barangay, c.incident_type, c.severity, c.created_at,
-               d.status AS dispatch_status, d.departed_at, u.unit_name
-        FROM clip_reports c
-        LEFT JOIN dispatch d ON d.clip_report_id = c.id
-        LEFT JOIN ptv_units u ON u.id = d.unit_id
-        WHERE c.status != 'resolved'
-        ORDER BY FIELD(c.severity,'Critical','High','Moderate','Low'), c.created_at DESC
-        LIMIT 6
-    ")->fetchAll(PDO::FETCH_ASSOC);
+$todayCount = $pdo->query("
+    SELECT COUNT(*) FROM clip_reports WHERE DATE(created_at) = CURDATE()
+")->fetchColumn();
 
-    $unitCounts = $pdo->query("
-        SELECT status, COUNT(*) AS total FROM ptv_units GROUP BY status
-    ")->fetchAll(PDO::FETCH_KEY_PAIR);
-
-    $todayCount = $pdo->query("
-        SELECT COUNT(*) FROM clip_reports WHERE DATE(created_at) = CURDATE()
-    ")->fetchColumn();
-
-    $delayedCount = $pdo->query("
-        SELECT COUNT(*) FROM delay_logs WHERE DATE(created_at) = CURDATE() AND resolved_at IS NULL
-    ")->fetchColumn();
-
-} catch (PDOException $e) {
-    // ---- Demo fallback data ----
-    $activeIncidents = [
-        ['id'=>1,'clip_ref'=>'CLIP-20260815-A1B2C','barangay'=>'Maluko','incident_type'=>'Medical Emergency','severity'=>'Critical','created_at'=>date('Y-m-d H:i:s', strtotime('-8 minutes')),'dispatch_status'=>'en_route','departed_at'=>date('Y-m-d H:i:s', strtotime('-6 minutes')),'unit_name'=>'PTV Alpha'],
-        ['id'=>2,'clip_ref'=>'CLIP-20260815-D4E5F','barangay'=>'Damilag','incident_type'=>'Vehicular Accident','severity'=>'High','created_at'=>date('Y-m-d H:i:s', strtotime('-20 minutes')),'dispatch_status'=>'on_site','departed_at'=>date('Y-m-d H:i:s', strtotime('-14 minutes')),'unit_name'=>'PTV Charlie'],
-        ['id'=>3,'clip_ref'=>'CLIP-20260815-G7H8I','barangay'=>'Dahilayan','incident_type'=>'Flood / Landslide','severity'=>'Moderate','created_at'=>date('Y-m-d H:i:s', strtotime('-40 minutes')),'dispatch_status'=>'pending','departed_at'=>null,'unit_name'=>null],
-        ['id'=>4,'clip_ref'=>'CLIP-20260815-J9K1L','barangay'=>'Tankulan (Poblacion)','incident_type'=>'Fire','severity'=>'Critical','created_at'=>date('Y-m-d H:i:s', strtotime('-2 minutes')),'dispatch_status'=>'pending','departed_at'=>null,'unit_name'=>null],
-    ];
-    $unitCounts = ['Available' => 2, 'En Route' => 1, 'On Site' => 1, 'Returning' => 1];
-    $todayCount = 9;
-    $delayedCount = 1;
-}
+$delayedCount = $pdo->query("
+    SELECT COUNT(*) FROM delay_logs WHERE DATE(started_at) = CURDATE() AND resolved_at IS NULL
+")->fetchColumn();
 
 $totalUnits = array_sum($unitCounts);
 $available  = $unitCounts['Available'] ?? 0;
@@ -344,8 +323,8 @@ $unreadAlerts = $delayedCount;
                         <div class="delay-item">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
                             <div>
-                                <div class="t">PTV Alpha reported road obstruction</div>
-                                <div class="s">En route to Maluko — 6 min delayed</div>
+                                <div class="t">Delayed dispatch(es) reported today</div>
+                                <div class="s">View Delay Alerts for details</div>
                             </div>
                         </div>
                     <?php else: ?>
