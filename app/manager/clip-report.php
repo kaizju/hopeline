@@ -76,7 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$unreadAlerts = 2; // placeholder, passed into sidebar
 ?>
 <!DOCTYPE html>
 <html lang="en">
