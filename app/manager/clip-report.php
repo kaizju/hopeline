@@ -1,36 +1,13 @@
 <?php
 session_start();
+
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-
+requireRole('manager');
 
 $errors  = [];
 $success = false;
-
-/**
- * Suggested table (create if it doesn't exist yet):
- *
- * CREATE TABLE clip_reports (
- *     id INT AUTO_INCREMENT PRIMARY KEY,
- *     clip_ref VARCHAR(20) NOT NULL UNIQUE,
- *     caller_name VARCHAR(150) NOT NULL,
- *     caller_contact VARCHAR(20) NULL,
- *     barangay VARCHAR(100) NOT NULL,
- *     sitio_purok VARCHAR(150) NULL,
- *     landmark VARCHAR(255) NULL,
- *     latitude DECIMAL(10,7) NULL,
- *     longitude DECIMAL(10,7) NULL,
- *     incident_type VARCHAR(50) NOT NULL,
- *     severity ENUM('Critical','High','Moderate','Low') NOT NULL,
- *     problem_resources VARCHAR(255) NOT NULL,
- *     problem_notes TEXT NULL,
- *     reported_by INT NOT NULL,
- *     status ENUM('pending','dispatched','resolved') DEFAULT 'pending',
- *     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
- * );
- */
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $callerName    = trim($_POST['caller_name'] ?? '');
     $callerContact = trim($_POST['caller_contact'] ?? '');
@@ -58,11 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("INSERT INTO clip_reports
                 (clip_ref, caller_name, caller_contact, barangay, sitio_purok, landmark, latitude, longitude, incident_type, severity, problem_resources, problem_notes, reported_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([
-                $clipRef, $callerName, $callerContact, $barangay, $sitioPurok, $landmark,
-                $latitude ?: null, $longitude ?: null, $incidentType, $severity,
-                $resourcesStr, $problemNotes, $_SESSION['user_id']
-            ]);
+           $stmt->execute([
+    $clipRef, $callerName, $callerContact, $barangay, $sitioPurok, $landmark,
+    $latitude ?: null, $longitude ?: null, $incidentType, $severity,
+    $resourcesStr, $problemNotes, $_SESSION['user_id']
+]);
 
             if (function_exists('logActivity')) {
                 logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'clip_report_created', 'success');

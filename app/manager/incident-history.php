@@ -43,17 +43,11 @@ try {
 
     $barangays = $pdo->query("SELECT DISTINCT barangay FROM clip_reports ORDER BY barangay")->fetchAll(PDO::FETCH_COLUMN);
 } catch (PDOException $e) {
-    $history = [
-        ['clip_ref'=>'CLIP-20260814-Z9Y8X','caller_name'=>'Pedro Reyes','barangay'=>'Damilag','incident_type'=>'Vehicular Accident','severity'=>'High','status'=>'resolved','report_received_at'=>date('Y-m-d H:i:s', strtotime('-1 day -2 hours')),'departed_at'=>date('Y-m-d H:i:s', strtotime('-1 day -1 hour -55 minutes')),'arrived_at'=>date('Y-m-d H:i:s', strtotime('-1 day -1 hour -40 minutes')),'unit_name'=>'PTV Charlie','travel_seconds'=>900,'total_response_seconds'=>1200,'delay_count'=>1],
-        ['clip_ref'=>'CLIP-20260813-Q1W2E','caller_name'=>'Ana Lim','barangay'=>'Dahilayan','incident_type'=>'Flood / Landslide','severity'=>'Moderate','status'=>'resolved','report_received_at'=>date('Y-m-d H:i:s', strtotime('-2 days -3 hours')),'departed_at'=>date('Y-m-d H:i:s', strtotime('-2 days -2 hours -50 minutes')),'arrived_at'=>date('Y-m-d H:i:s', strtotime('-2 days -1 hour -30 minutes')),'unit_name'=>'PTV Echo','travel_seconds'=>4800,'total_response_seconds'=>5400,'delay_count'=>1],
-        ['clip_ref'=>'CLIP-20260812-M3N4O','caller_name'=>'Juan Dela Cruz','barangay'=>'Tankulan (Poblacion)','incident_type'=>'Medical Emergency','severity'=>'Critical','status'=>'resolved','report_received_at'=>date('Y-m-d H:i:s', strtotime('-3 days -5 hours')),'departed_at'=>date('Y-m-d H:i:s', strtotime('-3 days -4 hours -58 minutes')),'arrived_at'=>date('Y-m-d H:i:s', strtotime('-3 days -4 hours -53 minutes')),'unit_name'=>'PTV Alpha','travel_seconds'=>258,'total_response_seconds'=>420,'delay_count'=>0],
-    ];
-    $barangays = ['Damilag', 'Dahilayan', 'Tankulan (Poblacion)', 'Maluko'];
+   
     $totalRows = count($history);
 }
 
 $totalPages = max(1, ceil($totalRows / $perPage));
-$unreadAlerts = 2;
 
 function fmtDuration($seconds) {
     if ($seconds === null) return '—';

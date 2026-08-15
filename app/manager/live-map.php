@@ -3,30 +3,6 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-// Guard: only logged-in managers (dispatchers) can view the live map
-
-/**
- * Pulls current PTV units + their active incident (if any) from the DB.
- * Falls back to demo data if the tables don't exist yet, so this page
- * still renders for defense/demo purposes.
- *
- * Suggested tables (adjust to match your actual schema):
- *
- * CREATE TABLE ptv_units (
- *     id INT AUTO_INCREMENT PRIMARY KEY,
- *     unit_name VARCHAR(100) NOT NULL,
- *     plate_no VARCHAR(20) NULL,
- *     driver_name VARCHAR(150) NULL,
- *     status ENUM('Available','En Route','On Site','Returning') DEFAULT 'Available',
- *     current_lat DECIMAL(10,7) NULL,
- *     current_lng DECIMAL(10,7) NULL,
- *     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
- * );
- *
- * dispatch table links ptv_units.id -> clip_reports.id with departed_at,
- * used here to compute "en route" elapsed time and destination pin.
- */
-
 $units = [];
 try {
     $stmt = $pdo->query("
@@ -41,14 +17,7 @@ try {
     ");
     $units = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    // Demo fallback so the page still renders before tables are set up
-    $units = [
-        ['id' => 1, 'unit_name' => 'PTV Alpha',   'plate_no' => 'LGU-101', 'driver_name' => 'R. Santos', 'status' => 'En Route', 'current_lat' => 8.3745, 'current_lng' => 124.8670, 'departed_at' => date('Y-m-d H:i:s', strtotime('-6 minutes')), 'clip_ref' => 'CLIP-20260815-A1B2C', 'barangay' => 'Maluko', 'severity' => 'Critical', 'dest_lat' => 8.4310, 'dest_lng' => 124.8420],
-        ['id' => 2, 'unit_name' => 'PTV Bravo',   'plate_no' => 'LGU-102', 'driver_name' => 'J. Reyes',  'status' => 'Available', 'current_lat' => 8.3736, 'current_lng' => 124.8694, 'departed_at' => null, 'clip_ref' => null, 'barangay' => null, 'severity' => null, 'dest_lat' => null, 'dest_lng' => null],
-        ['id' => 3, 'unit_name' => 'PTV Charlie', 'plate_no' => 'LGU-103', 'driver_name' => 'M. Cruz',   'status' => 'On Site', 'current_lat' => 8.3980, 'current_lng' => 124.8550, 'departed_at' => date('Y-m-d H:i:s', strtotime('-14 minutes')), 'clip_ref' => 'CLIP-20260815-D4E5F', 'barangay' => 'Damilag', 'severity' => 'High', 'dest_lat' => 8.3980, 'dest_lng' => 124.8550],
-        ['id' => 4, 'unit_name' => 'PTV Delta',   'plate_no' => 'LGU-104', 'driver_name' => 'A. Lim',    'status' => 'Returning', 'current_lat' => 8.3600, 'current_lng' => 124.8800, 'departed_at' => null, 'clip_ref' => null, 'barangay' => null, 'severity' => null, 'dest_lat' => null, 'dest_lng' => null],
-        ['id' => 5, 'unit_name' => 'PTV Echo',    'plate_no' => 'LGU-105', 'driver_name' => 'K. Torres', 'status' => 'Available', 'current_lat' => 8.3690, 'current_lng' => 124.8610, 'departed_at' => null, 'clip_ref' => null, 'barangay' => null, 'severity' => null, 'dest_lat' => null, 'dest_lng' => null],
-    ];
+
 }
 
 

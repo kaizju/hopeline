@@ -60,18 +60,10 @@ try {
 
     $availableUnits = $pdo->query("SELECT id, unit_name, plate_no FROM ptv_units WHERE status='Available' ORDER BY unit_name")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $incidents = [
-        ['id'=>1,'clip_ref'=>'CLIP-20260815-A1B2C','caller_name'=>'Maria Santos','barangay'=>'Maluko','sitio_purok'=>'Purok 2','incident_type'=>'Medical Emergency','severity'=>'Critical','problem_resources'=>'Ambulance / PTV','status'=>'pending','created_at'=>date('Y-m-d H:i:s', strtotime('-4 minutes')),'dispatch_id'=>null,'dispatch_status'=>null,'unit_id'=>null,'unit_name'=>null],
-        ['id'=>2,'clip_ref'=>'CLIP-20260815-D4E5F','caller_name'=>'Pedro Reyes','barangay'=>'Damilag','sitio_purok'=>null,'incident_type'=>'Vehicular Accident','severity'=>'High','problem_resources'=>'Ambulance / PTV, Extraction Team','status'=>'dispatched','created_at'=>date('Y-m-d H:i:s', strtotime('-22 minutes')),'dispatch_id'=>10,'dispatch_status'=>'en_route','unit_id'=>3,'unit_name'=>'PTV Charlie'],
-        ['id'=>3,'clip_ref'=>'CLIP-20260815-G7H8I','caller_name'=>'Ana Lim','barangay'=>'Dahilayan','sitio_purok'=>null,'incident_type'=>'Flood / Landslide','severity'=>'Moderate','problem_resources'=>'Rescue Team','status'=>'pending','created_at'=>date('Y-m-d H:i:s', strtotime('-45 minutes')),'dispatch_id'=>null,'dispatch_status'=>null,'unit_id'=>null,'unit_name'=>null],
-    ];
-    $availableUnits = [
-        ['id'=>2,'unit_name'=>'PTV Bravo','plate_no'=>'LGU-102'],
-        ['id'=>5,'unit_name'=>'PTV Echo','plate_no'=>'LGU-105'],
-    ];
+
 }
 
-$unreadAlerts = 2;
+
 ?>
 <!DOCTYPE html>
 <html lang="en">

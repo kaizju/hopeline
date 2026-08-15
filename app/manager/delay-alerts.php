@@ -50,18 +50,11 @@ try {
         WHERE d.status IN ('assigned','en_route','on_site')
     ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $delays = [
-        ['id'=>1,'unit_name'=>'PTV Alpha','clip_ref'=>'CLIP-20260815-A1B2C','barangay'=>'Maluko','severity'=>'Critical','reason'=>'Road obstruction/traffic','notes'=>'Fallen tree blocking the main road near Purok 2','is_manual'=>0,'started_at'=>date('Y-m-d H:i:s', strtotime('-6 minutes')),'resolved_at'=>null],
-        ['id'=>2,'unit_name'=>'PTV Charlie','clip_ref'=>'CLIP-20260814-Z9Y8X','barangay'=>'Damilag','severity'=>'High','reason'=>'Vehicle breakdown/mechanical issue','notes'=>'Flat tire, backup requested','is_manual'=>0,'started_at'=>date('Y-m-d H:i:s', strtotime('-1 day -2 hours')),'resolved_at'=>date('Y-m-d H:i:s', strtotime('-1 day -1 hour -42 minutes'))],
-        ['id'=>3,'unit_name'=>'PTV Echo','clip_ref'=>'CLIP-20260813-Q1W2E','barangay'=>'Dahilayan','severity'=>'Moderate','reason'=>'Unit unreachable','notes'=>'No response via radio, manually flagged for reassignment','is_manual'=>1,'started_at'=>date('Y-m-d H:i:s', strtotime('-2 days -3 hours')),'resolved_at'=>date('Y-m-d H:i:s', strtotime('-2 days -2 hours -50 minutes'))],
-    ];
-    $activeDispatches = [
-        ['dispatch_id'=>10,'unit_id'=>3,'unit_name'=>'PTV Charlie','clip_ref'=>'CLIP-20260815-D4E5F','barangay'=>'Damilag'],
-    ];
+  
 }
 
 $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === null));
-$unreadAlerts = $activeDelayCount;
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
