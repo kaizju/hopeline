@@ -3,11 +3,7 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-// Guard: only logged-in managers (dispatchers) can view this page
-if (!isLoggedIn() || $_SESSION['role'] !== 'manager') {
-    redirect('/index.php');
-    exit;
-}
+
 
 /**
  * Pulls today's key stats + active incidents + unit status.
