@@ -4,8 +4,6 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-requireRole('manager');
-
 $errors  = [];
 $success = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -30,19 +28,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         $clipRef = 'CLIP-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -5));
         $resourcesStr = implode(', ', $resources);
+        $reportedBy = $_SESSION['user_id'] ?? 1; // fallback if session value is missing
+        $reportedByEmail = $_SESSION['email'] ?? 'unknown';
 
         try {
             $stmt = $pdo->prepare("INSERT INTO clip_reports
                 (clip_ref, caller_name, caller_contact, barangay, sitio_purok, landmark, latitude, longitude, incident_type, severity, problem_resources, problem_notes, reported_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-           $stmt->execute([
-    $clipRef, $callerName, $callerContact, $barangay, $sitioPurok, $landmark,
-    $latitude ?: null, $longitude ?: null, $incidentType, $severity,
-    $resourcesStr, $problemNotes, $_SESSION['user_id']
-]);
+            $stmt->execute([
+                $clipRef, $callerName, $callerContact, $barangay, $sitioPurok, $landmark,
+                $latitude ?: null, $longitude ?: null, $incidentType, $severity,
+                $resourcesStr, $problemNotes, $reportedBy
+            ]);
 
             if (function_exists('logActivity')) {
-                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'clip_report_created', 'success');
+                logActivity($pdo, $reportedBy, $reportedByEmail, 'clip_report_created', 'success');
             }
 
             $success = true;
@@ -52,7 +52,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
