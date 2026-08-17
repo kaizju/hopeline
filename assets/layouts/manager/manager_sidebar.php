@@ -189,7 +189,25 @@ $managerEmail  = $_SESSION['email'] ?? 'manager@hopeline.local';
         border-radius: 20px;
     }
 
-    .sidebar-footer { padding: 12px; border-top: 1px solid rgba(115, 154, 185, 0.15); }
+   .sidebar-footer { padding: 12px; border-top: 1px solid rgba(115, 154, 185, 0.15); display: flex; align-items: center; gap: 8px; }
+.status-card { flex: 1; min-width: 0; }
+
+.logout-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--light-grayish);
+    background: rgba(176, 32, 41, 0.08);
+    border: 1px solid rgba(176, 32, 41, 0.25);
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+}
+.logout-btn:hover { background: var(--redwood); color: var(--macadamia); }
+.logout-btn svg { width: 16px; height: 16px; }
 
     .status-card {
         background: rgba(251, 240, 216, 0.05);
@@ -279,7 +297,7 @@ $managerEmail  = $_SESSION['email'] ?? 'manager@hopeline.local';
         </a>
     </nav>
 
-    <div class="sidebar-footer">
+  <div class="sidebar-footer">
         <div class="status-card">
             <div class="status-dot"></div>
             <div class="status-text">
@@ -287,5 +305,12 @@ $managerEmail  = $_SESSION['email'] ?? 'manager@hopeline.local';
                 <div class="t2">On duty — Command Center</div>
             </div>
         </div>
+        <a class="logout-btn" href="<?php echo BASE_URL; ?>/logout.php" title="Log out" onclick="return confirm('Log out of HopeLine?');">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <path d="M16 17l5-5-5-5"/>
+                <path d="M21 12H9"/>
+            </svg>
+        </a>
     </div>
 </div>
