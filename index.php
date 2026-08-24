@@ -191,10 +191,7 @@ renderHeader('Login');
             <button type="submit">Login</button>
         </form>
 
-        <div class="info-box">
-            <strong>Test Accounts (password: password123):</strong><br>
-            admin@example.com | manager@example.com | user@example.com
-        </div>
+      
     </div>
 </div>
 
