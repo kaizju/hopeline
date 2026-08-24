@@ -60,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>New CLIP Report — HopeLine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     <style>
         :root {
             --burnt-umber: #6d120b;
@@ -238,6 +239,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .coords-readout strong { color: var(--macadamia); font-family: monospace; }
 
+        /* ---------- ETA panel (new) ---------- */
+        .eta-panel {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: rgba(217, 117, 43, 0.08);
+            border: 1px solid rgba(217, 117, 43, 0.35);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 4px;
+            flex-wrap: wrap;
+        }
+
+        .eta-panel.eta-pending {
+            background: rgba(115, 154, 185, 0.06);
+            border-color: rgba(115, 154, 185, 0.25);
+        }
+
+        .eta-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--high);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .eta-panel.eta-pending .eta-icon { background: rgba(115, 154, 185, 0.35); }
+
+        .eta-icon svg { width: 16px; height: 16px; color: var(--macadamia); }
+
+        .eta-main { flex: 1; min-width: 160px; }
+        .eta-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--light-grayish); margin-bottom: 2px; }
+        .eta-value { font-size: 20px; font-weight: 800; color: var(--macadamia); line-height: 1.1; }
+        .eta-value span { font-size: 12px; font-weight: 600; color: var(--light-grayish); }
+
+        .eta-breakdown { display: flex; gap: 16px; font-size: 11px; color: var(--light-grayish); flex-wrap: wrap; }
+        .eta-breakdown strong { color: var(--macadamia); font-family: monospace; }
+
         /* Incident type buttons */
         .incident-grid {
             display: grid;
@@ -376,6 +418,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .summary-row .value { font-size: 13px; font-weight: 600; color: var(--macadamia); }
         .summary-row .value.empty { color: rgba(115,154,185,0.5); font-weight: 400; font-style: italic; }
 
+        /* ETA row in summary (new) */
+        .summary-row .value.eta-highlight {
+            color: var(--high);
+            font-size: 16px;
+            font-weight: 800;
+        }
+
         .summary-severity {
             display: inline-block;
             padding: 2px 9px;
@@ -390,9 +439,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .checklist li.done { color: #b7ecd1; }
         .checklist li.done svg { color: #3f7a5c; }
 
+        /* Hide the default LRM turn-by-turn panel; we only want the route line + our own ETA readout */
+        .leaflet-routing-container { display: none !important; }
+
         @media (max-width: 900px) {
             .layout { grid-template-columns: 1fr; }
             .field-row, .incident-grid, .resource-grid, .severity-grid { grid-template-columns: 1fr 1fr; }
+            .eta-breakdown { gap: 10px; }
         }
     </style>
 </head>
@@ -457,8 +510,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div id="map"></div>
                     <div class="coords-readout" id="coordsReadout">📍 No pin dropped yet — click the map or use GPS.</div>
 
+                    <!-- ETA panel (new): shows PTV ETA computed from OSRM route -->
+                    <div class="eta-panel eta-pending" id="etaPanel">
+                        <div class="eta-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        </div>
+                        <div class="eta-main">
+                            <div class="eta-label">PTV Estimated Time of Arrival</div>
+                            <div class="eta-value" id="etaValue">Select a barangay or drop a pin</div>
+                        </div>
+                        <div class="eta-breakdown" id="etaBreakdown"></div>
+                    </div>
+
                     <input type="hidden" id="latitude" name="latitude">
                     <input type="hidden" id="longitude" name="longitude">
+                    <input type="hidden" id="eta_minutes" name="eta_minutes">
 
                     <div class="field-row">
                         <div class="field">
@@ -621,6 +687,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="label">Location</div>
                     <div class="value empty" id="sumLocation">Not filled yet</div>
                 </div>
+                <!-- ETA row (new) -->
+                <div class="summary-row">
+                    <div class="label">PTV ETA</div>
+                    <div class="value empty" id="sumEta">Not calculated yet</div>
+                </div>
                 <div class="summary-row">
                     <div class="label">Incident</div>
                     <div class="value empty" id="sumIncident">Not filled yet</div>
@@ -647,6 +718,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </main>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
 <script>
     // ---------- Map setup ----------
     const defaultCenter = [8.3736, 124.8694]; // Tankulan, Manolo Fortich
@@ -660,6 +732,156 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     const latInput = document.getElementById('latitude');
     const lngInput = document.getElementById('longitude');
     const coordsReadout = document.getElementById('coordsReadout');
+
+    // =========================================================
+    // NEW: PTV / OSRM routing + ETA configuration
+    // =========================================================
+
+    // LDRRMO Manolo Fortich office — confirmed PTV dispatch origin (Point A).
+    const PTV_BASE = { lat: 8.371714652741774, lng: 124.85717564826615, label: 'LDRRMO Manolo Fortich (PTV Base)' };
+
+    // OSRM HTTP routing service. Point this at your self-hosted OSRM
+    // instance (see Docker/osrm-backend setup) for production use — the
+    // public demo server is rate-limited and not reliable for a live
+    // dispatch system.
+    const OSRM_SERVICE_URL = 'https://router.project-osrm.org/route/v1';
+
+    // ETA formula constants: ETA = Σ(distance / speed) + delays
+    // AVERAGE_SPEED_KMH: assumed average PTV road speed (mixed
+    // urban/barangay roads, not highway cruising speed).
+    // DISPATCH_DELAY_MIN: fixed mobilization delay — time between the
+    // call being logged and the PTV actually wheels-rolling (crew
+    // boarding, vehicle warm-up, gate clearance, etc).
+    const AVERAGE_SPEED_KMH = 40;
+    const DISPATCH_DELAY_MIN = 5;
+
+    // Approximate barangay centers for Manolo Fortich, Bukidnon.
+    // ⚠️ PLACEHOLDER COORDINATES — these are best-effort estimates for
+    // map auto-centering during your demo, NOT surveyed GPS points.
+    // Replace with verified coordinates from your LGU/LDRRMO GIS data
+    // or a proper geocoding pass before using this for real dispatch.
+    const barangayCoords = {
+        'Agusan Canyon':        { lat: 8.3220, lng: 124.8080 },
+        'Alae':                 { lat: 8.3450, lng: 124.8390 },
+        'Dahilayan':             { lat: 8.2810, lng: 124.8480 },
+        'Damilag':               { lat: 8.3616, lng: 124.8088 },
+        'Dalirig':               { lat: 8.3050, lng: 124.7950 },
+        'Diclum':                { lat: 8.3900, lng: 124.9050 },
+        'Guilang-guilang':       { lat: 8.3800, lng: 124.8600 },
+        'Kalugmanan':            { lat: 8.3550, lng: 124.9150 },
+        'Lindaban':              { lat: 8.4100, lng: 124.8300 },
+        'Lingion':               { lat: 8.4250, lng: 124.8700 },
+        'Lunocan':               { lat: 8.3980, lng: 124.8250 },
+        'Maluko':                { lat: 8.3500, lng: 124.8900 },
+        'Mambatangan':           { lat: 8.3600, lng: 124.9200 },
+        'Mampayag':              { lat: 8.4050, lng: 124.9000 },
+        'Minsuro':               { lat: 8.3300, lng: 124.8900 },
+        'San Miguel':            { lat: 8.3850, lng: 124.8500 },
+        'Sankanan':              { lat: 8.4150, lng: 124.9100 },
+        'Santiago':              { lat: 8.3400, lng: 124.8700 },
+        'Tankulan (Poblacion)':  { lat: 8.3736, lng: 124.8694 },
+        'Ticala':                { lat: 8.3950, lng: 124.7900 }
+    };
+
+    let routingControl = null;
+    let lastRouteDestination = null; // remembers the last coordinate routed to
+
+    const etaPanel = document.getElementById('etaPanel');
+    const etaValueEl = document.getElementById('etaValue');
+    const etaBreakdownEl = document.getElementById('etaBreakdown');
+    const etaMinutesInput = document.getElementById('eta_minutes');
+
+    function setEtaPending(message) {
+        etaPanel.classList.add('eta-pending');
+        etaValueEl.textContent = message;
+        etaBreakdownEl.innerHTML = '';
+        etaMinutesInput.value = '';
+        setSummary('sumEta', '');
+    }
+
+    function formatEta(totalMinutes) {
+        const mins = Math.round(totalMinutes);
+        if (mins >= 60) {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return h + 'h ' + m + 'm';
+        }
+        return mins + ' min';
+    }
+
+    // Draws/updates the OSRM route from the PTV base to the given
+    // destination, then computes ETA = Σ(distance/speed) + delays.
+    function calculateRoute(destLat, destLng) {
+        lastRouteDestination = { lat: destLat, lng: destLng };
+
+        if (routingControl) {
+            map.removeControl(routingControl);
+            routingControl = null;
+        }
+
+        etaValueEl.textContent = 'Calculating route…';
+
+        routingControl = L.Routing.control({
+            waypoints: [
+                L.latLng(PTV_BASE.lat, PTV_BASE.lng),
+                L.latLng(destLat, destLng)
+            ],
+            router: L.Routing.osrmv1({
+                serviceUrl: OSRM_SERVICE_URL,
+                profile: 'driving'
+            }),
+            lineOptions: {
+                styles: [
+                    { color: '#ffffff', weight: 9, opacity: 0.35 }, // casing/glow
+                    { color: '#d9752b', weight: 5, opacity: 0.9 }   // highlighted road (High/alert color)
+                ]
+            },
+            createMarker: function(i, wp) {
+                // Keep only a small marker for the PTV base; the incident
+                // pin is already drawn by dropPin() above.
+                if (i === 0) {
+                    return L.circleMarker(wp.latLng, {
+                        radius: 7,
+                        color: '#113047',
+                        weight: 2,
+                        fillColor: '#739ab9',
+                        fillOpacity: 1
+                    }).bindTooltip(PTV_BASE.label, { permanent: false });
+                }
+                return null;
+            },
+            addWaypoints: false,
+            draggableWaypoints: false,
+            fitSelectedRoutes: true,
+            show: false
+        }).on('routesfound', function (e) {
+            const route = e.routes[0];
+            const distanceKm = route.summary.totalDistance / 1000;
+
+            // ETA = Σ(distance / speed) + delays  (custom dispatch formula,
+            // not OSRM's raw duration — this accounts for real-world
+            // mobilization time on top of pure travel time)
+            const travelMinutes = (distanceKm / AVERAGE_SPEED_KMH) * 60;
+            const totalMinutes = travelMinutes + DISPATCH_DELAY_MIN;
+
+            etaPanel.classList.remove('eta-pending');
+            etaValueEl.innerHTML = formatEta(totalMinutes) + ' <span>estimated arrival</span>';
+            etaBreakdownEl.innerHTML =
+                'Distance: <strong>' + distanceKm.toFixed(2) + ' km</strong> · ' +
+                'Travel: <strong>' + travelMinutes.toFixed(1) + ' min</strong> @ ' + AVERAGE_SPEED_KMH + ' km/h · ' +
+                'Dispatch delay: <strong>+' + DISPATCH_DELAY_MIN + ' min</strong>';
+
+            etaMinutesInput.value = totalMinutes.toFixed(1);
+            setSummary('sumEta', formatEta(totalMinutes));
+            document.getElementById('sumEta').classList.add('eta-highlight');
+        }).on('routingerror', function () {
+            etaPanel.classList.add('eta-pending');
+            etaValueEl.textContent = 'Route unavailable — check connection to OSRM.';
+            etaBreakdownEl.innerHTML = '';
+            etaMinutesInput.value = '';
+            setSummary('sumEta', '');
+        }).addTo(map);
+    }
 
     function dropPin(lat, lng) {
         if (marker) map.removeLayer(marker);
@@ -677,6 +899,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         lngInput.value = lng.toFixed(6);
         coordsReadout.innerHTML = '📍 <strong>' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</strong> — pin set';
         updateSummary();
+        calculateRoute(lat, lng); // NEW: recalculate PTV route/ETA whenever the pin moves
     }
 
     map.on('click', (e) => dropPin(e.latlng.lat, e.latlng.lng));
@@ -697,6 +920,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (marker) { map.removeLayer(marker); marker = null; }
         latInput.value = ''; lngInput.value = '';
         coordsReadout.textContent = '📍 No pin dropped yet — click the map or use GPS.';
+        if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+        setEtaPending('Select a barangay or drop a pin');
+        updateSummary();
+    });
+
+    // ---------- NEW: auto-locate map when a barangay is selected ----------
+    document.getElementById('barangay').addEventListener('change', function () {
+        const coords = barangayCoords[this.value];
+        if (!coords) return;
+
+        map.setView([coords.lat, coords.lng], 14);
+
+        // If the dispatcher hasn't dropped an exact pin yet, use the
+        // barangay center as a provisional destination so an ETA is
+        // still available immediately — refine once the real pin drops.
+        if (!marker) {
+            calculateRoute(coords.lat, coords.lng);
+        }
+
         updateSummary();
     });
 
@@ -775,7 +1017,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     function setSummary(id, text) {
         const el = document.getElementById(id);
         if (text) { el.textContent = text; el.classList.remove('empty'); }
-        else { el.textContent = 'Not filled yet'; el.classList.add('empty'); }
+        else { el.textContent = (id === 'sumEta' ? 'Not calculated yet' : 'Not filled yet'); el.classList.add('empty'); }
     }
 
     function toggleCheck(id, done) {
