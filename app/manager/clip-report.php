@@ -59,8 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <title>New CLIP Report — HopeLine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+  <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/leaflet/leaflet.css" />
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/leaflet-routing-machine/leaflet-routing-machine.css" />
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/manager.css">
 </head>
 <body>
@@ -330,8 +330,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </form>
 </main>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
+<script src="<?php echo BASE_URL; ?>/assets/vendor/leaflet/leaflet.js"></script>
+<script src="<?php echo BASE_URL; ?>/assets/vendor/leaflet-routing-machine/leaflet-routing-machine.min.js"></script>
 <script>
     // ---------- Map setup ----------
     const defaultCenter = [8.3736, 124.8694]; // Tankulan, Manolo Fortich

@@ -11,24 +11,36 @@
    ===================================================================== */
 
 :root {
-    --burnt-umber: #6d120b;
-    --redwood: #b02029;
-    --macadamia: #fbf0d8;
-    --cool-blue: #113047;
-    --light-grayish: #739ab9;
+    --burnt-umber: #FE7743;
+    --redwood: #E0632E;
+    --macadamia: #EFEEEA;
+    --cool-blue: #273F4F;
+    --light-grayish: #92A5B3;   /* muted slate — readable on dark backgrounds */
+    --bg-page: #000000;
+
+    --surface-rgb: 239, 238, 234;
+    --border-rgb: 125, 147, 163;
 
     --critical: #b02029;
     --high: #d9752b;
     --moderate: #d4ab2b;
     --low: #3f7a5c;
 
-    /* Live-map unit-status colors — same palette as severity, different names */
     --available: var(--low);
     --enroute: var(--high);
     --onsite: var(--critical);
     --returning: var(--light-grayish);
 }
 
+[data-theme="light"] {
+    --macadamia: #273F4F;
+    --cool-blue: #FFFFFF;
+    --light-grayish: #5B6B78;   /* muted slate — readable on white backgrounds */
+    --bg-page: #FFFFFF;         /* pure white, per your request */
+
+    --surface-rgb: 39, 63, 79;
+    --border-rgb: 39, 63, 79;
+}
 /* ---------------------------------------------------------------------
    Base / reset
    --------------------------------------------------------------------- */
@@ -38,9 +50,11 @@ html, body { height: 100%; }
 
 body {
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #0c2334;
+    background: var(--bg-page);
     display: flex;
     min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
 }
 
 select option { background: var(--cool-blue); color: var(--macadamia); }
@@ -53,6 +67,8 @@ select option { background: var(--cool-blue); color: var(--macadamia); }
     padding: 26px 32px 50px;
     color: var(--macadamia);
     max-width: 1280px;
+    height: 100vh;        /* add */
+    overflow-y: auto;     /* add — this scrolls instead of the page */
 }
 
 /* Width modifiers — apply alongside .main, e.g. class="main main-1180" */
@@ -125,7 +141,7 @@ select option { background: var(--cool-blue); color: var(--macadamia); }
    --------------------------------------------------------------------- */
 .card {
     background: rgba(251, 240, 216, 0.04);
-    border: 1px solid rgba(115, 154, 185, 0.18);
+    border: 1px solid rgba(var(--border-rgb), 0.18);
     border-radius: 10px;
     padding: 18px 20px;
     margin-bottom: 18px;
@@ -144,7 +160,7 @@ select option { background: var(--cool-blue); color: var(--macadamia); }
    --------------------------------------------------------------------- */
 input[type="text"], input[type="tel"], input[type="number"], input[type="date"],
 select, textarea {
-    background: rgba(251, 240, 216, 0.06);
+    background: rgba(var(--surface-rgb), 0.06);
     border: 1px solid rgba(115, 154, 185, 0.28);
     border-radius: 6px;
     padding: 9px 11px;
@@ -390,7 +406,7 @@ label .optional { color: var(--light-grayish); font-weight: 400; font-size: 10.5
     transition: border-color 0.15s, background 0.15s;
 }
 .incident-option label svg { width: 20px; height: 20px; }
-.incident-option input:checked + label { border-color: var(--burnt-umber); background: rgba(109, 18, 11, 0.28); }
+.incident-option input:checked + label { border-color: var(--burnt-umber); background: rgba(254, 119, 67, 0.28); }
 
 .severity-wrap { margin-top: 16px; padding-top: 16px; border-top: 1px dashed rgba(115, 154, 185, 0.25); display: none; }
 .severity-wrap.show { display: block; }
@@ -529,7 +545,7 @@ tbody tr:hover { background: rgba(251,240,216,0.03); }
 .unit-meta svg { width: 11px; height: 11px; }
 
 .map-wrap { flex: 1; position: relative; }
-#map { height: 100%; width: 100%; }
+.map-wrap #map { height: 100%; width: 100%; }
 .map-legend {
     position: absolute; bottom: 16px; left: 16px; z-index: 500;
     background: rgba(17, 48, 71, 0.92); border: 1px solid rgba(115, 154, 185, 0.25);

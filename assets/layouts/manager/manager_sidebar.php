@@ -1,18 +1,6 @@
 <?php
 /**
  * assets/layouts/manager/manager_sidebar.php
- *
- * Reusable sidebar for all LDRRMO Personnel/Manager (Dispatcher) pages.
- * Include this at the top of every app/manager/*.php file, e.g.:
- *
- *   <?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
- *
- * Expects (optional, falls back gracefully if not set):
- *   $_SESSION['email']       - logged-in manager's email, shown in footer
- *   $unreadAlerts (int)      - unread delay/alert count for the notification dot
- *
- * Active link is detected automatically from the current filename,
- * so no manual "active" flag needs to be passed per page.
  */
 
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
@@ -24,13 +12,19 @@ function navActive($page, $current) {
 $unreadAlerts  = $unreadAlerts ?? 0;
 $managerEmail  = $_SESSION['email'] ?? 'manager@hopeline.local';
 ?>
+<script>
+(function() {
+    const saved = localStorage.getItem('hopeline-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+})();
+</script>
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/sidebar.css">
 
 <div class="sidebar">
     <div class="sidebar-header">
         <div class="brand">
             <div class="brand-mark">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#fbf0d8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#EFEEEA" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 21s-7-4.35-9.5-9C.5 8 2 4 6 4c2.2 0 3.5 1.2 4 2 1-1.5 2.5-2 4-2 4 0 5.5 4 3.5 8-2.5 4.65-5.5 9-5.5 9z"/>
                 </svg>
             </div>
@@ -39,15 +33,26 @@ $managerEmail  = $_SESSION['email'] ?? 'manager@hopeline.local';
                 <div class="brand-role">Manager Panel</div>
             </div>
         </div>
-        <a class="header-icon" href="<?php echo BASE_URL; ?>/app/manager/alerts.php" title="Delay Alerts">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-            </svg>
-            <?php if ($unreadAlerts > 0): ?>
-                <div class="notif-dot"></div>
-            <?php endif; ?>
-        </a>
+        <div style="display:flex; align-items:center; gap:4px;">
+            <button class="header-icon" id="themeToggle" title="Toggle light/dark mode" type="button">
+                <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+                    <circle cx="12" cy="12" r="4"/>
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                </svg>
+            </button>
+            <a class="header-icon" href="<?php echo BASE_URL; ?>/app/manager/alerts.php" title="Delay Alerts">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                <?php if ($unreadAlerts > 0): ?>
+                    <div class="notif-dot"></div>
+                <?php endif; ?>
+            </a>
+        </div>
     </div>
 
     <div class="search-wrap">
@@ -91,7 +96,7 @@ $managerEmail  = $_SESSION['email'] ?? 'manager@hopeline.local';
         </a>
     </nav>
 
-  <div class="sidebar-footer">
+    <div class="sidebar-footer">
         <div class="status-card">
             <div class="status-dot"></div>
             <div class="status-text">
@@ -108,3 +113,21 @@ $managerEmail  = $_SESSION['email'] ?? 'manager@hopeline.local';
         </a>
     </div>
 </div>
+
+<script>
+    document.getElementById('themeToggle').addEventListener('click', function() {
+        const html = document.documentElement;
+        const isLight = html.getAttribute('data-theme') === 'light';
+        const next = isLight ? 'dark' : 'light';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('hopeline-theme', next);
+        document.getElementById('iconMoon').style.display = next === 'light' ? 'none' : 'block';
+        document.getElementById('iconSun').style.display = next === 'light' ? 'block' : 'none';
+    });
+
+    (function() {
+        const current = document.documentElement.getAttribute('data-theme') || 'dark';
+        document.getElementById('iconMoon').style.display = current === 'light' ? 'none' : 'block';
+        document.getElementById('iconSun').style.display = current === 'light' ? 'block' : 'none';
+    })();
+</script>
