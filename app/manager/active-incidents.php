@@ -71,71 +71,7 @@ try {
 <meta charset="UTF-8">
 <title>Active Incidents — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-    :root {
-        --burnt-umber:#6d120b; --redwood:#b02029; --macadamia:#fbf0d8;
-        --cool-blue:#113047; --light-grayish:#739ab9;
-        --critical:#b02029; --high:#d9752b; --moderate:#d4ab2b; --low:#3f7a5c;
-    }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:#0c2334; display:flex; min-height:100vh; }
-    .main { flex:1; padding:26px 32px 50px; color:var(--macadamia); max-width:1280px; }
-    .page-head { margin-bottom:18px; }
-    .page-head h1 { font-size:21px; margin-bottom:4px; }
-    .page-head p { color:var(--light-grayish); font-size:13px; }
-
-    .flash { background:rgba(63,122,92,0.18); border:1px solid #3f7a5c; color:#b7ecd1; padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:16px; }
-
-    .toolbar { display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
-    .toolbar select, .toolbar input {
-        background: rgba(251,240,216,0.06); border:1px solid rgba(115,154,185,0.28);
-        border-radius:6px; padding:8px 11px; color:var(--macadamia); font-size:12.5px; outline:none;
-    }
-    .toolbar input:focus, .toolbar select:focus { border-color:var(--redwood); }
-
-    .incident-card {
-        background: rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18);
-        border-radius:10px; padding:16px 18px; margin-bottom:12px;
-    }
-    .incident-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; flex-wrap:wrap; }
-    .incident-title-wrap { display:flex; align-items:center; gap:10px; }
-    .sev-badge { font-size:10px; font-weight:700; text-transform:uppercase; padding:3px 10px; border-radius:20px; letter-spacing:0.4px; }
-    .sev-Critical { background:rgba(176,32,41,0.2); color:var(--critical); }
-    .sev-High { background:rgba(217,117,43,0.2); color:var(--high); }
-    .sev-Moderate { background:rgba(212,171,43,0.2); color:var(--moderate); }
-    .sev-Low { background:rgba(63,122,92,0.2); color:var(--low); }
-
-    .incident-title { font-size:14.5px; font-weight:700; }
-    .clip-ref { font-size:10.5px; color:var(--light-grayish); font-family:monospace; }
-
-    .status-pill { font-size:10px; font-weight:700; text-transform:uppercase; padding:4px 10px; border-radius:20px; letter-spacing:0.3px; }
-    .status-pending { background:rgba(217,117,43,0.18); color:var(--high); }
-    .status-dispatched, .status-en_route { background:rgba(115,154,185,0.2); color:var(--light-grayish); }
-    .status-on_site { background:rgba(176,32,41,0.18); color:var(--redwood); }
-
-    .incident-body { display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; margin-bottom:14px; }
-    .info-block .label { font-size:10px; text-transform:uppercase; letter-spacing:0.4px; color:var(--light-grayish); margin-bottom:3px; }
-    .info-block .value { font-size:12.5px; color:var(--macadamia); font-weight:600; }
-
-    .incident-actions { display:flex; align-items:center; gap:10px; padding-top:12px; border-top:1px dashed rgba(115,154,185,0.2); flex-wrap:wrap; }
-
-    .dispatch-form { display:flex; gap:8px; align-items:center; flex:1; }
-    .dispatch-form select {
-        flex:1; max-width:220px; background:rgba(251,240,216,0.06); border:1px solid rgba(115,154,185,0.3);
-        border-radius:6px; padding:7px 10px; color:var(--macadamia); font-size:12px;
-    }
-
-    .btn { border:0; border-radius:20px; padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer; }
-    .btn-dispatch { background:var(--burnt-umber); color:var(--macadamia); }
-    .btn-dispatch:hover { background:var(--redwood); }
-    .btn-resolve { background:rgba(63,122,92,0.2); color:#7fd6a5; border:1px solid #3f7a5c; }
-    .btn-resolve:hover { background:rgba(63,122,92,0.35); }
-
-    .assigned-unit-tag { display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--macadamia); font-weight:600; }
-    .assigned-unit-tag svg { width:14px; height:14px; color:var(--light-grayish); }
-
-    .empty-state { text-align:center; padding:50px 20px; color:var(--light-grayish); font-size:13px; }
-</style>
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/manager.css">
 </head>
 <body>
 

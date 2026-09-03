@@ -29,219 +29,13 @@ try {
     <title>Live Unit Map — HopeLine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        :root {
-            --burnt-umber: #6d120b;
-            --redwood: #b02029;
-            --macadamia: #fbf0d8;
-            --cool-blue: #113047;
-            --light-grayish: #739ab9;
-            --available: #3f7a5c;
-            --enroute: #d9752b;
-            --onsite: #b02029;
-            --returning: #739ab9;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        html, body { height: 100%; }
-
-        body {
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #0c2334;
-            display: flex;
-        }
-
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* ===== TOP BAR ===== */
-        .topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 24px;
-            border-bottom: 1px solid rgba(115, 154, 185, 0.15);
-            flex-shrink: 0;
-        }
-
-        .topbar h1 { font-size: 18px; color: var(--macadamia); margin-bottom: 3px; }
-
-        .live-indicator {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 11px;
-            color: var(--light-grayish);
-        }
-
-        .live-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #3f7a5c;
-            box-shadow: 0 0 0 0 rgba(63,122,92, 0.5);
-            animation: pulse 1.8s infinite;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(63,122,92, 0.5); }
-            70% { box-shadow: 0 0 0 6px rgba(63,122,92, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(63,122,92, 0); }
-        }
-
-        .topbar-right { display: flex; align-items: center; gap: 14px; }
-
-        /* ===== CONTENT ===== */
-        .content { flex: 1; display: flex; overflow: hidden; }
-
-        /* ===== UNITS PANEL ===== */
-        .units-panel {
-            width: 320px;
-            flex-shrink: 0;
-            border-right: 1px solid rgba(115, 154, 185, 0.15);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .panel-search { padding: 14px; border-bottom: 1px solid rgba(115, 154, 185, 0.12); }
-
-        .search-input-wrap { position: relative; margin-bottom: 10px; }
-
-        .search-input-wrap svg {
-            position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-            width: 14px; height: 14px; color: var(--light-grayish);
-        }
-
-        .search-input-wrap input {
-            width: 100%;
-            background: rgba(251, 240, 216, 0.06);
-            border: 1px solid rgba(115, 154, 185, 0.25);
-            border-radius: 7px;
-            padding: 8px 10px 8px 30px;
-            color: var(--macadamia);
-            font-size: 12.5px;
-            outline: none;
-        }
-
-        .search-input-wrap input:focus { border-color: var(--redwood); }
-
-        .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-
-        .chip {
-            font-size: 10.5px;
-            font-weight: 600;
-            padding: 5px 10px;
-            border-radius: 20px;
-            border: 1px solid rgba(115, 154, 185, 0.3);
-            color: var(--light-grayish);
-            cursor: pointer;
-            user-select: none;
-            transition: all 0.15s;
-        }
-
-        .chip.active { background: var(--burnt-umber); border-color: var(--burnt-umber); color: var(--macadamia); }
-
-        .units-list { flex: 1; overflow-y: auto; padding: 10px; }
-
-        .unit-card {
-            display: flex;
-            gap: 10px;
-            padding: 11px;
-            border-radius: 8px;
-            border: 1px solid rgba(115, 154, 185, 0.16);
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: border-color 0.15s, background 0.15s;
-        }
-
-        .unit-card:hover { border-color: var(--light-grayish); background: rgba(251,240,216,0.03); }
-        .unit-card.focused { border-color: var(--redwood); background: rgba(176,32,41,0.08); }
-
-        .unit-icon {
-            width: 34px; height: 34px; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .unit-icon svg { width: 18px; height: 18px; color: var(--macadamia); }
-
-        .unit-info { flex: 1; min-width: 0; }
-
-        .unit-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 2px; }
-        .unit-name { font-size: 13px; font-weight: 700; color: var(--macadamia); }
-
-        .status-pill {
-            font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 20px;
-            white-space: nowrap; text-transform: uppercase; letter-spacing: 0.3px;
-        }
-
-        .unit-sub { font-size: 11px; color: var(--light-grayish); margin-bottom: 4px; }
-
-        .unit-meta {
-            display: flex; align-items: center; gap: 5px;
-            font-size: 10.5px; color: var(--light-grayish);
-        }
-
-        .unit-meta.alert { color: #f0b884; }
-        .unit-meta svg { width: 11px; height: 11px; }
-
-        .empty-state { text-align: center; padding: 40px 20px; color: var(--light-grayish); font-size: 12.5px; }
-
-        /* ===== MAP ===== */
-        .map-wrap { flex: 1; position: relative; }
-        #map { height: 100%; width: 100%; }
-
-        .map-legend {
-            position: absolute;
-            bottom: 16px;
-            left: 16px;
-            z-index: 500;
-            background: rgba(17, 48, 71, 0.92);
-            border: 1px solid rgba(115, 154, 185, 0.25);
-            border-radius: 8px;
-            padding: 10px 14px;
-            font-size: 11px;
-            color: var(--macadamia);
-            display: flex;
-            gap: 14px;
-        }
-
-        .legend-item { display: flex; align-items: center; gap: 5px; }
-        .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-
-        .last-updated {
-            font-size: 10.5px;
-            color: var(--light-grayish);
-        }
-
-        /* Leaflet popup theming */
-        .leaflet-popup-content-wrapper {
-            background: var(--cool-blue);
-            color: var(--macadamia);
-            border-radius: 8px;
-        }
-        .leaflet-popup-tip { background: var(--cool-blue); }
-        .popup-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
-        .popup-row { font-size: 11.5px; color: var(--light-grayish); margin-bottom: 2px; }
-        .popup-btn {
-            display: inline-block; margin-top: 8px; background: var(--burnt-umber);
-            color: var(--macadamia); font-size: 11px; font-weight: 700;
-            padding: 6px 12px; border-radius: 20px; text-decoration: none;
-        }
-    </style>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/manager.css">
 </head>
 <body>
 
 <?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
 
-<div class="main">
+<div class="main main-fullscreen">
     <div class="topbar">
         <div>
             <h1>Live Unit Map</h1>
@@ -302,8 +96,8 @@ try {
         maxZoom: 19
     }).addTo(map);
 
-    const markers = {};   // id -> leaflet marker
-    const destMarkers = {}; // id -> destination pin (for en route units)
+    const markers = {};
+    const destMarkers = {};
 
     function unitIcon(unit) {
         const color = statusColors[unit.status] || '#739ab9';
@@ -370,7 +164,6 @@ try {
             `;
             markers[u.id].bindPopup(popupHtml);
 
-            // Destination pin for en-route/on-site units
             if (u.dest_lat && u.dest_lng) {
                 const destLatLng = [parseFloat(u.dest_lat), parseFloat(u.dest_lng)];
                 if (destMarkers[u.id]) {
@@ -382,7 +175,6 @@ try {
             }
         });
 
-        // Fit map to show all markers on first render
         const allLatLngs = Object.values(markers).map(m => m.getLatLng());
         if (allLatLngs.length) map.fitBounds(L.latLngBounds(allLatLngs).pad(0.25));
     }
@@ -432,7 +224,6 @@ try {
             </div>`;
         }).join('');
 
-        // Click a card -> fly to marker + open its popup
         unitsListEl.querySelectorAll('.unit-card').forEach(card => {
             card.addEventListener('click', () => {
                 const id = card.dataset.id;
