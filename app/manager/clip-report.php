@@ -60,347 +60,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>New CLIP Report — HopeLine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        :root {
-            --burnt-umber: #6d120b;
-            --redwood: #b02029;
-            --macadamia: #fbf0d8;
-            --cool-blue: #113047;
-            --light-grayish: #739ab9;
-            --critical: #b02029;
-            --high: #d9752b;
-            --moderate: #d4ab2b;
-            --low: #3f7a5c;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #0c2334;
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .main {
-            flex: 1;
-            padding: 26px 32px 60px;
-            color: var(--macadamia);
-            max-width: 1180px;
-        }
-
-        .page-head { margin-bottom: 20px; }
-        .page-head h1 { font-size: 21px; margin-bottom: 4px; }
-        .page-head p { color: var(--light-grayish); font-size: 13px; }
-
-        .clip-ref-preview {
-            display: inline-block;
-            margin-top: 8px;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            color: var(--light-grayish);
-            background: rgba(115,154,185,0.12);
-            border: 1px solid rgba(115,154,185,0.25);
-            padding: 4px 10px;
-            border-radius: 20px;
-        }
-
-        .alert-banner {
-            padding: 12px 16px;
-            border-radius: 6px;
-            font-size: 13px;
-            margin-bottom: 18px;
-        }
-
-        .alert-success {
-            background: rgba(63,122,92,0.18);
-            border: 1px solid #3f7a5c;
-            color: #b7ecd1;
-        }
-
-        .alert-error {
-            background: rgba(176,32,41,0.15);
-            border: 1px solid var(--redwood);
-            color: #ffd0d3;
-        }
-
-        .alert-error ul { margin: 6px 0 0 18px; }
-
-        .layout {
-            display: grid;
-            grid-template-columns: 1fr 300px;
-            gap: 22px;
-            align-items: start;
-        }
-
-        .card {
-            background: rgba(251, 240, 216, 0.04);
-            border: 1px solid rgba(115, 154, 185, 0.18);
-            border-radius: 10px;
-            padding: 20px 22px;
-            margin-bottom: 18px;
-        }
-
-        .card-title {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            margin-bottom: 4px;
-        }
-
-        .step-num {
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: var(--burnt-umber);
-            color: var(--macadamia);
-            font-size: 11px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .card-title h2 { font-size: 14.5px; font-weight: 700; }
-        .card-sub { color: var(--light-grayish); font-size: 11.5px; margin: 2px 0 16px 31px; }
-
-        .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-        .field { margin-bottom: 14px; }
-        .field:last-child { margin-bottom: 0; }
-
-        label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--macadamia);
-            margin-bottom: 6px;
-        }
-
-        label .optional { color: var(--light-grayish); font-weight: 400; font-size: 10.5px; }
-
-        input[type="text"], input[type="tel"], input[type="number"], select, textarea {
-            width: 100%;
-            background: rgba(251, 240, 216, 0.06);
-            border: 1px solid rgba(115, 154, 185, 0.28);
-            border-radius: 6px;
-            padding: 9px 11px;
-            color: var(--macadamia);
-            font-size: 13px;
-            outline: none;
-            font-family: inherit;
-        }
-
-        input::placeholder, textarea::placeholder { color: rgba(115,154,185,0.7); }
-        input:focus, select:focus, textarea:focus { border-color: var(--redwood); }
-
-        textarea { resize: vertical; min-height: 60px; }
-
-        select option { background: var(--cool-blue); color: var(--macadamia); }
-
-        /* Location tools */
-        .loc-tools { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-
-        .btn-tool {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            background: rgba(115, 154, 185, 0.14);
-            border: 1px solid rgba(115, 154, 185, 0.3);
-            color: var(--macadamia);
-            font-size: 12px;
-            font-weight: 600;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-
-        .btn-tool:hover { background: rgba(115, 154, 185, 0.24); }
-        .btn-tool svg { width: 14px; height: 14px; }
-
-        #map {
-            height: 220px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-            border: 1px solid rgba(115, 154, 185, 0.3);
-        }
-
-        .coords-readout {
-            font-size: 11.5px;
-            color: var(--light-grayish);
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .coords-readout strong { color: var(--macadamia); font-family: monospace; }
-
-        /* Incident type buttons */
-        .incident-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 4px;
-        }
-
-        .incident-option {
-            position: relative;
-        }
-
-        .incident-option input { position: absolute; opacity: 0; }
-
-        .incident-option label {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            padding: 14px 8px;
-            border: 1px solid rgba(115, 154, 185, 0.28);
-            border-radius: 8px;
-            text-align: center;
-            font-size: 11.5px;
-            font-weight: 600;
-            cursor: pointer;
-            margin: 0;
-            transition: border-color 0.15s, background 0.15s;
-        }
-
-        .incident-option label svg { width: 20px; height: 20px; }
-
-        .incident-option input:checked + label {
-            border-color: var(--burnt-umber);
-            background: rgba(109, 18, 11, 0.28);
-        }
-
-        /* Severity radios */
-        .severity-wrap {
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px dashed rgba(115, 154, 185, 0.25);
-            display: none;
-        }
-
-        .severity-wrap.show { display: block; }
-
-        .severity-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-
-        .sev-option input { position: absolute; opacity: 0; }
-
-        .sev-option label {
-            display: block;
-            text-align: center;
-            padding: 10px 6px;
-            border-radius: 7px;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            border: 1.5px solid transparent;
-            opacity: 0.55;
-            transition: opacity 0.15s, border-color 0.15s;
-        }
-
-        .sev-option input:checked + label { opacity: 1; border-color: currentColor; }
-
-        .sev-critical label { background: rgba(176,32,41,0.18); color: var(--critical); }
-        .sev-high label { background: rgba(217,117,43,0.18); color: var(--high); }
-        .sev-moderate label { background: rgba(212,171,43,0.18); color: var(--moderate); }
-        .sev-low label { background: rgba(63,122,92,0.18); color: var(--low); }
-
-        /* Resources checkboxes */
-        .resource-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
-
-        .resource-option {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border: 1px solid rgba(115, 154, 185, 0.28);
-            border-radius: 7px;
-            padding: 9px 11px;
-            font-size: 12.5px;
-            cursor: pointer;
-        }
-
-        .resource-option.suggested { border-color: var(--redwood); background: rgba(176,32,41,0.08); }
-
-        .resource-option input { accent-color: var(--burnt-umber); width: 15px; height: 15px; }
-
-        .suggest-tag {
-            font-size: 9.5px;
-            font-weight: 700;
-            color: var(--redwood);
-            margin-left: auto;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-        }
-
-        .submit-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
-
-        button[type="submit"] {
-            background: var(--burnt-umber);
-            color: var(--macadamia);
-            border: 0;
-            padding: 11px 26px;
-            border-radius: 50px;
-            font-weight: 700;
-            font-size: 13.5px;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-
-        button[type="submit"]:hover { background: var(--redwood); }
-        button[type="submit"]:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        /* Live summary sidebar */
-        .summary-card {
-            position: sticky;
-            top: 20px;
-            background: rgba(251, 240, 216, 0.04);
-            border: 1px solid rgba(115, 154, 185, 0.18);
-            border-radius: 10px;
-            padding: 18px;
-        }
-
-        .summary-card h3 {
-            font-size: 12.5px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--light-grayish);
-            margin-bottom: 14px;
-        }
-
-        .summary-row { margin-bottom: 12px; }
-        .summary-row .label { font-size: 10.5px; color: var(--light-grayish); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
-        .summary-row .value { font-size: 13px; font-weight: 600; color: var(--macadamia); }
-        .summary-row .value.empty { color: rgba(115,154,185,0.5); font-weight: 400; font-style: italic; }
-
-        .summary-severity {
-            display: inline-block;
-            padding: 2px 9px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .checklist { list-style: none; margin-top: 16px; padding-top: 16px; border-top: 1px dashed rgba(115,154,185,0.25); }
-        .checklist li { font-size: 11.5px; color: var(--light-grayish); display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
-        .checklist li svg { width: 13px; height: 13px; flex-shrink: 0; }
-        .checklist li.done { color: #b7ecd1; }
-        .checklist li.done svg { color: #3f7a5c; }
-
-        @media (max-width: 900px) {
-            .layout { grid-template-columns: 1fr; }
-            .field-row, .incident-grid, .resource-grid, .severity-grid { grid-template-columns: 1fr 1fr; }
-        }
-    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/manager.css">
 </head>
 <body>
 
 <?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
 
-<main class="main">
+<main class="main main-1180">
     <div class="page-head">
         <h1>New CLIP Report</h1>
         <p>Log every caller report using the Caller · Location · Incident · Problem framework.</p>
@@ -457,8 +124,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div id="map"></div>
                     <div class="coords-readout" id="coordsReadout">📍 No pin dropped yet — click the map or use GPS.</div>
 
+                    <!-- ETA panel: shows PTV ETA computed from OSRM route -->
+                    <div class="eta-panel eta-pending" id="etaPanel">
+                        <div class="eta-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        </div>
+                        <div class="eta-main">
+                            <div class="eta-label">PTV Estimated Time of Arrival</div>
+                            <div class="eta-value" id="etaValue">Select a barangay or drop a pin</div>
+                        </div>
+                        <div class="eta-breakdown" id="etaBreakdown"></div>
+                    </div>
+
                     <input type="hidden" id="latitude" name="latitude">
                     <input type="hidden" id="longitude" name="longitude">
+                    <input type="hidden" id="eta_minutes" name="eta_minutes">
 
                     <div class="field-row">
                         <div class="field">
@@ -622,6 +302,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="value empty" id="sumLocation">Not filled yet</div>
                 </div>
                 <div class="summary-row">
+                    <div class="label">PTV ETA</div>
+                    <div class="value empty" id="sumEta">Not calculated yet</div>
+                </div>
+                <div class="summary-row">
                     <div class="label">Incident</div>
                     <div class="value empty" id="sumIncident">Not filled yet</div>
                 </div>
@@ -647,6 +331,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </main>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
 <script>
     // ---------- Map setup ----------
     const defaultCenter = [8.3736, 124.8694]; // Tankulan, Manolo Fortich
@@ -660,6 +345,138 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     const latInput = document.getElementById('latitude');
     const lngInput = document.getElementById('longitude');
     const coordsReadout = document.getElementById('coordsReadout');
+
+    // LDRRMO Manolo Fortich office — confirmed PTV dispatch origin (Point A).
+    const PTV_BASE = { lat: 8.371714652741774, lng: 124.85717564826615, label: 'LDRRMO Manolo Fortich (PTV Base)' };
+
+    // OSRM HTTP routing service. Point this at your self-hosted OSRM
+    // instance (see Docker/osrm-backend setup) for production use — the
+    // public demo server is rate-limited and not reliable for a live
+    // dispatch system.
+    const OSRM_SERVICE_URL = 'https://router.project-osrm.org/route/v1';
+
+    // ETA formula constants: ETA = Σ(distance / speed) + delays
+    const AVERAGE_SPEED_KMH = 40;
+    const DISPATCH_DELAY_MIN = 5;
+
+    // Approximate barangay centers for Manolo Fortich, Bukidnon.
+    // ⚠️ PLACEHOLDER COORDINATES — verify against LGU/LDRRMO GIS data
+    // before using this for real dispatch.
+    const barangayCoords = {
+        'Agusan Canyon':        { lat: 8.3220, lng: 124.8080 },
+        'Alae':                 { lat: 8.3450, lng: 124.8390 },
+        'Dahilayan':             { lat: 8.2810, lng: 124.8480 },
+        'Damilag':               { lat: 8.3616, lng: 124.8088 },
+        'Dalirig':               { lat: 8.3050, lng: 124.7950 },
+        'Diclum':                { lat: 8.3900, lng: 124.9050 },
+        'Guilang-guilang':       { lat: 8.3800, lng: 124.8600 },
+        'Kalugmanan':            { lat: 8.3550, lng: 124.9150 },
+        'Lindaban':              { lat: 8.4100, lng: 124.8300 },
+        'Lingion':               { lat: 8.4250, lng: 124.8700 },
+        'Lunocan':               { lat: 8.3980, lng: 124.8250 },
+        'Maluko':                { lat: 8.3500, lng: 124.8900 },
+        'Mambatangan':           { lat: 8.3600, lng: 124.9200 },
+        'Mampayag':              { lat: 8.4050, lng: 124.9000 },
+        'Minsuro':               { lat: 8.3300, lng: 124.8900 },
+        'San Miguel':            { lat: 8.3850, lng: 124.8500 },
+        'Sankanan':              { lat: 8.4150, lng: 124.9100 },
+        'Santiago':              { lat: 8.3400, lng: 124.8700 },
+        'Tankulan (Poblacion)':  { lat: 8.3736, lng: 124.8694 },
+        'Ticala':                { lat: 8.3950, lng: 124.7900 }
+    };
+
+    let routingControl = null;
+    let lastRouteDestination = null;
+
+    const etaPanel = document.getElementById('etaPanel');
+    const etaValueEl = document.getElementById('etaValue');
+    const etaBreakdownEl = document.getElementById('etaBreakdown');
+    const etaMinutesInput = document.getElementById('eta_minutes');
+
+    function setEtaPending(message) {
+        etaPanel.classList.add('eta-pending');
+        etaValueEl.textContent = message;
+        etaBreakdownEl.innerHTML = '';
+        etaMinutesInput.value = '';
+        setSummary('sumEta', '');
+    }
+
+    function formatEta(totalMinutes) {
+        const mins = Math.round(totalMinutes);
+        if (mins >= 60) {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return h + 'h ' + m + 'm';
+        }
+        return mins + ' min';
+    }
+
+    function calculateRoute(destLat, destLng) {
+        lastRouteDestination = { lat: destLat, lng: destLng };
+
+        if (routingControl) {
+            map.removeControl(routingControl);
+            routingControl = null;
+        }
+
+        etaValueEl.textContent = 'Calculating route…';
+
+        routingControl = L.Routing.control({
+            waypoints: [
+                L.latLng(PTV_BASE.lat, PTV_BASE.lng),
+                L.latLng(destLat, destLng)
+            ],
+            router: L.Routing.osrmv1({
+                serviceUrl: OSRM_SERVICE_URL,
+                profile: 'driving'
+            }),
+            lineOptions: {
+                styles: [
+                    { color: '#ffffff', weight: 9, opacity: 0.35 },
+                    { color: '#d9752b', weight: 5, opacity: 0.9 }
+                ]
+            },
+            createMarker: function(i, wp) {
+                if (i === 0) {
+                    return L.circleMarker(wp.latLng, {
+                        radius: 7,
+                        color: '#113047',
+                        weight: 2,
+                        fillColor: '#739ab9',
+                        fillOpacity: 1
+                    }).bindTooltip(PTV_BASE.label, { permanent: false });
+                }
+                return null;
+            },
+            addWaypoints: false,
+            draggableWaypoints: false,
+            fitSelectedRoutes: true,
+            show: false
+        }).on('routesfound', function (e) {
+            const route = e.routes[0];
+            const distanceKm = route.summary.totalDistance / 1000;
+
+            const travelMinutes = (distanceKm / AVERAGE_SPEED_KMH) * 60;
+            const totalMinutes = travelMinutes + DISPATCH_DELAY_MIN;
+
+            etaPanel.classList.remove('eta-pending');
+            etaValueEl.innerHTML = formatEta(totalMinutes) + ' <span>estimated arrival</span>';
+            etaBreakdownEl.innerHTML =
+                'Distance: <strong>' + distanceKm.toFixed(2) + ' km</strong> · ' +
+                'Travel: <strong>' + travelMinutes.toFixed(1) + ' min</strong> @ ' + AVERAGE_SPEED_KMH + ' km/h · ' +
+                'Dispatch delay: <strong>+' + DISPATCH_DELAY_MIN + ' min</strong>';
+
+            etaMinutesInput.value = totalMinutes.toFixed(1);
+            setSummary('sumEta', formatEta(totalMinutes));
+            document.getElementById('sumEta').classList.add('eta-highlight');
+        }).on('routingerror', function () {
+            etaPanel.classList.add('eta-pending');
+            etaValueEl.textContent = 'Route unavailable — check connection to OSRM.';
+            etaBreakdownEl.innerHTML = '';
+            etaMinutesInput.value = '';
+            setSummary('sumEta', '');
+        }).addTo(map);
+    }
 
     function dropPin(lat, lng) {
         if (marker) map.removeLayer(marker);
@@ -677,6 +494,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         lngInput.value = lng.toFixed(6);
         coordsReadout.innerHTML = '📍 <strong>' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</strong> — pin set';
         updateSummary();
+        calculateRoute(lat, lng);
     }
 
     map.on('click', (e) => dropPin(e.latlng.lat, e.latlng.lng));
@@ -697,6 +515,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (marker) { map.removeLayer(marker); marker = null; }
         latInput.value = ''; lngInput.value = '';
         coordsReadout.textContent = '📍 No pin dropped yet — click the map or use GPS.';
+        if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+        setEtaPending('Select a barangay or drop a pin');
+        updateSummary();
+    });
+
+    document.getElementById('barangay').addEventListener('change', function () {
+        const coords = barangayCoords[this.value];
+        if (!coords) return;
+
+        map.setView([coords.lat, coords.lng], 14);
+
+        if (!marker) {
+            calculateRoute(coords.lat, coords.lng);
+        }
+
         updateSummary();
     });
 
@@ -715,7 +548,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         radio.addEventListener('change', () => {
             severityWrap.classList.add('show');
 
-            // reset suggestion styling
             document.querySelectorAll('.resource-option').forEach(opt => {
                 opt.classList.remove('suggested');
                 const tag = opt.querySelector('.suggest-tag');
@@ -775,7 +607,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     function setSummary(id, text) {
         const el = document.getElementById(id);
         if (text) { el.textContent = text; el.classList.remove('empty'); }
-        else { el.textContent = 'Not filled yet'; el.classList.add('empty'); }
+        else { el.textContent = (id === 'sumEta' ? 'Not calculated yet' : 'Not filled yet'); el.classList.add('empty'); }
     }
 
     function toggleCheck(id, done) {
@@ -783,7 +615,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         el.classList.toggle('done', done);
     }
 
-    // Wire up live updates
     ['caller_name', 'barangay', 'sitio_purok'].forEach(id => {
         document.getElementById(id).addEventListener('input', updateSummary);
         document.getElementById(id).addEventListener('change', updateSummary);
