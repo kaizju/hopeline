@@ -62,78 +62,14 @@ $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === 
 <meta charset="UTF-8">
 <title>Delay Alerts — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-    :root {
-        --burnt-umber:#6d120b; --redwood:#b02029; --macadamia:#fbf0d8;
-        --cool-blue:#113047; --light-grayish:#739ab9; --high:#d9752b;
-    }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:#0c2334; display:flex; min-height:100vh; }
-    .main { flex:1; padding:26px 32px 50px; color:var(--macadamia); max-width:1100px; }
-    .page-head { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
-    .page-head h1 { font-size:21px; margin-bottom:4px; }
-    .page-head p { color:var(--light-grayish); font-size:13px; }
-
-    .flash { background:rgba(63,122,92,0.18); border:1px solid #3f7a5c; color:#b7ecd1; padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:16px; }
-
-    .btn-primary {
-        background:var(--burnt-umber); color:var(--macadamia); border:0; padding:10px 18px;
-        border-radius:50px; font-weight:700; font-size:12.5px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;
-    }
-    .btn-primary:hover { background:var(--redwood); }
-    .btn-primary svg { width:13px; height:13px; }
-
-    .tabs { display:flex; gap:8px; margin-bottom:16px; }
-    .tab { font-size:12px; font-weight:600; padding:7px 14px; border-radius:20px; border:1px solid rgba(115,154,185,0.3); color:var(--light-grayish); cursor:pointer; }
-    .tab.active { background:var(--burnt-umber); border-color:var(--burnt-umber); color:var(--macadamia); }
-
-    .delay-card { background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:10px; padding:15px 18px; margin-bottom:10px; display:flex; gap:14px; align-items:flex-start; }
-    .delay-card.active-delay { border-color: var(--high); background: rgba(217,117,43,0.06); }
-
-    .delay-icon { width:34px; height:34px; border-radius:8px; background:rgba(217,117,43,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-    .delay-icon svg { width:17px; height:17px; color:var(--high); }
-
-    .delay-main { flex:1; min-width:0; }
-    .delay-top { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:4px; flex-wrap:wrap; }
-    .delay-title { font-size:13.5px; font-weight:700; }
-    .delay-tag { font-size:9.5px; font-weight:700; text-transform:uppercase; padding:2px 8px; border-radius:20px; letter-spacing:0.3px; }
-    .tag-active { background:rgba(217,117,43,0.2); color:var(--high); }
-    .tag-resolved { background:rgba(63,122,92,0.2); color:#3f7a5c; }
-    .tag-manual { background:rgba(115,154,185,0.2); color:var(--light-grayish); }
-
-    .delay-meta { font-size:11.5px; color:var(--light-grayish); margin-bottom:4px; }
-    .delay-notes { font-size:12px; color:var(--macadamia); opacity:0.85; }
-
-    .delay-side { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
-    .delay-duration { font-size:11px; color:var(--light-grayish); text-align:right; }
-    .delay-duration strong { color:var(--macadamia); }
-
-    .btn-resolve { background:rgba(63,122,92,0.2); color:#7fd6a5; border:1px solid #3f7a5c; border-radius:20px; padding:6px 13px; font-size:11px; font-weight:700; cursor:pointer; }
-    .btn-resolve:hover { background:rgba(63,122,92,0.35); }
-
-    .empty-state { text-align:center; padding:50px 20px; color:var(--light-grayish); font-size:13px; }
-
-    /* Modal */
-    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center; }
-    .modal-overlay.show { display:flex; }
-    .modal { background:var(--cool-blue); border:1px solid rgba(115,154,185,0.3); border-radius:10px; padding:22px; width:100%; max-width:420px; }
-    .modal h3 { font-size:15px; margin-bottom:14px; }
-    .modal .field { margin-bottom:12px; }
-    .modal label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
-    .modal select, .modal textarea {
-        width:100%; background:rgba(251,240,216,0.06); border:1px solid rgba(115,154,185,0.28);
-        border-radius:6px; padding:8px 10px; color:var(--macadamia); font-size:12.5px; outline:none; font-family:inherit;
-    }
-    .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
-    .btn-cancel { background:transparent; border:1px solid rgba(115,154,185,0.3); color:var(--light-grayish); border-radius:20px; padding:8px 16px; font-size:12px; cursor:pointer; }
-</style>
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/manager.css">
 </head>
 <body>
 
 <?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
 
-<main class="main">
-    <div class="page-head">
+<main class="main main-1100">
+    <div class="page-head page-head--flex">
         <div>
             <h1>Delay Alerts</h1>
             <p><?php echo $activeDelayCount; ?> active delay<?php echo $activeDelayCount === 1 ? '' : 's'; ?> right now.</p>
