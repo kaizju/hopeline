@@ -15,19 +15,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $latitude      = trim($_POST['latitude'] ?? '');
     $longitude     = trim($_POST['longitude'] ?? '');
     $incidentType  = trim($_POST['incident_type'] ?? '');
-    $severity      = trim($_POST['severity'] ?? '');
-    $resources     = $_POST['resources'] ?? [];
+    $severity      = null; // Severity classification removed from this form.
+    $resourcesRaw  = $_POST['resources'] ?? []; // ['Ambulance' => '1', 'Fire Truck' => '0', ...]
     $problemNotes  = trim($_POST['problem_notes'] ?? '');
+
+    // Fleet caps — must match VEHICLE_FLEET in the JS below.
+    $vehicleFleet = [
+        'Ambulance'                       => 2,
+        'Patient Transport Vehicle (PTV)' => 2,
+        'Water Tanker'                    => 1,
+        'Fire Truck'                      => 1,
+        'Pick Up'                         => 1,
+    ];
+
+    // Keep only known vehicles, clamp qty to [0, available], drop zeros.
+    $resources = [];
+    foreach ($vehicleFleet as $vehicleName => $available) {
+        $qty = (int) ($resourcesRaw[$vehicleName] ?? 0);
+        if ($qty < 0) $qty = 0;
+        if ($qty > $available) $qty = $available;
+        if ($qty > 0) $resources[$vehicleName] = $qty;
+    }
 
     if ($callerName === '')    $errors[] = 'Caller name is required.';
     if ($barangay === '')      $errors[] = 'Barangay is required.';
     if ($incidentType === '')  $errors[] = 'Incident type is required.';
-    if ($severity === '')      $errors[] = 'Severity classification is required.';
-    if (empty($resources))     $errors[] = 'At least one resource/problem needed must be selected.';
+    if (empty($resources))     $errors[] = 'At least one vehicle must be selected (quantity > 0).';
 
     if (empty($errors)) {
         $clipRef = 'CLIP-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -5));
-        $resourcesStr = implode(', ', $resources);
+        $resourceParts = [];
+        foreach ($resources as $vehicleName => $qty) {
+            $resourceParts[] = $vehicleName . ' x' . $qty;
+        }
+        $resourcesStr = implode(', ', $resourceParts);
         $reportedBy = $_SESSION['user_id'] ?? 1; // fallback if session value is missing
         $reportedByEmail = $_SESSION['email'] ?? 'unknown';
 
@@ -62,6 +83,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/leaflet-routing-machine/leaflet-routing-machine.css" />
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/manager.css">
+    <style>
+        /* Vehicle quantity stepper — add these to manager.css if you'd
+           rather keep styling centralized; kept inline here so the grid
+           works even before you move it over. */
+        .resource-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border: 1px solid #dfe3e8;
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            transition: border-color .15s, background-color .15s;
+        }
+        .resource-option.suggested { border-color: #d9752b; background: #fff6ef; }
+        .resource-option.has-qty { border-color: #2f8f4e; }
+        .resource-info { display: flex; flex-direction: column; gap: 2px; }
+        .resource-name { font-weight: 600; }
+        .resource-available { font-size: 12px; color: #6b7280; }
+        .suggest-tag {
+            display: inline-block;
+            margin-top: 2px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #d9752b;
+        }
+        .qty-control { display: flex; align-items: center; gap: 8px; }
+        .qty-btn {
+            width: 30px; height: 30px;
+            border: 1px solid #cbd2d9;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .qty-btn:hover { background: #f2f4f7; }
+        #resourceGrid .qty-input {
+            display: inline-block !important;
+            visibility: visible !important;
+            width: 34px !important;
+            height: 30px !important;
+            box-sizing: border-box !important;
+            text-align: center !important;
+            border: 1px solid #dfe3e8 !important;
+            border-radius: 6px !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+            -webkit-text-fill-color: #111827 !important;
+            opacity: 1 !important;
+            font-weight: 700 !important;
+            font-size: 15px !important;
+            font-family: inherit !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            -moz-appearance: textfield;
+        }
+        .qty-input::-webkit-outer-spin-button,
+        .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
 </head>
 <body>
 
@@ -228,28 +310,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </label>
                         </div>
                     </div>
-
-                    <div class="severity-wrap" id="severityWrap">
-                        <label style="margin-bottom:10px;">Severity Classification</label>
-                        <div class="severity-grid">
-                            <div class="sev-option sev-critical">
-                                <input type="radio" name="severity" id="sev_critical" value="Critical" required>
-                                <label for="sev_critical">🔴 Critical</label>
-                            </div>
-                            <div class="sev-option sev-high">
-                                <input type="radio" name="severity" id="sev_high" value="High">
-                                <label for="sev_high">🟠 High</label>
-                            </div>
-                            <div class="sev-option sev-moderate">
-                                <input type="radio" name="severity" id="sev_moderate" value="Moderate">
-                                <label for="sev_moderate">🟡 Moderate</label>
-                            </div>
-                            <div class="sev-option sev-low">
-                                <input type="radio" name="severity" id="sev_low" value="Low">
-                                <label for="sev_low">🟢 Low</label>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- P: Problem -->
@@ -258,24 +318,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="card-sub">What does the caller need from LDRRMO? (auto-suggested from incident type — adjust as needed)</div>
 
                     <div class="resource-grid" id="resourceGrid">
-                        <label class="resource-option" data-value="Ambulance / PTV">
-                            <input type="checkbox" name="resources[]" value="Ambulance / PTV"> Ambulance / PTV
-                        </label>
-                        <label class="resource-option" data-value="Fire Truck">
-                            <input type="checkbox" name="resources[]" value="Fire Truck"> Fire Truck
-                        </label>
-                        <label class="resource-option" data-value="Rescue Team">
-                            <input type="checkbox" name="resources[]" value="Rescue Team"> Rescue Team
-                        </label>
-                        <label class="resource-option" data-value="Extraction Team">
-                            <input type="checkbox" name="resources[]" value="Extraction Team"> Extraction Team
-                        </label>
-                        <label class="resource-option" data-value="Water Rescue / Rubber Boat">
-                            <input type="checkbox" name="resources[]" value="Water Rescue / Rubber Boat"> Water Rescue / Boat
-                        </label>
-                        <label class="resource-option" data-value="Police Assistance">
-                            <input type="checkbox" name="resources[]" value="Police Assistance"> Police Assistance
-                        </label>
+                        <!-- Each block is populated/generated for every vehicle in VEHICLE_FLEET (see script below).
+                             Structure kept here as a static reference for styling / no-JS fallback. -->
                     </div>
 
                     <div class="field">
@@ -310,10 +354,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="value empty" id="sumIncident">Not filled yet</div>
                 </div>
                 <div class="summary-row">
-                    <div class="label">Severity</div>
-                    <div class="value empty" id="sumSeverity">Not filled yet</div>
-                </div>
-                <div class="summary-row">
                     <div class="label">Resources Needed</div>
                     <div class="value empty" id="sumResources">Not filled yet</div>
                 </div>
@@ -322,7 +362,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <li id="chkCaller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Caller name</li>
                     <li id="chkLocation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Barangay selected</li>
                     <li id="chkPin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Map pin dropped</li>
-                    <li id="chkIncident"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Incident type + severity</li>
+                    <li id="chkIncident"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Incident type</li>
                     <li id="chkResources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Resource(s) selected</li>
                 </ul>
             </div>
@@ -387,6 +427,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     let routingControl = null;
     let lastRouteDestination = null;
+
+    // ---------- Vehicle fleet + Problem resource grid ----------
+    // Total units LDRRMO has on hand for each vehicle type. Keep this in
+    // sync with $vehicleFleet in the PHP block above.
+    const VEHICLE_FLEET = {
+        'Ambulance':                       2,
+        'Patient Transport Vehicle (PTV)': 2,
+        'Water Tanker':                    1,
+        'Fire Truck':                      1,
+        'Pick Up':                         1
+    };
+
+    const resourceGrid = document.getElementById('resourceGrid');
+
+    Object.keys(VEHICLE_FLEET).forEach(vehicleName => {
+        const max = VEHICLE_FLEET[vehicleName];
+
+        const option = document.createElement('div');
+        option.className = 'resource-option';
+        option.dataset.value = vehicleName;
+        option.dataset.max = max;
+
+        option.innerHTML =
+            '<div class="resource-info">' +
+                '<span class="resource-name">' + vehicleName + '</span>' +
+                '<span class="resource-available">Available: ' + max + '</span>' +
+            '</div>' +
+            '<div class="qty-control">' +
+                '<button type="button" class="qty-btn qty-minus" aria-label="Decrease">−</button>' +
+                '<input type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input" name="resources[' + vehicleName + ']" value="0" readonly>' +
+                '<button type="button" class="qty-btn qty-plus" aria-label="Increase">+</button>' +
+            '</div>';
+
+        resourceGrid.appendChild(option);
+    });
+
+    function setVehicleQty(vehicleName, qty) {
+        const option = document.querySelector('.resource-option[data-value="' + CSS.escape(vehicleName) + '"]');
+        if (!option) return;
+        const max = parseInt(option.dataset.max, 10);
+        const input = option.querySelector('.qty-input');
+        const clamped = Math.max(0, Math.min(max, qty));
+        input.value = clamped;
+        option.classList.toggle('has-qty', clamped > 0);
+        return clamped;
+    }
+
+    function getVehicleQty(vehicleName) {
+        const option = document.querySelector('.resource-option[data-value="' + CSS.escape(vehicleName) + '"]');
+        if (!option) return 0;
+        return parseInt(option.querySelector('.qty-input').value, 10) || 0;
+    }
+
+    resourceGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('.qty-btn');
+        if (!btn) return;
+
+        const option = btn.closest('.resource-option');
+        const input = option.querySelector('.qty-input');
+        const max = parseInt(option.dataset.max, 10);
+        let val = parseInt(input.value, 10) || 0;
+
+        if (btn.classList.contains('qty-plus')) val = Math.min(max, val + 1);
+        if (btn.classList.contains('qty-minus')) val = Math.max(0, val - 1);
+
+        input.value = val;
+        option.classList.toggle('has-qty', val > 0);
+        // Manually-adjusted qty overrides any auto-suggestion tag.
+        const tag = option.querySelector('.suggest-tag');
+        if (tag) tag.remove();
+        option.classList.remove('suggested');
+
+        updateSummary();
+    });
 
     const etaPanel = document.getElementById('etaPanel');
     const etaValueEl = document.getElementById('etaValue');
@@ -533,37 +647,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         updateSummary();
     });
 
-    // ---------- Incident type -> severity reveal + resource auto-suggest ----------
-    const severityWrap = document.getElementById('severityWrap');
+    // ---------- Incident type -> resource auto-suggest ----------
+    // Values are the suggested QUANTITY to pre-fill for that vehicle (capped
+    // to what's available in VEHICLE_FLEET automatically).
     const suggestionMap = {
-        'Medical Emergency': ['Ambulance / PTV'],
-        'Fire': ['Fire Truck', 'Rescue Team'],
-        'Vehicular Accident': ['Ambulance / PTV', 'Extraction Team'],
-        'Flood / Landslide': ['Rescue Team', 'Water Rescue / Rubber Boat'],
-        'Violence / Assault': ['Police Assistance', 'Ambulance / PTV'],
-        'Other': []
+        'Medical Emergency':   { 'Ambulance': 1, 'Patient Transport Vehicle (PTV)': 1 },
+        'Fire':                { 'Fire Truck': 1, 'Water Tanker': 1 },
+        'Vehicular Accident':  { 'Ambulance': 1, 'Patient Transport Vehicle (PTV)': 1 },
+        'Flood / Landslide':   { 'Water Tanker': 1, 'Pick Up': 1 },
+        'Violence / Assault':  { 'Ambulance': 1, 'Pick Up': 1 },
+        'Other':               {}
     };
 
     document.querySelectorAll('input[name="incident_type"]').forEach(radio => {
         radio.addEventListener('change', () => {
-            severityWrap.classList.add('show');
-
             document.querySelectorAll('.resource-option').forEach(opt => {
                 opt.classList.remove('suggested');
                 const tag = opt.querySelector('.suggest-tag');
                 if (tag) tag.remove();
+                setVehicleQty(opt.dataset.value, 0);
             });
 
-            const suggested = suggestionMap[radio.value] || [];
-            suggested.forEach(val => {
-                const opt = document.querySelector('.resource-option[data-value="' + val + '"]');
+            const suggested = suggestionMap[radio.value] || {};
+            Object.keys(suggested).forEach(vehicleName => {
+                const opt = document.querySelector('.resource-option[data-value="' + vehicleName + '"]');
                 if (opt) {
+                    setVehicleQty(vehicleName, suggested[vehicleName]);
                     opt.classList.add('suggested');
-                    opt.querySelector('input').checked = true;
                     const tag = document.createElement('span');
                     tag.className = 'suggest-tag';
                     tag.textContent = 'Suggested';
-                    opt.appendChild(tag);
+                    opt.querySelector('.resource-info').appendChild(tag);
                 }
             });
 
@@ -586,22 +700,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         const incidentRadio = document.querySelector('input[name="incident_type"]:checked');
         setSummary('sumIncident', incidentRadio ? incidentRadio.value : '');
+        toggleCheck('chkIncident', !!incidentRadio);
 
-        const sevRadio = document.querySelector('input[name="severity"]:checked');
-        const sumSev = document.getElementById('sumSeverity');
-        if (sevRadio) {
-            sumSev.className = 'value';
-            const colors = { Critical: 'var(--critical)', High: 'var(--high)', Moderate: 'var(--moderate)', Low: 'var(--low)' };
-            sumSev.innerHTML = '<span class="summary-severity" style="background:' + colors[sevRadio.value] + '22; color:' + colors[sevRadio.value] + '">' + sevRadio.value + '</span>';
-        } else {
-            sumSev.className = 'value empty';
-            sumSev.textContent = 'Not filled yet';
-        }
-        toggleCheck('chkIncident', !!(incidentRadio && sevRadio));
-
-        const resources = Array.from(document.querySelectorAll('input[name="resources[]"]:checked')).map(r => r.value);
-        setSummary('sumResources', resources.join(', '));
-        toggleCheck('chkResources', resources.length > 0);
+        const resourceParts = [];
+        Object.keys(VEHICLE_FLEET).forEach(vehicleName => {
+            const qty = getVehicleQty(vehicleName);
+            if (qty > 0) resourceParts.push(vehicleName + ' x' + qty);
+        });
+        setSummary('sumResources', resourceParts.join(', '));
+        toggleCheck('chkResources', resourceParts.length > 0);
     }
 
     function setSummary(id, text) {
@@ -619,9 +726,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         document.getElementById(id).addEventListener('input', updateSummary);
         document.getElementById(id).addEventListener('change', updateSummary);
     });
-    document.querySelectorAll('input[name="severity"], input[name="resources[]"]').forEach(el => {
-        el.addEventListener('change', updateSummary);
-    });
+    // Vehicle quantity changes are already handled by the qty-btn click
+    // listener on #resourceGrid, which calls updateSummary() itself.
 
     // ---------- CLIP reference preview ----------
     const today = new Date();

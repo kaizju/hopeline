@@ -47,6 +47,13 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body { height: 100%; }
+/* Lock the document root too — .main and .nav scroll internally, and
+   without this, a short/undersized window can let the whole page get
+   scrolled by native browser behavior (e.g. focusing a radio button). The
+   sidebar is now position:fixed (see sidebar.css) so it can no longer be
+   dragged out of place by that scroll, but we keep this rule anyway since
+   it's still the correct behavior for this shell layout. */
+html { overflow: hidden; }
 
 body {
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -64,11 +71,15 @@ select option { background: var(--cool-blue); color: var(--macadamia); }
    --------------------------------------------------------------------- */
 .main {
     flex: 1;
+    /* Sidebar is position:fixed (taken out of flow), so .main no longer
+       gets its width from flexbox alone — reserve the sidebar's width
+       explicitly. Keep this in sync with .sidebar's width in sidebar.css. */
+    margin-left: 248px;
     padding: 26px 32px 50px;
     color: var(--macadamia);
     max-width: 1280px;
-    height: 100vh;        /* add */
-    overflow-y: auto;     /* add — this scrolls instead of the page */
+    height: 100vh;
+    overflow-y: auto;     /* this scrolls instead of the page */
 }
 
 /* Width modifiers — apply alongside .main, e.g. class="main main-1180" */
@@ -80,6 +91,7 @@ select option { background: var(--cool-blue); color: var(--macadamia); }
 .main-fullscreen {
     padding: 0;
     max-width: none;
+    margin-left: 248px;
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -398,7 +410,22 @@ label .optional { color: var(--light-grayish); font-weight: 400; font-size: 10.5
 
 .incident-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 4px; }
 .incident-option { position: relative; }
-.incident-option input { position: absolute; opacity: 0; }
+/* Hidden-but-in-flow input: keeps the radio's box anchored exactly on top
+   of its label (via position:relative on .incident-option) instead of
+   pulled out of flow with opacity:0 alone. That old pattern let a
+   focus() call scroll the whole page to "find" the input, which is what
+   was dragging the sidebar out of place. */
+.incident-option input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
 .incident-option label {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
     padding: 14px 8px; border: 1px solid rgba(115, 154, 185, 0.28); border-radius: 8px;
@@ -407,21 +434,6 @@ label .optional { color: var(--light-grayish); font-weight: 400; font-size: 10.5
 }
 .incident-option label svg { width: 20px; height: 20px; }
 .incident-option input:checked + label { border-color: var(--burnt-umber); background: rgba(254, 119, 67, 0.28); }
-
-.severity-wrap { margin-top: 16px; padding-top: 16px; border-top: 1px dashed rgba(115, 154, 185, 0.25); display: none; }
-.severity-wrap.show { display: block; }
-.severity-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-.sev-option input { position: absolute; opacity: 0; }
-.sev-option label {
-    display: block; text-align: center; padding: 10px 6px; border-radius: 7px;
-    font-size: 12px; font-weight: 700; cursor: pointer; border: 1.5px solid transparent;
-    opacity: 0.55; transition: opacity 0.15s, border-color 0.15s;
-}
-.sev-option input:checked + label { opacity: 1; border-color: currentColor; }
-.sev-critical label { background: rgba(176,32,41,0.18); color: var(--critical); }
-.sev-high label { background: rgba(217,117,43,0.18); color: var(--high); }
-.sev-moderate label { background: rgba(212,171,43,0.18); color: var(--moderate); }
-.sev-low label { background: rgba(63,122,92,0.18); color: var(--low); }
 
 .resource-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
 .resource-option { display: flex; align-items: center; gap: 8px; border: 1px solid rgba(115, 154, 185, 0.28); border-radius: 7px; padding: 9px 11px; font-size: 12.5px; cursor: pointer; }
@@ -438,7 +450,6 @@ label .optional { color: var(--light-grayish); font-weight: 400; font-size: 10.5
 .summary-row .value { font-size: 13px; font-weight: 600; color: var(--macadamia); }
 .summary-row .value.empty { color: rgba(115,154,185,0.5); font-weight: 400; font-style: italic; }
 .summary-row .value.eta-highlight { color: var(--high); font-size: 16px; font-weight: 800; }
-.summary-severity { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
 
 .checklist { list-style: none; margin-top: 16px; padding-top: 16px; border-top: 1px dashed rgba(115,154,185,0.25); }
 .checklist li { font-size: 11.5px; color: var(--light-grayish); display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
@@ -450,7 +461,7 @@ label .optional { color: var(--light-grayish); font-weight: 400; font-size: 10.5
 
 @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; }
-    .field-row, .incident-grid, .resource-grid, .severity-grid { grid-template-columns: 1fr 1fr; }
+    .field-row, .incident-grid, .resource-grid { grid-template-columns: 1fr 1fr; }
     .eta-breakdown { gap: 10px; }
 }
 
