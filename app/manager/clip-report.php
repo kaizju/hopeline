@@ -258,23 +258,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="card-sub">What does the caller need from LDRRMO? (auto-suggested from incident type — adjust as needed)</div>
 
                     <div class="resource-grid" id="resourceGrid">
-                        <label class="resource-option" data-value="Ambulance / PTV">
-                            <input type="checkbox" name="resources[]" value="Ambulance / PTV"> Ambulance / PTV
+                        <label class="resource-option" data-value="Ambulance">
+                            <input type="checkbox" name="resources[]" value="Ambulance"> Ambulance
+                        </label>
+                        <label class="resource-option" data-value="Patient Transport Vehicle (PTV)">
+                            <input type="checkbox" name="resources[]" value="Patient Transport Vehicle (PTV)"> Patient Transport Vehicle (PTV)
+                        </label>
+                        <label class="resource-option" data-value="Water Tanker">
+                            <input type="checkbox" name="resources[]" value="Water Tanker"> Water Tanker
                         </label>
                         <label class="resource-option" data-value="Fire Truck">
                             <input type="checkbox" name="resources[]" value="Fire Truck"> Fire Truck
                         </label>
-                        <label class="resource-option" data-value="Rescue Team">
-                            <input type="checkbox" name="resources[]" value="Rescue Team"> Rescue Team
-                        </label>
-                        <label class="resource-option" data-value="Extraction Team">
-                            <input type="checkbox" name="resources[]" value="Extraction Team"> Extraction Team
-                        </label>
-                        <label class="resource-option" data-value="Water Rescue / Rubber Boat">
-                            <input type="checkbox" name="resources[]" value="Water Rescue / Rubber Boat"> Water Rescue / Boat
-                        </label>
-                        <label class="resource-option" data-value="Police Assistance">
-                            <input type="checkbox" name="resources[]" value="Police Assistance"> Police Assistance
+                        <label class="resource-option" data-value="Pick Up">
+                            <input type="checkbox" name="resources[]" value="Pick Up"> Pick Up
                         </label>
                     </div>
 
@@ -536,11 +533,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // ---------- Incident type -> severity reveal + resource auto-suggest ----------
     const severityWrap = document.getElementById('severityWrap');
     const suggestionMap = {
-        'Medical Emergency': ['Ambulance / PTV'],
-        'Fire': ['Fire Truck', 'Rescue Team'],
-        'Vehicular Accident': ['Ambulance / PTV', 'Extraction Team'],
-        'Flood / Landslide': ['Rescue Team', 'Water Rescue / Rubber Boat'],
-        'Violence / Assault': ['Police Assistance', 'Ambulance / PTV'],
+        'Medical Emergency': ['Ambulance', 'Patient Transport Vehicle (PTV)'],
+        'Fire': ['Fire Truck', 'Water Tanker'],
+        'Vehicular Accident': ['Ambulance', 'Patient Transport Vehicle (PTV)'],
+        'Flood / Landslide': ['Water Tanker', 'Pick Up'],
+        'Violence / Assault': ['Ambulance', 'Pick Up'],
         'Other': []
     };
 
