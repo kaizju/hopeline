@@ -122,12 +122,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             cursor: pointer;
         }
         .qty-btn:hover { background: #f2f4f7; }
-        .qty-input {
-            width: 36px;
-            text-align: center;
-            border: none;
-            font-weight: 600;
-            font-size: 15px;
+        #resourceGrid .qty-input {
+            display: inline-block !important;
+            visibility: visible !important;
+            width: 34px !important;
+            height: 30px !important;
+            box-sizing: border-box !important;
+            text-align: center !important;
+            border: 1px solid #dfe3e8 !important;
+            border-radius: 6px !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+            -webkit-text-fill-color: #111827 !important;
+            opacity: 1 !important;
+            font-weight: 700 !important;
+            font-size: 15px !important;
+            font-family: inherit !important;
+            padding: 0 !important;
+            margin: 0 !important;
             -moz-appearance: textfield;
         }
         .qty-input::-webkit-outer-spin-button,
@@ -471,7 +483,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             '</div>' +
             '<div class="qty-control">' +
                 '<button type="button" class="qty-btn qty-minus" aria-label="Decrease">−</button>' +
-                '<input type="number" class="qty-input" name="resources[' + vehicleName + ']" value="0" min="0" max="' + max + '" readonly>' +
+                '<input type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input" name="resources[' + vehicleName + ']" value="0" readonly>' +
                 '<button type="button" class="qty-btn qty-plus" aria-label="Increase">+</button>' +
             '</div>';
 
