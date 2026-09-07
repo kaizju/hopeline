@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $latitude      = trim($_POST['latitude'] ?? '');
     $longitude     = trim($_POST['longitude'] ?? '');
     $incidentType  = trim($_POST['incident_type'] ?? '');
-    $severity      = trim($_POST['severity'] ?? '');
+    $severity      = null; // Severity classification removed from this form.
     $resourcesRaw  = $_POST['resources'] ?? []; // ['Ambulance' => '1', 'Fire Truck' => '0', ...]
     $problemNotes  = trim($_POST['problem_notes'] ?? '');
 
@@ -40,7 +40,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($callerName === '')    $errors[] = 'Caller name is required.';
     if ($barangay === '')      $errors[] = 'Barangay is required.';
     if ($incidentType === '')  $errors[] = 'Incident type is required.';
-    if ($severity === '')      $errors[] = 'Severity classification is required.';
     if (empty($resources))     $errors[] = 'At least one vehicle must be selected (quantity > 0).';
 
     if (empty($errors)) {
@@ -311,28 +310,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </label>
                         </div>
                     </div>
-
-                    <div class="severity-wrap" id="severityWrap">
-                        <label style="margin-bottom:10px;">Severity Classification</label>
-                        <div class="severity-grid">
-                            <div class="sev-option sev-critical">
-                                <input type="radio" name="severity" id="sev_critical" value="Critical" required>
-                                <label for="sev_critical">🔴 Critical</label>
-                            </div>
-                            <div class="sev-option sev-high">
-                                <input type="radio" name="severity" id="sev_high" value="High">
-                                <label for="sev_high">🟠 High</label>
-                            </div>
-                            <div class="sev-option sev-moderate">
-                                <input type="radio" name="severity" id="sev_moderate" value="Moderate">
-                                <label for="sev_moderate">🟡 Moderate</label>
-                            </div>
-                            <div class="sev-option sev-low">
-                                <input type="radio" name="severity" id="sev_low" value="Low">
-                                <label for="sev_low">🟢 Low</label>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- P: Problem -->
@@ -377,10 +354,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="value empty" id="sumIncident">Not filled yet</div>
                 </div>
                 <div class="summary-row">
-                    <div class="label">Severity</div>
-                    <div class="value empty" id="sumSeverity">Not filled yet</div>
-                </div>
-                <div class="summary-row">
                     <div class="label">Resources Needed</div>
                     <div class="value empty" id="sumResources">Not filled yet</div>
                 </div>
@@ -389,7 +362,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <li id="chkCaller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Caller name</li>
                     <li id="chkLocation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Barangay selected</li>
                     <li id="chkPin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Map pin dropped</li>
-                    <li id="chkIncident"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Incident type + severity</li>
+                    <li id="chkIncident"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Incident type</li>
                     <li id="chkResources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Resource(s) selected</li>
                 </ul>
             </div>
@@ -674,8 +647,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         updateSummary();
     });
 
-    // ---------- Incident type -> severity reveal + resource auto-suggest ----------
-    const severityWrap = document.getElementById('severityWrap');
+    // ---------- Incident type -> resource auto-suggest ----------
     // Values are the suggested QUANTITY to pre-fill for that vehicle (capped
     // to what's available in VEHICLE_FLEET automatically).
     const suggestionMap = {
@@ -689,8 +661,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     document.querySelectorAll('input[name="incident_type"]').forEach(radio => {
         radio.addEventListener('change', () => {
-            severityWrap.classList.add('show');
-
             document.querySelectorAll('.resource-option').forEach(opt => {
                 opt.classList.remove('suggested');
                 const tag = opt.querySelector('.suggest-tag');
@@ -730,18 +700,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         const incidentRadio = document.querySelector('input[name="incident_type"]:checked');
         setSummary('sumIncident', incidentRadio ? incidentRadio.value : '');
-
-        const sevRadio = document.querySelector('input[name="severity"]:checked');
-        const sumSev = document.getElementById('sumSeverity');
-        if (sevRadio) {
-            sumSev.className = 'value';
-            const colors = { Critical: 'var(--critical)', High: 'var(--high)', Moderate: 'var(--moderate)', Low: 'var(--low)' };
-            sumSev.innerHTML = '<span class="summary-severity" style="background:' + colors[sevRadio.value] + '22; color:' + colors[sevRadio.value] + '">' + sevRadio.value + '</span>';
-        } else {
-            sumSev.className = 'value empty';
-            sumSev.textContent = 'Not filled yet';
-        }
-        toggleCheck('chkIncident', !!(incidentRadio && sevRadio));
+        toggleCheck('chkIncident', !!incidentRadio);
 
         const resourceParts = [];
         Object.keys(VEHICLE_FLEET).forEach(vehicleName => {
@@ -766,9 +725,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ['caller_name', 'barangay', 'sitio_purok'].forEach(id => {
         document.getElementById(id).addEventListener('input', updateSummary);
         document.getElementById(id).addEventListener('change', updateSummary);
-    });
-    document.querySelectorAll('input[name="severity"]').forEach(el => {
-        el.addEventListener('change', updateSummary);
     });
     // Vehicle quantity changes are already handled by the qty-btn click
     // listener on #resourceGrid, which calls updateSummary() itself.

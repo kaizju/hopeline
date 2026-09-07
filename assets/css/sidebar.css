@@ -14,8 +14,16 @@
     border-right: 1px solid rgba(var(--border-rgb, 125, 147, 163), 0.15);
     flex-shrink: 0;
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-    position: sticky;
+    /* position:fixed (not sticky) — takes the sidebar fully out of the
+       document's scroll flow so nothing (a hidden radio input receiving
+       focus, a native "scroll into view" call, etc.) can ever reposition
+       it. .main and .main-fullscreen in manager.css reserve this width
+       with margin-left: 248px since the sidebar no longer occupies flex
+       space. */
+    position: fixed;
     top: 0;
+    left: 0;
+    z-index: 10;
 }
 
 /* ---------- Header ---------- */
