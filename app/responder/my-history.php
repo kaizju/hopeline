@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../config/functions.php';
 
 
 $unitStmt = $pdo->prepare("SELECT * FROM ptv_units WHERE responder_id = ? LIMIT 1");
-$unitStmt->execute([$_SESSION['user_id']]);
+
 $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
 $unitStatus = $unit['status'] ?? 'Available';
 
