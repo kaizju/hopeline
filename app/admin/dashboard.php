@@ -34,46 +34,8 @@ function fmtAvgResponse($seconds) {
 <meta charset="UTF-8">
 <title>Admin Dashboard — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/sidebar.css">
-<style>
-    :root { --burnt-umber:#6d120b; --redwood:#b02029; --macadamia:#fbf0d8; --cool-blue:#113047; --light-grayish:#739ab9; }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:#0c2334; display:flex; min-height:100vh; }
-    .main { flex:1; padding:26px 32px 50px; color:var(--macadamia); max-width:1280px; }
-    .page-head { margin-bottom:22px; }
-    .page-head h1 { font-size:21px; margin-bottom:4px; }
-    .page-head p { color:var(--light-grayish); font-size:13px; }
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 
-    .stats-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:14px; margin-bottom:20px; }
-    .stat-card { background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:10px; padding:16px 18px; }
-    .stat-value { font-size:24px; font-weight:700; }
-    .stat-label { font-size:11.5px; color:var(--light-grayish); margin-top:2px; }
-
-    .dash-layout { display:grid; grid-template-columns:1.4fr 1fr; gap:18px; }
-    .card { background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:10px; padding:18px 20px; margin-bottom:18px; }
-    .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-    .card-header h2 { font-size:14.5px; font-weight:700; }
-    .card-header a { font-size:11.5px; color:var(--light-grayish); text-decoration:none; }
-
-    .breakdown-row { margin-bottom:14px; }
-    .breakdown-row:last-child { margin-bottom:0; }
-    .breakdown-label { display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px; }
-    .breakdown-label .n { font-weight:700; }
-    .bar-track { height:7px; background:rgba(115,154,185,0.15); border-radius:20px; overflow:hidden; }
-    .bar-fill { height:100%; border-radius:20px; }
-
-    .audit-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid rgba(115,154,185,0.1); font-size:12px; }
-    .audit-row:last-child { border-bottom:none; }
-    .audit-action { font-weight:600; }
-    .audit-meta { color:var(--light-grayish); font-size:10.5px; }
-    .audit-status { font-size:9.5px; font-weight:700; text-transform:uppercase; padding:2px 8px; border-radius:20px; }
-    .status-success { background:rgba(63,122,92,0.2); color:#3f7a5c; }
-    .status-failed { background:rgba(176,32,41,0.2); color:var(--redwood); }
-
-    .empty-mini { text-align:center; padding:20px; color:var(--light-grayish); font-size:12px; }
-
-    @media (max-width: 1050px) { .stats-grid { grid-template-columns:repeat(2,1fr); } .dash-layout { grid-template-columns:1fr; } }
-</style>
 </head>
 <body>
 

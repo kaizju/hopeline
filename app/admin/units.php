@@ -61,59 +61,8 @@ $unreadAlerts = 0;
 <meta charset="UTF-8">
 <title>PTV / Unit Management — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/sidebar.css">
-<style>
-    :root { --burnt-umber:#6d120b; --redwood:#b02029; --macadamia:#fbf0d8; --cool-blue:#113047; --light-grayish:#739ab9; }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:#0c2334; display:flex; min-height:100vh; }
-    .main { flex:1; padding:26px 32px 50px; color:var(--macadamia); max-width:1200px; }
-    .page-head { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
-    .page-head h1 { font-size:21px; margin-bottom:4px; }
-    .page-head p { color:var(--light-grayish); font-size:13px; }
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 
-    .flash { background:rgba(63,122,92,0.18); border:1px solid #3f7a5c; color:#b7ecd1; padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:16px; }
-
-    .btn-primary { background:var(--burnt-umber); color:var(--macadamia); border:0; padding:10px 18px; border-radius:50px; font-weight:700; font-size:12.5px; cursor:pointer; }
-    .btn-primary:hover { background:var(--redwood); }
-
-    .unit-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:14px; }
-
-    .unit-card { background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:10px; padding:18px 20px; }
-    .unit-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-    .unit-name { font-size:15px; font-weight:700; }
-    .unit-plate { font-size:11px; color:var(--light-grayish); font-family:monospace; }
-
-    .status-select {
-        font-size:10.5px; font-weight:700; text-transform:uppercase; padding:4px 10px; border-radius:20px;
-        border:0; cursor:pointer; letter-spacing:0.3px;
-    }
-    .st-Available { background:rgba(63,122,92,0.2); color:#3f7a5c; }
-    .st-EnRoute, .st-\32 { background:rgba(217,117,43,0.2); color:#d9752b; }
-    .st-OnSite { background:rgba(176,32,41,0.2); color:var(--redwood); }
-    .st-Returning { background:rgba(115,154,185,0.2); color:var(--light-grayish); }
-    .st-Offline { background:rgba(74,92,107,0.3); color:#8ba0b0; }
-
-    .unit-field { margin-bottom:10px; }
-    .unit-field .label { font-size:10px; text-transform:uppercase; color:var(--light-grayish); margin-bottom:5px; }
-    .unit-field select {
-        width:100%; background:rgba(251,240,216,0.06); border:1px solid rgba(115,154,185,0.28);
-        border-radius:6px; padding:8px 10px; color:var(--macadamia); font-size:12.5px; outline:none;
-    }
-
-    .responder-tag { font-size:12px; color:var(--macadamia); }
-    .no-responder { color:var(--light-grayish); font-style:italic; font-size:12px; }
-
-    /* Modal */
-    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center; }
-    .modal-overlay.show { display:flex; }
-    .modal { background:var(--cool-blue); border:1px solid rgba(115,154,185,0.3); border-radius:10px; padding:22px; width:100%; max-width:420px; }
-    .modal h3 { font-size:15px; margin-bottom:14px; }
-    .modal .field { margin-bottom:12px; }
-    .modal label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
-    .modal input, .modal select { width:100%; background:rgba(251,240,216,0.06); border:1px solid rgba(115,154,185,0.28); border-radius:6px; padding:8px 10px; color:var(--macadamia); font-size:12.5px; outline:none; }
-    .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
-    .btn-cancel { background:transparent; border:1px solid rgba(115,154,185,0.3); color:var(--light-grayish); border-radius:20px; padding:8px 16px; font-size:12px; cursor:pointer; }
-</style>
 </head>
 <body>
 

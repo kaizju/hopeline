@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/leaflet-routing-machine/leaflet-routing-machine.css" />
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/manager.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
     <style>
         /* Vehicle quantity stepper — add these to manager.css if you'd
            rather keep styling centralized; kept inline here so the grid

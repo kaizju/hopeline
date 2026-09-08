@@ -34,65 +34,8 @@ $unreadAlerts = 0;
 <title>Assigned Incident — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/sidebar.css">
-<style>
-    :root {
-        --burnt-umber:#6d120b; --redwood:#b02029; --macadamia:#fbf0d8;
-        --cool-blue:#113047; --light-grayish:#739ab9;
-        --critical:#b02029; --high:#d9752b; --moderate:#d4ab2b; --low:#3f7a5c;
-    }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:#0c2334; display:flex; min-height:100vh; }
-    .main { flex:1; padding:26px 32px 50px; color:var(--macadamia); max-width:900px; }
-    .page-head { margin-bottom:20px; }
-    .page-head h1 { font-size:21px; margin-bottom:4px; }
-    .page-head p { color:var(--light-grayish); font-size:13px; }
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 
-    .card { background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:12px; padding:22px 24px; margin-bottom:18px; }
-
-    .incident-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
-    .sev-badge { font-size:11px; font-weight:700; text-transform:uppercase; padding:4px 12px; border-radius:20px; letter-spacing:0.4px; }
-    .sev-Critical { background:rgba(176,32,41,0.2); color:var(--critical); }
-    .sev-High { background:rgba(217,117,43,0.2); color:var(--high); }
-    .sev-Moderate { background:rgba(212,171,43,0.2); color:var(--moderate); }
-    .sev-Low { background:rgba(63,122,92,0.2); color:var(--low); }
-
-    .incident-title { font-size:18px; font-weight:700; }
-    .clip-ref { font-size:11px; color:var(--light-grayish); font-family:monospace; margin-top:2px; }
-
-    .info-grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:18px; }
-    .info-block .label { font-size:10.5px; text-transform:uppercase; letter-spacing:0.4px; color:var(--light-grayish); margin-bottom:4px; }
-    .info-block .value { font-size:13.5px; color:var(--macadamia); font-weight:600; }
-    .info-block.full { grid-column: 1 / -1; }
-
-    #map { height:220px; border-radius:8px; margin-bottom:18px; border:1px solid rgba(115,154,185,0.3); }
-
-    .resources-list { display:flex; gap:6px; flex-wrap:wrap; }
-    .resource-tag { background:rgba(115,154,185,0.15); color:var(--macadamia); font-size:11.5px; padding:4px 10px; border-radius:20px; }
-
-    .cta-btn {
-        display:block; text-align:center; width:100%; padding:14px; border-radius:10px;
-        background:var(--burnt-umber); color:var(--macadamia); font-weight:700; font-size:14.5px;
-        text-decoration:none; margin-top:6px; transition:background 0.15s;
-    }
-    .cta-btn:hover { background:var(--redwood); }
-
-    .call-btn {
-        display:inline-flex; align-items:center; gap:6px; background:rgba(115,154,185,0.15);
-        color:var(--macadamia); font-size:12.5px; font-weight:600; padding:8px 14px; border-radius:20px; text-decoration:none;
-    }
-    .call-btn svg { width:14px; height:14px; }
-
-    .empty-state {
-        text-align:center; padding:70px 20px; color:var(--light-grayish);
-    }
-    .empty-state svg { width:44px; height:44px; margin-bottom:14px; opacity:0.5; }
-    .empty-state h2 { font-size:16px; color:var(--macadamia); margin-bottom:6px; }
-    .empty-state p { font-size:13px; }
-
-    .status-strip { font-size:11px; color:var(--light-grayish); margin-bottom:16px; display:flex; align-items:center; gap:6px; }
-    .status-strip .dot { width:8px; height:8px; border-radius:50%; background:#3f7a5c; }
-</style>
 </head>
 <body>
 

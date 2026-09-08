@@ -68,84 +68,8 @@ function fmtDuration($seconds) {
 <meta charset="UTF-8">
 <title>Responder Dashboard — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/sidebar.css">
-<style>
-    :root {
-        --burnt-umber:#6d120b; --redwood:#b02029; --macadamia:#fbf0d8;
-        --cool-blue:#113047; --light-grayish:#739ab9;
-        --critical:#b02029; --high:#d9752b; --moderate:#d4ab2b; --low:#3f7a5c;
-    }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:#0c2334; display:flex; min-height:100vh; }
-    .main { flex:1; padding:26px 32px 50px; color:var(--macadamia); max-width:900px; }
-    .page-head { margin-bottom:20px; }
-    .page-head h1 { font-size:21px; margin-bottom:4px; }
-    .page-head p { color:var(--light-grayish); font-size:13px; }
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 
-    /* Status banner */
-    .status-banner {
-        display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
-        border-radius:12px; padding:16px 20px; margin-bottom:20px; border:1px solid;
-    }
-    .status-banner.available { background:rgba(63,122,92,0.1); border-color:#3f7a5c; }
-    .status-banner.assigned  { background:rgba(217,117,43,0.1); border-color:var(--high); }
-    .status-banner.en-route  { background:rgba(217,117,43,0.14); border-color:var(--high); }
-    .status-banner.on-site   { background:rgba(176,32,41,0.1); border-color:var(--redwood); }
-
-    .status-banner .left { display:flex; align-items:center; gap:12px; }
-    .status-banner .icon-wrap {
-        width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
-        background:rgba(251,240,216,0.08);
-    }
-    .status-banner .icon-wrap svg { width:20px; height:20px; }
-    .status-banner .title { font-size:14.5px; font-weight:700; }
-    .status-banner .sub { font-size:12px; color:var(--light-grayish); }
-
-    .btn-inline {
-        background:var(--burnt-umber); color:var(--macadamia); border:0; padding:10px 20px; border-radius:50px;
-        font-weight:700; font-size:12.5px; cursor:pointer; text-decoration:none; display:inline-block; white-space:nowrap;
-    }
-    .btn-inline:hover { background:var(--redwood); }
-
-    .delay-note { font-size:11.5px; color:var(--high); margin-top:6px; font-weight:600; }
-
-    /* Stat cards */
-    .stats-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; margin-bottom:20px; }
-    .stat-card { background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:10px; padding:16px 18px; }
-    .stat-value { font-size:24px; font-weight:700; }
-    .stat-label { font-size:11.5px; color:var(--light-grayish); margin-top:2px; }
-
-    /* Quick links */
-    .quick-links { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-bottom:20px; }
-    .quick-link {
-        display:flex; align-items:center; gap:12px; background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18);
-        border-radius:10px; padding:14px 16px; text-decoration:none; color:var(--macadamia); transition:border-color 0.15s;
-    }
-    .quick-link:hover { border-color:var(--light-grayish); }
-    .quick-link .qi { width:34px; height:34px; border-radius:8px; background:rgba(115,154,185,0.15); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-    .quick-link .qi svg { width:16px; height:16px; color:var(--macadamia); }
-    .quick-link .qt { font-size:13px; font-weight:700; }
-    .quick-link .qs { font-size:11px; color:var(--light-grayish); }
-
-    /* Recent activity */
-    .card { background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:10px; padding:18px 20px; }
-    .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-    .card-header h2 { font-size:14px; font-weight:700; }
-    .card-header a { font-size:11.5px; color:var(--light-grayish); text-decoration:none; }
-
-    .hist-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid rgba(115,154,185,0.1); }
-    .hist-row:last-child { border-bottom:none; }
-    .hist-title { font-size:12.5px; font-weight:600; }
-    .hist-sub { font-size:10.5px; color:var(--light-grayish); }
-    .sev-badge { font-size:9px; font-weight:700; text-transform:uppercase; padding:2px 8px; border-radius:20px; }
-    .sev-Critical { background:rgba(176,32,41,0.2); color:var(--critical); }
-    .sev-High { background:rgba(217,117,43,0.2); color:var(--high); }
-    .sev-Moderate { background:rgba(212,171,43,0.2); color:var(--moderate); }
-    .sev-Low { background:rgba(63,122,92,0.2); color:var(--low); }
-
-    .empty-mini { text-align:center; padding:20px; color:var(--light-grayish); font-size:12px; }
-    .empty-state { text-align:center; padding:60px 20px; color:var(--light-grayish); }
-</style>
 </head>
 <body>
 
