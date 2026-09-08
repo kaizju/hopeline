@@ -396,6 +396,51 @@ tbody tr:hover { background: rgba(var(--surface-rgb), 0.03); }
 
 .leaflet-routing-container { display: none !important; }
 
+/* ---------- CLIP Report: PTV ETA panel ---------- */
+.eta-panel {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(var(--border-rgb), 0.25);
+    background: rgba(var(--surface-rgb), 0.06);
+}
+.eta-panel.eta-pending { opacity: 0.65; }
+
+.eta-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: rgba(217,117,43,0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.eta-icon svg { width: 18px; height: 18px; color: var(--high); }
+
+.eta-main { flex: 1; min-width: 160px; }
+.eta-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--light-grayish);
+    margin-bottom: 2px;
+}
+.eta-value { font-size: 14px; font-weight: 700; color: var(--macadamia); }
+.eta-value span { font-size: 11px; font-weight: 400; color: var(--light-grayish); margin-left: 4px; }
+
+.eta-breakdown {
+    flex-basis: 100%;
+    font-size: 11px;
+    color: var(--light-grayish);
+    margin-top: 2px;
+}
+
+#sumEta.eta-highlight { color: var(--high); font-weight: 700; }
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .field-row, .incident-grid, .resource-grid { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- Delay Alerts (Manager) + Delay Reports (Admin) ---------- */
