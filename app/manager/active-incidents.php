@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
+requireRole('manager');
+
 $flash = '';
 
 // ---- Handle dispatch / resolve actions ----
@@ -13,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $pdo->beginTransaction();
             $stmt = $pdo->prepare("INSERT INTO dispatch (clip_report_id, unit_id, dispatched_by, status) VALUES (?, ?, ?, 'assigned')");
-            $stmt->execute([$clipId, $unitId, $_SESSION['user_id']]);
+            $stmt->execute([$clipId, $unitId, currentUserId()]);
             $pdo->prepare("UPDATE clip_reports SET status='dispatched' WHERE id=?")->execute([$clipId]);
             $pdo->prepare("UPDATE ptv_units SET status='En Route' WHERE id=?")->execute([$unitId]);
             $pdo->commit();

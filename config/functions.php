@@ -13,6 +13,14 @@ function hasRole($role) {
     return isset($_SESSION['role']) && $_SESSION['role'] === $role;
 }
 
+function currentUserId() {
+    return $_SESSION['user_id'] ?? null;
+}
+
+function currentUserEmail() {
+    return $_SESSION['email'] ?? null;
+}
+
 function requireLogin() {
     if (!isLoggedIn()) {
         redirect('/index.php');
