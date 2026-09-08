@@ -29,7 +29,7 @@ try {
     <title>Live Unit Map — HopeLine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/manager.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 </head>
 <body>
 

@@ -53,36 +53,8 @@ $unreadAlerts = 0;
 <meta charset="UTF-8">
 <title>System Settings — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/sidebar.css">
-<style>
-    :root { --burnt-umber:#6d120b; --redwood:#b02029; --macadamia:#fbf0d8; --cool-blue:#113047; --light-grayish:#739ab9; }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:#0c2334; display:flex; min-height:100vh; }
-    .main { flex:1; padding:26px 32px 50px; color:var(--macadamia); max-width:720px; }
-    .page-head { margin-bottom:20px; }
-    .page-head h1 { font-size:21px; margin-bottom:4px; }
-    .page-head p { color:var(--light-grayish); font-size:13px; }
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 
-    .flash { background:rgba(63,122,92,0.18); border:1px solid #3f7a5c; color:#b7ecd1; padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:16px; }
-
-    .card { background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:10px; padding:20px 22px; margin-bottom:16px; }
-    .card h2 { font-size:14px; font-weight:700; margin-bottom:4px; }
-    .card .desc { font-size:11.5px; color:var(--light-grayish); margin-bottom:14px; }
-
-    label { display:block; font-size:12px; font-weight:600; margin-bottom:6px; }
-    input, textarea {
-        width:100%; background:rgba(251,240,216,0.06); border:1px solid rgba(115,154,185,0.28);
-        border-radius:6px; padding:9px 11px; color:var(--macadamia); font-size:13px; outline:none; font-family:inherit;
-    }
-    input:focus, textarea:focus { border-color:var(--redwood); }
-    textarea { min-height:180px; resize:vertical; font-family:monospace; font-size:12px; line-height:1.6; }
-
-    .input-with-suffix { position:relative; }
-    .input-with-suffix .suffix { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:12px; color:var(--light-grayish); }
-
-    .btn-save { background:var(--burnt-umber); color:var(--macadamia); border:0; padding:12px 26px; border-radius:50px; font-weight:700; font-size:13.5px; cursor:pointer; margin-top:6px; }
-    .btn-save:hover { background:var(--redwood); }
-</style>
 </head>
 <body>
 

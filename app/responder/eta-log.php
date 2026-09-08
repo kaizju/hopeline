@@ -65,71 +65,8 @@ $unreadAlerts = 0;
 <meta charset="UTF-8">
 <title>Depart / Arrive Log — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/sidebar.css">
-<style>
-    :root {
-        --burnt-umber:#6d120b; --redwood:#b02029; --macadamia:#fbf0d8;
-        --cool-blue:#113047; --light-grayish:#739ab9;
-        --critical:#b02029; --high:#d9752b; --moderate:#d4ab2b; --low:#3f7a5c;
-    }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:#0c2334; display:flex; min-height:100vh; }
-    .main { flex:1; padding:26px 32px 50px; color:var(--macadamia); max-width:720px; }
-    .page-head { margin-bottom:22px; }
-    .page-head h1 { font-size:21px; margin-bottom:4px; }
-    .page-head p { color:var(--light-grayish); font-size:13px; }
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 
-    .flash { background:rgba(63,122,92,0.18); border:1px solid #3f7a5c; color:#b7ecd1; padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:16px; }
-
-    .incident-strip {
-        background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:10px;
-        padding:14px 18px; margin-bottom:22px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;
-    }
-    .incident-strip .title { font-size:14px; font-weight:700; }
-    .incident-strip .sub { font-size:11px; color:var(--light-grayish); font-family:monospace; }
-    .sev-badge { font-size:10px; font-weight:700; text-transform:uppercase; padding:3px 10px; border-radius:20px; }
-    .sev-Critical { background:rgba(176,32,41,0.2); color:var(--critical); }
-    .sev-High { background:rgba(217,117,43,0.2); color:var(--high); }
-    .sev-Moderate { background:rgba(212,171,43,0.2); color:var(--moderate); }
-    .sev-Low { background:rgba(63,122,92,0.2); color:var(--low); }
-
-    /* Timeline */
-    .timeline { display:flex; align-items:flex-start; margin-bottom:30px; }
-    .tl-step { flex:1; text-align:center; position:relative; }
-    .tl-circle {
-        width:44px; height:44px; border-radius:50%; margin:0 auto 10px;
-        display:flex; align-items:center; justify-content:center;
-        background:rgba(115,154,185,0.12); border:2px solid rgba(115,154,185,0.3); color:var(--light-grayish);
-    }
-    .tl-step.done .tl-circle { background:var(--burnt-umber); border-color:var(--burnt-umber); color:var(--macadamia); }
-    .tl-step.current .tl-circle { border-color:var(--redwood); color:var(--macadamia); animation:tlpulse 1.6s infinite; }
-    @keyframes tlpulse { 0%{box-shadow:0 0 0 0 rgba(176,32,41,0.4);} 70%{box-shadow:0 0 0 8px rgba(176,32,41,0);} 100%{box-shadow:0 0 0 0 rgba(176,32,41,0);} }
-    .tl-circle svg { width:18px; height:18px; }
-    .tl-label { font-size:12px; font-weight:700; color:var(--macadamia); }
-    .tl-time { font-size:10.5px; color:var(--light-grayish); margin-top:2px; }
-    .tl-line { position:absolute; top:22px; left:calc(-50% + 22px); width:calc(100% - 44px); height:2px; background:rgba(115,154,185,0.25); z-index:-1; }
-    .tl-step.done .tl-line, .tl-step.current .tl-line { background:var(--burnt-umber); }
-    .tl-step:first-child .tl-line { display:none; }
-
-    .action-card { background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:12px; padding:26px; text-align:center; }
-    .elapsed-timer { font-size:36px; font-weight:700; font-family:monospace; margin-bottom:6px; }
-    .elapsed-label { font-size:11.5px; color:var(--light-grayish); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:20px; }
-
-    .btn-action {
-        display:inline-flex; align-items:center; gap:10px; border:0; padding:16px 36px; border-radius:50px;
-        background:var(--burnt-umber); color:var(--macadamia); font-weight:700; font-size:15px; cursor:pointer;
-        transition:background 0.15s;
-    }
-    .btn-action:hover { background:var(--redwood); }
-    .btn-action svg { width:18px; height:18px; }
-
-    .btn-secondary {
-        display:inline-block; margin-top:14px; font-size:12px; color:var(--light-grayish); text-decoration:none;
-    }
-
-    .done-msg { font-size:14px; color:var(--macadamia); }
-    .empty-state { text-align:center; padding:60px 20px; color:var(--light-grayish); }
-</style>
 </head>
 <body>
 

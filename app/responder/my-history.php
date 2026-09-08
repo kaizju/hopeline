@@ -52,46 +52,8 @@ function fmtDuration($seconds) {
 <meta charset="UTF-8">
 <title>My Dispatch History — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/sidebar.css">
-<style>
-    :root {
-        --burnt-umber:#6d120b; --redwood:#b02029; --macadamia:#fbf0d8;
-        --cool-blue:#113047; --light-grayish:#739ab9;
-        --critical:#b02029; --high:#d9752b; --moderate:#d4ab2b; --low:#3f7a5c;
-    }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:#0c2334; display:flex; min-height:100vh; }
-    .main { flex:1; padding:26px 32px 50px; color:var(--macadamia); max-width:1000px; }
-    .page-head { margin-bottom:20px; }
-    .page-head h1 { font-size:21px; margin-bottom:4px; }
-    .page-head p { color:var(--light-grayish); font-size:13px; }
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 
-    .history-card {
-        background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:10px;
-        padding:15px 18px; margin-bottom:10px;
-    }
-    .hc-top { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
-    .hc-title { font-size:13.5px; font-weight:700; }
-    .hc-ref { font-size:10.5px; color:var(--light-grayish); font-family:monospace; }
-    .sev-badge { font-size:9.5px; font-weight:700; text-transform:uppercase; padding:2px 9px; border-radius:20px; }
-    .sev-Critical { background:rgba(176,32,41,0.2); color:var(--critical); }
-    .sev-High { background:rgba(217,117,43,0.2); color:var(--high); }
-    .sev-Moderate { background:rgba(212,171,43,0.2); color:var(--moderate); }
-    .sev-Low { background:rgba(63,122,92,0.2); color:var(--low); }
-
-    .hc-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; }
-    .hc-block .label { font-size:9.5px; text-transform:uppercase; color:var(--light-grayish); margin-bottom:3px; }
-    .hc-block .value { font-size:12px; font-weight:600; color:var(--macadamia); }
-    .hc-block .value.delay { color:var(--high); }
-
-    .pagination { display:flex; justify-content:center; gap:6px; margin-top:18px; }
-    .pagination a { padding:7px 12px; border-radius:6px; font-size:12px; color:var(--light-grayish); text-decoration:none; border:1px solid rgba(115,154,185,0.2); }
-    .pagination a.active { background:var(--burnt-umber); color:var(--macadamia); border-color:var(--burnt-umber); }
-
-    .empty-state { text-align:center; padding:60px 20px; color:var(--light-grayish); }
-
-    @media (max-width: 700px) { .hc-grid { grid-template-columns:repeat(2, 1fr); } }
-</style>
 </head>
 <body>
 

@@ -66,61 +66,8 @@ $unreadAlerts = 0;
 <meta charset="UTF-8">
 <title>Report Delay — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/sidebar.css">
-<style>
-    :root {
-        --burnt-umber:#6d120b; --redwood:#b02029; --macadamia:#fbf0d8;
-        --cool-blue:#113047; --light-grayish:#739ab9; --high:#d9752b;
-    }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif; background:#0c2334; display:flex; min-height:100vh; }
-    .main { flex:1; padding:26px 32px 50px; color:var(--macadamia); max-width:640px; }
-    .page-head { margin-bottom:20px; }
-    .page-head h1 { font-size:21px; margin-bottom:4px; }
-    .page-head p { color:var(--light-grayish); font-size:13px; }
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 
-    .flash { background:rgba(63,122,92,0.18); border:1px solid #3f7a5c; color:#b7ecd1; padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:16px; }
-
-    .incident-strip {
-        background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:10px;
-        padding:14px 18px; margin-bottom:20px;
-    }
-    .incident-strip .title { font-size:14px; font-weight:700; }
-    .incident-strip .sub { font-size:11px; color:var(--light-grayish); font-family:monospace; }
-
-    .card { background:rgba(251,240,216,0.04); border:1px solid rgba(115,154,185,0.18); border-radius:12px; padding:22px 24px; }
-
-    /* Active delay banner */
-    .active-delay-card {
-        background:rgba(217,117,43,0.1); border:1px solid var(--high); border-radius:12px; padding:20px 22px; text-align:center;
-    }
-    .active-delay-card .icon { width:36px; height:36px; margin:0 auto 10px; color:var(--high); }
-    .active-delay-card h2 { font-size:15px; margin-bottom:4px; }
-    .active-delay-card .reason { font-size:13px; color:var(--macadamia); margin-bottom:2px; }
-    .active-delay-card .duration { font-size:11.5px; color:var(--light-grayish); margin-bottom:16px; }
-
-    .btn-resolve {
-        background:rgba(63,122,92,0.2); color:#7fd6a5; border:1px solid #3f7a5c; border-radius:20px;
-        padding:10px 22px; font-size:13px; font-weight:700; cursor:pointer;
-    }
-    .btn-resolve:hover { background:rgba(63,122,92,0.35); }
-
-    label { display:block; font-size:12px; font-weight:600; margin-bottom:6px; }
-    select, textarea {
-        width:100%; background:rgba(251,240,216,0.06); border:1px solid rgba(115,154,185,0.28);
-        border-radius:6px; padding:9px 11px; color:var(--macadamia); font-size:13px; outline:none; font-family:inherit; margin-bottom:16px;
-    }
-    select:focus, textarea:focus { border-color:var(--redwood); }
-    textarea { resize:vertical; min-height:70px; }
-
-    .btn-submit {
-        width:100%; background:var(--burnt-umber); color:var(--macadamia); border:0; padding:13px; border-radius:10px;
-        font-weight:700; font-size:14px; cursor:pointer;
-    }
-    .btn-submit:hover { background:var(--redwood); }
-
-    .empty-state { text-align:center; padding:60px 20px; color:var(--light-grayish); }
-</style>
 </head>
 <body>
 

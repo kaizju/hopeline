@@ -36,7 +36,7 @@ $unreadAlerts = $delayedCount;
     <meta charset="UTF-8">
     <title>Manager Dashboard — HopeLine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/manager.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 </head>
 <body>
 
