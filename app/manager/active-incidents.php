@@ -37,8 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare("UPDATE dispatch SET status='resolved', resolved_at=NOW() WHERE id=?")->execute([$dispatchId]);
             }
             if ($unitId) {
-                $pdo->prepare("UPDATE ptv_units SET status='Available' WHERE id=?")->execute([$unitId]);
-            }
+    $pdo->prepare("UPDATE ptv_units SET status='Available', current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id=?")->execute([$unitId]);
+}
             $pdo->commit();
             $flash = 'Incident marked as resolved.';
         }
