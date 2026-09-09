@@ -3,7 +3,7 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-
+requireRole('admin');
 
 $actionFilter = $_GET['action_type'] ?? '';
 $statusFilter = $_GET['status'] ?? '';

@@ -3,7 +3,8 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-// Get this responder's assigned PTV unit
+requireRole('user');
+
 $unitStmt = $pdo->prepare("SELECT * FROM ptv_units WHERE responder_id = ? LIMIT 1");
 
 $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
