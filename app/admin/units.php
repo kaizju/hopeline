@@ -16,12 +16,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $responderId = $_POST['responder_id'] !== '' ? (int)$_POST['responder_id'] : null;
 
             if ($unitName === '') {
-    $flash = 'Unit name is required.';
-} else {
-    $stmt = $pdo->prepare("INSERT INTO ptv_units (unit_name, plate_no, responder_id, status, current_lat, current_lng) VALUES (?, ?, ?, 'Available', ?, ?)");
-    $stmt->execute([$unitName, $plateNo, $responderId, 8.371714652741774, 124.85717564826615]);
-    $flash = "Unit \"$unitName\" added.";
-}
+                $flash = 'Unit name is required.';
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO ptv_units (unit_name, plate_no, responder_id, status, current_lat, current_lng) VALUES (?, ?, ?, 'Available', ?, ?)");
+                $stmt->execute([$unitName, $plateNo, $responderId, 8.371714652741774, 124.85717564826615]);
+                $flash = "Unit \"$unitName\" added.";
+            }
         }
 
         if ($action === 'assign_responder') {
@@ -37,20 +37,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare("UPDATE ptv_units SET status = ? WHERE id = ?")->execute([$status, $unitId]);
             $flash = 'Unit status updated.';
         }
+
+        // ---- Archive (replaces Delete) ----
+        if ($action === 'archive_unit') {
+            $unitId = (int)($_POST['unit_id'] ?? 0);
+            // Block archiving a unit that's currently on an active dispatch
+            $active = $pdo->prepare("SELECT COUNT(*) FROM dispatch WHERE unit_id = ? AND status IN ('assigned','en_route','on_site')");
+            $active->execute([$unitId]);
+            if ($active->fetchColumn() > 0) {
+                $flash = "Can't archive — this unit has an active dispatch. Resolve or reassign it first.";
+            } else {
+                // Unassign the responder and mark Offline so it can't be dispatched while archived
+                $pdo->prepare("UPDATE ptv_units SET archived_at = NOW(), responder_id = NULL, status = 'Offline' WHERE id = ?")->execute([$unitId]);
+                if (function_exists('logActivity')) {
+                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'unit_archived', 'success');
+                }
+                $flash = 'Unit archived.';
+            }
+        }
+
+        if ($action === 'restore_unit') {
+            $unitId = (int)($_POST['unit_id'] ?? 0);
+            $pdo->prepare("UPDATE ptv_units SET archived_at = NULL WHERE id = ?")->execute([$unitId]);
+            if (function_exists('logActivity')) {
+                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'unit_restored', 'success');
+            }
+            $flash = 'Unit restored. Its status is set to Available — reassign a responder as needed.';
+        }
     } catch (PDOException $e) {
         $flash = 'Action failed: ' . $e->getMessage();
     }
 }
 
+$view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
+$where = $view === 'archived' ? "WHERE u.archived_at IS NOT NULL" : "WHERE u.archived_at IS NULL";
+
 $units = $pdo->query("
     SELECT u.*, usr.name AS responder_name, usr.email AS responder_email
     FROM ptv_units u
     LEFT JOIN users usr ON usr.id = u.responder_id
+    $where
     ORDER BY u.unit_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// Responders not yet assigned to a unit (+ include currently assigned ones per-row via PHP)
-$allResponders = $pdo->query("SELECT id, name, email FROM users WHERE role = 'user' AND is_verified = 1 ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$archivedCount = $pdo->query("SELECT COUNT(*) FROM ptv_units WHERE archived_at IS NOT NULL")->fetchColumn();
+
+// Responders not yet assigned to a unit (only relevant for the active view)
+$allResponders = $pdo->query("SELECT id, name, email FROM users WHERE role = 'user' AND is_verified = 1 AND archived_at IS NULL ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 $assignedIds = array_filter(array_column($units, 'responder_id'));
 
 $unreadAlerts = 0;
@@ -62,7 +95,6 @@ $unreadAlerts = 0;
 <title>PTV / Unit Management — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
-
 </head>
 <body>
 
@@ -70,12 +102,22 @@ $unreadAlerts = 0;
 
 <main class="main">
     <div class="page-head">
-        <div><h1>PTV / Unit Management</h1><p><?php echo count($units); ?> unit(s) registered</p></div>
+        <div><h1>PTV / Unit Management</h1><p><?php echo count($units); ?> unit(s)</p></div>
+        <?php if ($view === 'active'): ?>
         <button class="btn-primary" onclick="document.getElementById('addUnitModal').classList.add('show')">+ Add Unit</button>
+        <?php endif; ?>
     </div>
 
     <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
 
+    <div class="tabs">
+        <a href="?view=active" class="tab <?php echo $view === 'active' ? 'active' : ''; ?>" style="text-decoration:none;">Active</a>
+        <a href="?view=archived" class="tab <?php echo $view === 'archived' ? 'active' : ''; ?>" style="text-decoration:none;">Archived (<?php echo $archivedCount; ?>)</a>
+    </div>
+
+    <?php if (empty($units)): ?>
+        <div class="empty-state"><?php echo $view === 'archived' ? 'No archived units.' : 'No units registered yet.'; ?></div>
+    <?php else: ?>
     <div class="unit-grid">
         <?php foreach ($units as $u): $statusClass = 'st-' . str_replace(' ', '', $u['status']); ?>
         <div class="ptv-unit-card">
@@ -84,6 +126,7 @@ $unreadAlerts = 0;
                     <div class="ptv-unit-name"><?php echo htmlspecialchars($u['unit_name']); ?></div>
                     <div class="unit-plate"><?php echo htmlspecialchars($u['plate_no'] ?: 'No plate on file'); ?></div>
                 </div>
+                <?php if ($view === 'active'): ?>
                 <form method="POST">
                     <input type="hidden" name="action" value="set_status">
                     <input type="hidden" name="unit_id" value="<?php echo $u['id']; ?>">
@@ -95,8 +138,12 @@ $unreadAlerts = 0;
                         <option value="Offline" <?php echo $u['status']==='Offline'?'selected':''; ?>>Offline / Maintenance</option>
                     </select>
                 </form>
+                <?php else: ?>
+                    <span class="status-select st-Offline">Archived</span>
+                <?php endif; ?>
             </div>
 
+            <?php if ($view === 'active'): ?>
             <div class="unit-field">
                 <div class="label">Assigned Responder</div>
                 <form method="POST">
@@ -105,7 +152,6 @@ $unreadAlerts = 0;
                     <select name="responder_id" onchange="this.form.submit()">
                         <option value="">— Unassigned —</option>
                         <?php foreach ($allResponders as $r):
-                            // show if unassigned OR currently assigned to this unit
                             if (in_array($r['id'], $assignedIds) && $r['id'] != $u['responder_id']) continue;
                         ?>
                             <option value="<?php echo $r['id']; ?>" <?php echo $u['responder_id'] == $r['id'] ? 'selected' : ''; ?>>
@@ -121,9 +167,28 @@ $unreadAlerts = 0;
             <?php else: ?>
                 <div class="no-responder">No responder linked yet</div>
             <?php endif; ?>
+
+            <div style="margin-top:14px; padding-top:12px; border-top:1px dashed rgba(var(--border-rgb),0.2);">
+                <form method="POST" onsubmit="return confirm('Archive this unit? It will be unassigned and hidden from active dispatch.');">
+                    <input type="hidden" name="action" value="archive_unit">
+                    <input type="hidden" name="unit_id" value="<?php echo $u['id']; ?>">
+                    <button type="submit" class="btn-mini btn-deactivate" style="width:100%;">Archive Unit</button>
+                </form>
+            </div>
+            <?php else: ?>
+            <div class="no-responder">Archived <?php echo date('M j, Y', strtotime($u['archived_at'])); ?></div>
+            <div style="margin-top:14px; padding-top:12px; border-top:1px dashed rgba(var(--border-rgb),0.2);">
+                <form method="POST">
+                    <input type="hidden" name="action" value="restore_unit">
+                    <input type="hidden" name="unit_id" value="<?php echo $u['id']; ?>">
+                    <button type="submit" class="btn-mini btn-activate" style="width:100%;">Restore Unit</button>
+                </form>
+            </div>
+            <?php endif; ?>
         </div>
         <?php endforeach; ?>
     </div>
+    <?php endif; ?>
 </main>
 
 <div class="modal-overlay" id="addUnitModal">
