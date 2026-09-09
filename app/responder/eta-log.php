@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../config/functions.php';
 requireRole('user');
 
 $unitStmt = $pdo->prepare("SELECT * FROM ptv_units WHERE responder_id = ? LIMIT 1");
+$unitStmt->execute([$_SESSION['user_id']]);
 $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
 
 $flash = '';
@@ -42,7 +43,7 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
 // Re-fetch current dispatch + unit after any action
 $dispatch = null;
 if ($unit) {
-    $unitStmt->execute([$_SESSION['user_id']]);
+    $unitStmt->execute([$_SESSION['user_id']]);   // this second call was already correct
     $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
 
     $dStmt = $pdo->prepare("
