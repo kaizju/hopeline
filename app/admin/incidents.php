@@ -43,6 +43,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $flash = 'Incident restored.';
     }
+
+    // ---- Case closeout details (feeds the CSV report export) ----
+    if ($action === 'save_closeout') {
+        $dispatchId   = (int)($_POST['dispatch_id'] ?? 0);
+        $patientName  = trim($_POST['patient_name'] ?? '');
+        $ageGroup     = $_POST['patient_age_group'] ?: null;
+        $sex          = $_POST['patient_sex'] ?: null;
+        $victimCount  = $_POST['victim_count'] !== '' ? (int)$_POST['victim_count'] : null;
+        $vitalSigns   = $_POST['vital_signs'] ?: null;
+        $alcohol      = $_POST['alcohol_breath'] ?: null;
+        $remarks      = trim($_POST['closeout_remarks'] ?? '');
+
+        $pdo->prepare("UPDATE dispatch SET
+                patient_name = ?, patient_age_group = ?, patient_sex = ?, victim_count = ?,
+                vital_signs = ?, alcohol_breath = ?, closeout_remarks = ?
+            WHERE id = ?")
+            ->execute([$patientName, $ageGroup, $sex, $victimCount, $vitalSigns, $alcohol, $remarks, $dispatchId]);
+
+        if (function_exists('logActivity')) {
+            logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'incident_closeout_saved', 'success');
+        }
+        $flash = 'Case details saved.';
+    }
 }
 
 $view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
@@ -66,7 +89,8 @@ $totalStmt->execute($params);
 $totalRows = $totalStmt->fetchColumn();
 
 $stmt = $pdo->prepare("
-    SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.departed_at, d.arrived_at, u.unit_name
+    SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.departed_at, d.arrived_at, u.unit_name,
+           d.patient_name, d.patient_age_group, d.patient_sex, d.victim_count, d.vital_signs, d.alcohol_breath, d.closeout_remarks
     FROM clip_reports c
     LEFT JOIN dispatch d ON d.clip_report_id = c.id
     LEFT JOIN ptv_units u ON u.id = d.unit_id
@@ -95,9 +119,12 @@ $unreadAlerts = 0;
 <?php require_once __DIR__ . '/../../assets/layouts/admin/admin_sidebar.php'; ?>
 
 <main class="main main-1320">
-    <div class="page-head">
-        <h1>Incident Records</h1>
-        <p>Full log of every CLIP report system-wide — <?php echo $totalRows; ?> <?php echo $view; ?>.</p>
+    <div class="page-head page-head--flex">
+        <div>
+            <h1>Incident Records</h1>
+            <p>Full log of every CLIP report system-wide — <?php echo $totalRows; ?> <?php echo $view; ?>.</p>
+        </div>
+        <a href="<?php echo BASE_URL; ?>/app/admin/reports.php" class="btn-primary">Export Case Report →</a>
     </div>
 
     <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
@@ -140,7 +167,7 @@ $unreadAlerts = 0;
     <table>
         <thead><tr>
             <th>CLIP Ref</th><th>Caller</th><th>Barangay</th><th>Incident</th><th>Severity</th>
-            <th>Unit</th><th>Reported</th><th>Status</th><th>Actions</th>
+            <th>Unit</th><th>Reported</th><th>Status</th><th>Case Details</th><th>Actions</th>
         </tr></thead>
         <tbody>
             <?php foreach ($incidents as $inc): ?>
@@ -153,6 +180,14 @@ $unreadAlerts = 0;
                 <td><?php echo htmlspecialchars($inc['unit_name'] ?? '—'); ?></td>
                 <td><?php echo date('M j, g:i A', strtotime($inc['created_at'])); ?></td>
                 <td><span class="status-badge status-<?php echo $inc['status']; ?>"><?php echo ucfirst($inc['status']); ?></span></td>
+                <td>
+                    <?php if ($inc['dispatch_id'] && $inc['status'] === 'resolved'): ?>
+                        <button type="button" class="btn-mini <?php echo $inc['patient_name'] ? 'btn-activate' : 'btn-deactivate'; ?>"
+                                onclick="document.getElementById('closeout-<?php echo $inc['dispatch_id']; ?>').classList.add('show')">
+                            <?php echo $inc['patient_name'] ? 'Edit' : 'Add Details'; ?>
+                        </button>
+                    <?php else: echo '—'; endif; ?>
+                </td>
                 <td class="row-actions">
                     <?php if ($view === 'active'): ?>
                         <?php if (!in_array($inc['status'], ['resolved','cancelled'])): ?>
@@ -177,6 +212,74 @@ $unreadAlerts = 0;
                     <?php endif; ?>
                 </td>
             </tr>
+
+            <?php if ($inc['dispatch_id'] && $inc['status'] === 'resolved'): ?>
+            <div class="modal-overlay" id="closeout-<?php echo $inc['dispatch_id']; ?>">
+                <div class="modal">
+                    <h3>Case Details — <?php echo htmlspecialchars($inc['clip_ref']); ?></h3>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="save_closeout">
+                        <input type="hidden" name="dispatch_id" value="<?php echo $inc['dispatch_id']; ?>">
+
+                        <div class="field">
+                            <label>Name of Patient</label>
+                            <input type="text" name="patient_name" value="<?php echo htmlspecialchars($inc['patient_name'] ?? ''); ?>" placeholder="Defaults to caller name if left blank">
+                        </div>
+                        <div class="field-row">
+                            <div class="field">
+                                <label>Age Group</label>
+                                <select name="patient_age_group">
+                                    <option value="">— Select —</option>
+                                    <option value="Minor" <?php echo $inc['patient_age_group']==='Minor'?'selected':''; ?>>Minor (18 below)</option>
+                                    <option value="Matured" <?php echo $inc['patient_age_group']==='Matured'?'selected':''; ?>>Matured (19 above)</option>
+                                    <option value="Senior" <?php echo $inc['patient_age_group']==='Senior'?'selected':''; ?>>Senior</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>Sex</label>
+                                <select name="patient_sex">
+                                    <option value="">— Select —</option>
+                                    <option value="Male" <?php echo $inc['patient_sex']==='Male'?'selected':''; ?>>Male</option>
+                                    <option value="Female" <?php echo $inc['patient_sex']==='Female'?'selected':''; ?>>Female</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field">
+                                <label># of Victims</label>
+                                <input type="number" name="victim_count" min="0" value="<?php echo htmlspecialchars($inc['victim_count'] ?? ''); ?>">
+                            </div>
+                            <div class="field">
+                                <label>Vital Signs</label>
+                                <select name="vital_signs">
+                                    <option value="">— Select —</option>
+                                    <option value="Negative" <?php echo $inc['vital_signs']==='Negative'?'selected':''; ?>>Negative</option>
+                                    <option value="Positive" <?php echo $inc['vital_signs']==='Positive'?'selected':''; ?>>Positive</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Alcohol Breath Test</label>
+                            <select name="alcohol_breath">
+                                <option value="">— Select —</option>
+                                <option value="Positive" <?php echo $inc['alcohol_breath']==='Positive'?'selected':''; ?>>Positive</option>
+                                <option value="Negative" <?php echo $inc['alcohol_breath']==='Negative'?'selected':''; ?>>Negative</option>
+                                <option value="Not Tested" <?php echo $inc['alcohol_breath']==='Not Tested'?'selected':''; ?>>Not Tested</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Remarks</label>
+                            <textarea name="closeout_remarks" rows="2"><?php echo htmlspecialchars($inc['closeout_remarks'] ?? ''); ?></textarea>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn-cancel" onclick="document.getElementById('closeout-<?php echo $inc['dispatch_id']; ?>').classList.remove('show')">Cancel</button>
+                            <button type="submit" class="btn-primary">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <?php endif; ?>
             <?php endforeach; ?>
         </tbody>
     </table>
