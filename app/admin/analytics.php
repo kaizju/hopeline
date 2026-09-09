@@ -49,11 +49,40 @@ $etaAccuracy = $pdo->query("
     WHERE d.predicted_eta_minutes IS NOT NULL AND d.departed_at IS NOT NULL AND d.arrived_at IS NOT NULL
 ")->fetch(PDO::FETCH_ASSOC);
 
+// ---- Vehicle Utilization: how much each PTV unit is actually being used ----
+$vehicleUsage = $pdo->query("
+    SELECT
+        u.id,
+        u.unit_name,
+        u.plate_no,
+        u.status,
+        COUNT(d.id) AS total_dispatches,
+        SUM(CASE WHEN d.departed_at IS NOT NULL AND d.arrived_at IS NOT NULL
+                 THEN TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) ELSE 0 END) AS total_travel_seconds,
+        AVG(CASE WHEN d.departed_at IS NOT NULL AND d.arrived_at IS NOT NULL
+                 THEN TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) ELSE NULL END) AS avg_travel_seconds,
+        (SELECT COUNT(*) FROM delay_logs dl WHERE dl.unit_id = u.id) AS delay_count
+    FROM ptv_units u
+    LEFT JOIN dispatch d ON d.unit_id = u.id
+    GROUP BY u.id
+    ORDER BY total_dispatches DESC
+")->fetchAll(PDO::FETCH_ASSOC);
+
+$maxDispatchCount = max(array_column($vehicleUsage, 'total_dispatches') ?: [1]);
+$totalFleetDispatches = array_sum(array_column($vehicleUsage, 'total_dispatches'));
+
 $unreadAlerts = 0;
 
 function fmtMin($seconds) {
     if (!$seconds) return '—';
     return round($seconds / 60, 1) . ' min';
+}
+
+function fmtHours($seconds) {
+    if (!$seconds) return '0h 0m';
+    $h = floor($seconds / 3600);
+    $m = floor(($seconds % 3600) / 60);
+    return $h . 'h ' . $m . 'm';
 }
 ?>
 <!DOCTYPE html>
@@ -149,6 +178,56 @@ function fmtMin($seconds) {
                 <?php endforeach; endif; ?>
             </div>
         </div>
+    </div>
+
+    <!-- ================= Vehicle Utilization ================= -->
+    <div class="card">
+        <div class="card-header">
+            <h2>Vehicle Utilization</h2>
+            <a href="<?php echo BASE_URL; ?>/app/admin/units.php">Manage units →</a>
+        </div>
+
+        <?php if (empty($vehicleUsage)): ?>
+            <div class="empty-mini">No PTV units registered yet.</div>
+        <?php else: ?>
+
+        <!-- Share of fleet dispatches, at a glance -->
+        <?php foreach ($vehicleUsage as $v):
+            $pct = $maxDispatchCount > 0 ? round(($v['total_dispatches'] / $maxDispatchCount) * 100) : 0;
+            $share = $totalFleetDispatches > 0 ? round(($v['total_dispatches'] / $totalFleetDispatches) * 100) : 0;
+        ?>
+        <div class="bar-row">
+            <div class="bar-label">
+                <span><?php echo htmlspecialchars($v['unit_name']); ?> (<?php echo htmlspecialchars($v['plate_no'] ?: 'no plate'); ?>)</span>
+                <span class="n"><?php echo $v['total_dispatches']; ?> dispatch<?php echo $v['total_dispatches'] == 1 ? '' : 'es'; ?> · <?php echo $share; ?>% of fleet load</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill" style="width:<?php echo $pct; ?>%; background:var(--burnt-umber);"></div></div>
+        </div>
+        <?php endforeach; ?>
+
+        <!-- Detailed breakdown table -->
+        <div style="overflow-x:auto; margin-top:18px;">
+        <table>
+            <thead><tr>
+                <th>Unit</th><th>Plate</th><th>Current Status</th>
+                <th>Total Dispatches</th><th>Total Time Active</th><th>Avg. Travel Time</th><th>Delays Logged</th>
+            </tr></thead>
+            <tbody>
+                <?php foreach ($vehicleUsage as $v): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($v['unit_name']); ?></td>
+                    <td class="clip-ref-cell"><?php echo htmlspecialchars($v['plate_no'] ?: '—'); ?></td>
+                    <td><span class="status-badge status-<?php echo strtolower(str_replace(' ', '_', $v['status'])); ?>"><?php echo htmlspecialchars($v['status']); ?></span></td>
+                    <td><?php echo $v['total_dispatches']; ?></td>
+                    <td><?php echo fmtHours($v['total_travel_seconds']); ?></td>
+                    <td><?php echo fmtMin($v['avg_travel_seconds']); ?></td>
+                    <td class="<?php echo $v['delay_count'] > 0 ? 'delay-flag' : 'no-delay'; ?>"><?php echo $v['delay_count']; ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        </div>
+        <?php endif; ?>
     </div>
 </main>
 
