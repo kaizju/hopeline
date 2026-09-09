@@ -3,7 +3,7 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-
+requireRole('admin');
 
 $flash = '';
 
@@ -16,12 +16,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $responderId = $_POST['responder_id'] !== '' ? (int)$_POST['responder_id'] : null;
 
             if ($unitName === '') {
-                $flash = 'Unit name is required.';
-            } else {
-                $stmt = $pdo->prepare("INSERT INTO ptv_units (unit_name, plate_no, responder_id, status) VALUES (?, ?, ?, 'Available')");
-                $stmt->execute([$unitName, $plateNo, $responderId]);
-                $flash = "Unit \"$unitName\" added.";
-            }
+    $flash = 'Unit name is required.';
+} else {
+    $stmt = $pdo->prepare("INSERT INTO ptv_units (unit_name, plate_no, responder_id, status, current_lat, current_lng) VALUES (?, ?, ?, 'Available', ?, ?)");
+    $stmt->execute([$unitName, $plateNo, $responderId, 8.371714652741774, 124.85717564826615]);
+    $flash = "Unit \"$unitName\" added.";
+}
         }
 
         if ($action === 'assign_responder') {
@@ -78,10 +78,10 @@ $unreadAlerts = 0;
 
     <div class="unit-grid">
         <?php foreach ($units as $u): $statusClass = 'st-' . str_replace(' ', '', $u['status']); ?>
-        <div class="unit-card">
-            <div class="unit-top">
+        <div class="ptv-unit-card">
+            <div class="ptv-unit-top">
                 <div>
-                    <div class="unit-name"><?php echo htmlspecialchars($u['unit_name']); ?></div>
+                    <div class="ptv-unit-name"><?php echo htmlspecialchars($u['unit_name']); ?></div>
                     <div class="unit-plate"><?php echo htmlspecialchars($u['plate_no'] ?: 'No plate on file'); ?></div>
                 </div>
                 <form method="POST">

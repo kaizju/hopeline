@@ -3,7 +3,7 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-
+requireRole('admin');
 
 // ---- Filters ----
 $dateFrom = $_GET['from'] ?? date('Y-m-01');

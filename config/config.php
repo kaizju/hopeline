@@ -1,5 +1,11 @@
 <?php
 
+// Start the session here, once, for every page that includes this file.
+// Guarded so it's safe even if a page still has its own session_start().
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 define('BASE_URL', 'http://localhost/hopeline');
 $host = 'localhost';
 $dbname = 'hopeline';
@@ -16,4 +22,3 @@ try {
 } catch (PDOException $e) {
     die('Database connection failed: ' . $e->getMessage());
 }
-?>

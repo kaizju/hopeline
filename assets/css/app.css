@@ -509,9 +509,19 @@ tbody tr:hover { background: rgba(var(--surface-rgb), 0.03); }
 
 /* ---------- Admin: PTV/Unit Management ---------- */
 .unit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
-.unit-card.mgmt { padding: 18px 20px; }
-.unit-top.mgmt { align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.unit-name.mgmt { font-size: 15px; font-weight: 700; }
+.ptv-unit-card {
+    background: rgba(var(--surface-rgb), 0.04);
+    border: 1px solid rgba(var(--border-rgb), 0.18);
+    border-radius: 10px;
+    padding: 18px 20px;
+}
+.ptv-unit-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.ptv-unit-name { font-size: 15px; font-weight: 700; }
 .unit-plate { font-size: 11px; color: var(--light-grayish); font-family: monospace; }
 .status-select { font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; border: 0; cursor: pointer; letter-spacing: 0.3px; }
 .st-Available { background: rgba(63,122,92,0.2); color: #3f7a5c; }

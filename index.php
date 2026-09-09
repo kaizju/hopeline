@@ -1,24 +1,13 @@
 <?php
-require_once 'config/config.php';
+require_once 'config/config.php';   // session_start() happens here now
 require_once 'config/functions.php';
 require_once 'includes/activity-logger.php';
-// uncomment on deployment
-/*
-require_once $_SERVER['DOCUMENT_ROOT'] . '/test/config/config.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/test/config/functions.php';
-require_once $_SERVER['DOCUMENT_ROOT'] . '/test/includes/activity-logger.php';
-*/
+
 if (isLoggedIn()) {
     switch ($_SESSION['role']) {
-        case 'admin':
-            redirect('/app/admin/dashboard.php');
-            break;
-        case 'manager':
-            redirect('/app/manager/dashboard.php');
-            break;
-        case 'user':
-            redirect('/app/responder/dashboard.php');
-            break;
+        case 'admin':   redirect('/app/admin/dashboard.php'); break;
+        case 'manager': redirect('/app/manager/dashboard.php'); break;
+        case 'user':    redirect('/app/responder/dashboard.php'); break;
     }
 }
 
@@ -32,35 +21,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($user && password_verify($password, $user['password'])) {
-        // Successful login
         $_SESSION['user_id'] = $user['id'];
-        $_SESSION['email'] = $user['email'];
-        $_SESSION['role'] = $user['role'];
+        $_SESSION['email']   = $user['email'];
+        $_SESSION['role']    = $user['role'];
 
-        // Log successful login
         logActivity($pdo, $user['id'], $user['email'], 'login', 'success');
 
         switch ($user['role']) {
-            case 'admin':
-                redirect('/app/admin/dashboard.php');
-                break;
-            case 'manager':
-                redirect('/app/manager/dashboard.php');
-                break;
-            case 'user':
-                redirect('/app/responder/dashboard.php');
-                break;
+            case 'admin':   redirect('/app/admin/dashboard.php'); break;
+            case 'manager': redirect('/app/manager/dashboard.php'); break;
+            case 'user':    redirect('/app/responder/dashboard.php'); break;
         }
     } else {
-        // Failed login
         $error = "Invalid credentials or email not verified";
-
-        // Log failed login attempt
         logActivity($pdo, null, $email, 'login', 'failed');
     }
 }
 
 renderHeader('Login');
+// ...rest of your HTML unchanged...
 ?>
 
 <style>

@@ -3,6 +3,8 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
+requireRole('manager');
+
 $activeIncidents = $pdo->query("
     SELECT c.id, c.clip_ref, c.barangay, c.incident_type, c.severity, c.created_at,
            d.status AS dispatch_status, d.departed_at, u.unit_name

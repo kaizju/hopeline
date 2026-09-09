@@ -1,7 +1,8 @@
 <?php
-session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
+
+requireRole('manager');
 
 $flash = '';
 
@@ -14,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $pdo->beginTransaction();
             $stmt = $pdo->prepare("INSERT INTO dispatch (clip_report_id, unit_id, dispatched_by, status) VALUES (?, ?, ?, 'assigned')");
-            $stmt->execute([$clipId, $unitId, $_SESSION['user_id']]);
+            $stmt->execute([$clipId, $unitId, currentUserId()]);
             $pdo->prepare("UPDATE clip_reports SET status='dispatched' WHERE id=?")->execute([$clipId]);
             $pdo->prepare("UPDATE ptv_units SET status='En Route' WHERE id=?")->execute([$unitId]);
             $pdo->commit();
@@ -36,8 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->prepare("UPDATE dispatch SET status='resolved', resolved_at=NOW() WHERE id=?")->execute([$dispatchId]);
             }
             if ($unitId) {
-                $pdo->prepare("UPDATE ptv_units SET status='Available' WHERE id=?")->execute([$unitId]);
-            }
+    $pdo->prepare("UPDATE ptv_units SET status='Available', current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id=?")->execute([$unitId]);
+}
             $pdo->commit();
             $flash = 'Incident marked as resolved.';
         }

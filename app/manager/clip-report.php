@@ -4,6 +4,8 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
+requireRole('manager');
+
 $errors  = [];
 $success = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -224,7 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div class="field-row">
                         <div class="field">
-                            <label for="barangay">Barangay</label>
+                            <label for="barangay">Barangay <span class="optional" id="barangayAutoTag" style="display:none;">(auto-detected from pin)</span></label>
                             <select id="barangay" name="barangay" required>
                                 <option value="">Select barangay…</option>
                                 <option>Agusan Canyon</option>
@@ -398,7 +400,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // ETA formula constants: ETA = Σ(distance / speed) + delays
     const AVERAGE_SPEED_KMH = 40;
     const DISPATCH_DELAY_MIN = 5;
+function haversineDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
+function findNearestBarangay(lat, lng) {
+    let nearest = null;
+    let minDist = Infinity;
+    for (const [name, coords] of Object.entries(barangayCoords)) {
+        const dist = haversineDistance(lat, lng, coords.lat, coords.lng);
+        if (dist < minDist) { minDist = dist; nearest = name; }
+    }
+    return nearest;
+}
     // Approximate barangay centers for Manolo Fortich, Bukidnon.
     // ⚠️ PLACEHOLDER COORDINATES — verify against LGU/LDRRMO GIS data
     // before using this for real dispatch.
@@ -603,13 +623,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setCoords(lat, lng);
     }
 
-    function setCoords(lat, lng) {
-        latInput.value = lat.toFixed(6);
-        lngInput.value = lng.toFixed(6);
-        coordsReadout.innerHTML = '📍 <strong>' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</strong> — pin set';
-        updateSummary();
-        calculateRoute(lat, lng);
+   function setCoords(lat, lng) {
+    latInput.value = lat.toFixed(6);
+    lngInput.value = lng.toFixed(6);
+    coordsReadout.innerHTML = '📍 <strong>' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</strong> — pin set';
+
+    // Auto-fill barangay from nearest match to the dropped pin
+    const barangaySelect = document.getElementById('barangay');
+    const nearest = findNearestBarangay(lat, lng);
+    if (nearest) {
+        barangaySelect.value = nearest;
+        document.getElementById('barangayAutoTag').style.display = 'inline';
     }
+
+    updateSummary();
+    calculateRoute(lat, lng);
+}
 
     map.on('click', (e) => dropPin(e.latlng.lat, e.latlng.lng));
 
@@ -635,17 +664,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     });
 
     document.getElementById('barangay').addEventListener('change', function () {
-        const coords = barangayCoords[this.value];
-        if (!coords) return;
+    document.getElementById('barangayAutoTag').style.display = 'none'; // user took over manually
+    const coords = barangayCoords[this.value];
+    if (!coords) return;
 
-        map.setView([coords.lat, coords.lng], 14);
+    map.setView([coords.lat, coords.lng], 14);
 
-        if (!marker) {
-            calculateRoute(coords.lat, coords.lng);
-        }
+    if (!marker) {
+        calculateRoute(coords.lat, coords.lng);
+    }
 
-        updateSummary();
-    });
+    updateSummary();
+});
 
     // ---------- Incident type -> resource auto-suggest ----------
     // Values are the suggested QUANTITY to pre-fill for that vehicle (capped

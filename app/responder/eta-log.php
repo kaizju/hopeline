@@ -3,9 +3,10 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
+requireRole('user');
 
 $unitStmt = $pdo->prepare("SELECT * FROM ptv_units WHERE responder_id = ? LIMIT 1");
-
+$unitStmt->execute([$_SESSION['user_id']]);
 $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
 
 $flash = '';
@@ -16,14 +17,24 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         if ($action === 'depart') {
-            $pdo->prepare("UPDATE dispatch SET status='en_route', departed_at=NOW() WHERE id=? AND unit_id=?")
-                ->execute([$dispatchId, $unit['id']]);
-            $pdo->prepare("UPDATE ptv_units SET status='En Route' WHERE id=?")->execute([$unit['id']]);
-            if (function_exists('logActivity')) {
-                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'departed_command_center', 'success');
-            }
-            $flash = 'Departure logged. Drive safe.';
-        }
+    $pdo->prepare("UPDATE dispatch SET status='en_route', departed_at=NOW() WHERE id=? AND unit_id=?")
+        ->execute([$dispatchId, $unit['id']]);
+
+    // Move the unit's map marker toward the incident so live-map.php has
+    // something real to show until proper GPS tracking is wired in.
+    $pdo->prepare("
+        UPDATE ptv_units u
+        JOIN dispatch d ON d.id = ?
+        JOIN clip_reports c ON c.id = d.clip_report_id
+        SET u.status='En Route', u.current_lat = c.latitude, u.current_lng = c.longitude
+        WHERE u.id = ?
+    ")->execute([$dispatchId, $unit['id']]);
+
+    if (function_exists('logActivity')) {
+        logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'departed_command_center', 'success');
+    }
+    $flash = 'Departure logged. Drive safe.';
+}
 
         if ($action === 'arrive') {
             $pdo->prepare("UPDATE dispatch SET status='on_site', arrived_at=NOW() WHERE id=? AND unit_id=?")
@@ -42,7 +53,7 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
 // Re-fetch current dispatch + unit after any action
 $dispatch = null;
 if ($unit) {
-    $unitStmt->execute([$_SESSION['user_id']]);
+    $unitStmt->execute([$_SESSION['user_id']]);   // this second call was already correct
     $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
 
     $dStmt = $pdo->prepare("

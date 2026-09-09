@@ -3,7 +3,7 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-
+requireRole('admin');
 
 $userCounts = $pdo->query("SELECT role, COUNT(*) AS total FROM users GROUP BY role")->fetchAll(PDO::FETCH_KEY_PAIR);
 $unitCounts = $pdo->query("SELECT status, COUNT(*) AS total FROM ptv_units GROUP BY status")->fetchAll(PDO::FETCH_KEY_PAIR);

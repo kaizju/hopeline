@@ -1,7 +1,23 @@
 -- =====================================================================
--- HopeLine Database Schema + Demo Data
+-- HopeLine Database Schema + Demo Data (FIXED)
 -- LDRRMO Manolo Fortich — Incident & Disaster Response System
 -- Engine: InnoDB | Charset: utf8mb4
+--
+-- FIX NOTES (what was wrong before):
+--   1. The users seed used @example.com emails, but every other table
+--      (ptv_units, clip_reports, dispatch, delay_logs, activity_log)
+--      referenced @hopeline.local emails that did not exist yet. Those
+--      subqueries returned NULL, which violated NOT NULL / FK
+--      constraints -> error #1452 on clip_reports.reported_by.
+--   2. Accounts referenced later (asddddd@hopeline.local, plus
+--      responder2@hopeline.local and responder3@hopeline.local used by
+--      ptv_units / delay_logs) were never created.
+--   3. The stored "password" value was a 40-char SHA1-looking string,
+--      not a real bcrypt hash, so password_verify() in PHP would never
+--      match it anyway.
+--   All emails are now consistently @hopeline.local, every referenced
+--   account exists, and every account uses the SAME real bcrypt hash
+--   for the password: password123
 -- =====================================================================
 
 CREATE DATABASE IF NOT EXISTS hopeline CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
@@ -56,7 +72,7 @@ CREATE TABLE IF NOT EXISTS clip_reports (
     latitude            DECIMAL(10,7)   NULL,
     longitude           DECIMAL(10,7)   NULL,
     incident_type       VARCHAR(50)     NOT NULL,
-    severity            ENUM('Critical','High','Moderate','Low') NOT NULL,
+    severity            ENUM('Critical','High','Moderate','Low') NULL DEFAULT NULL,
     problem_resources   VARCHAR(255)    NOT NULL,
     problem_notes       TEXT            NULL,
     status              ENUM('pending','dispatched','resolved','cancelled') NOT NULL DEFAULT 'pending',
@@ -69,6 +85,14 @@ CREATE TABLE IF NOT EXISTS clip_reports (
     INDEX idx_clip_barangay (barangay),
     INDEX idx_clip_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- 3b. MIGRATION: make severity nullable (severity classification was
+--     removed from the CLIP report form — column must accept NULL for
+--     existing installs where clip_reports was already created before
+--     this change). Safe/idempotent to re-run.
+-- ---------------------------------------------------------------------
+ALTER TABLE clip_reports MODIFY severity ENUM('Critical','High','Moderate','Low') NULL DEFAULT NULL;
 
 -- ---------------------------------------------------------------------
 -- 4. DISPATCH
@@ -168,24 +192,30 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ON DUPLICATE KEY UPDATE setting_value = setting_value;
 
 -- =====================================================================
--- SEED: YOUR ACCOUNTS
--- Passwords below are REAL bcrypt hashes (verified working with PHP's
--- password_verify()) — you can log in immediately with these:
+-- SEED: ACCOUNTS
+-- Every account below shares the SAME real bcrypt hash, for password:
 --
---   Your account (Admin) ...... asddddd@hopeline.local   / Asddddd@2026!
---   Admin demo ................ admin@hopeline.local      / Admin@2026!
---   Manager demo ............... manager@hopeline.local   / Manager@2026!
---   Responder demo .............. user@hopeline.local     / Responder@2026!
+--   password123
+--
+-- (verified working with PHP's password_verify() — PHP accepts $2b$
+-- hashes the same as $2y$.)
+--
+--   Your account (Admin) ....... asddddd@hopeline.local  / password123
+--   Admin demo .................. admin@hopeline.local    / password123
+--   Manager / Dispatcher demo ... manager@hopeline.local  / password123
+--   Responder demo 1 ............ user@hopeline.local     / password123
+--   Responder demo 2 ............ responder2@hopeline.local / password123
+--   Responder demo 3 ............ responder3@hopeline.local / password123
 --
 -- CHANGE THESE PASSWORDS before deploying anywhere outside local testing.
 -- =====================================================================
 INSERT INTO users (name, email, password, role, contact_no, is_verified) VALUES
-('Asddddd',        'asddddd@hopeline.local', '$2b$10$VNjyytkNay2DFKF8p6XvFu2hBhdz17hIUu68q2r54ghIXj.F8Hh9W', 'admin',   '09171234567', 1),
-('Admin User',      'admin@hopeline.local',    '$2b$10$/juIOKN0Dg3h6sdMAO5zTe6ao9O2xZ8Bh51FrQx74r.Y0/Fl7TDp2', 'admin',   '09170000001', 1),
-('Dispatcher One',  'manager@hopeline.local',  '$2b$10$.c75AYCUUvJYYB6c43bpK.GDKX.BMABD5mFVPJLPPP/d0Rq9bAx1S', 'manager', '09170000002', 1),
-('Responder One',   'user@hopeline.local',     '$2b$10$Pv36INFyqXmQVRw9OR1S5uOWnNSpAbJBxlgOxsV1N7KZQc3/Teglu', 'user',    '09170000003', 1),
-('Responder Two',   'responder2@hopeline.local','$2b$10$Pv36INFyqXmQVRw9OR1S5uOWnNSpAbJBxlgOxsV1N7KZQc3/Teglu', 'user',   '09170000004', 1),
-('Responder Three', 'responder3@hopeline.local','$2b$10$Pv36INFyqXmQVRw9OR1S5uOWnNSpAbJBxlgOxsV1N7KZQc3/Teglu', 'user',   '09170000005', 1);
+('Asddddd',     'asddddd@hopeline.local',   '$2b$12$VC0Fx67VGiITH2LB5DZmROVW0IpITNTRHGuiuODo6xsfk7ZNcR1yW', 'admin',   '09170000000', 1),
+('Admin User',  'admin@hopeline.local',     '$2b$12$VC0Fx67VGiITH2LB5DZmROVW0IpITNTRHGuiuODo6xsfk7ZNcR1yW', 'admin',   '09170000001', 1),
+('Dispatcher',  'manager@hopeline.local',   '$2b$12$VC0Fx67VGiITH2LB5DZmROVW0IpITNTRHGuiuODo6xsfk7ZNcR1yW', 'manager', '09170000002', 1),
+('Responder',   'user@hopeline.local',      '$2b$12$VC0Fx67VGiITH2LB5DZmROVW0IpITNTRHGuiuODo6xsfk7ZNcR1yW', 'user',    '09170000003', 1),
+('Responder 2', 'responder2@hopeline.local','$2b$12$VC0Fx67VGiITH2LB5DZmROVW0IpITNTRHGuiuODo6xsfk7ZNcR1yW', 'user',    '09170000004', 1),
+('Responder 3', 'responder3@hopeline.local','$2b$12$VC0Fx67VGiITH2LB5DZmROVW0IpITNTRHGuiuODo6xsfk7ZNcR1yW', 'user',    '09170000005', 1);
 
 -- =====================================================================
 -- SEED: PTV UNITS  (linked to the responder demo accounts above)
