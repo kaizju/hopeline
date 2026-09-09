@@ -2,10 +2,9 @@
 /**
  * assets/layouts/sidebar_shell.php
  *
- * Single shared shell for every HopeLine sidebar (Admin, Responder, etc).
- * Both role-specific sidebars call render_sidebar_shell() so the header,
- * search bar, and footer markup exists in exactly one place, and both
- * always pull the same assets/css/sidebar.css.
+ * Single shared shell for every HopeLine sidebar (Admin, Manager, Responder).
+ * Every role-specific sidebar calls render_sidebar_shell() so the header,
+ * search bar, theme toggle, and footer markup exists in exactly one place.
  *
  * Usage from a role sidebar file:
  *
@@ -36,7 +35,13 @@ function render_sidebar_shell(array $opts): void {
     $statusText  = $opts['status_text']  ?? '';
     $statusColor = $opts['status_color'] ?? '#4caf7d';
     ?>
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/sidebar.css">
+    <script>
+    (function() {
+        const saved = localStorage.getItem('hopeline-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', saved);
+    })();
+    </script>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 
     <div class="sidebar">
         <div class="sidebar-header">
@@ -51,7 +56,18 @@ function render_sidebar_shell(array $opts): void {
                     <div class="brand-role"><?php echo htmlspecialchars($roleLabel); ?></div>
                 </div>
             </div>
-            <?php echo $headerIcon; ?>
+            <div style="display:flex; align-items:center; gap:4px;">
+                <button class="header-icon" id="themeToggle" title="Toggle light/dark mode" type="button">
+                    <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                    <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+                        <circle cx="12" cy="12" r="4"/>
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                    </svg>
+                </button>
+                <?php echo $headerIcon; ?>
+            </div>
         </div>
 
         <div class="search-wrap">
@@ -83,5 +99,28 @@ function render_sidebar_shell(array $opts): void {
             </a>
         </div>
     </div>
+
+    <script>
+    (function() {
+        const btn = document.getElementById('themeToggle');
+        const iconMoon = document.getElementById('iconMoon');
+        const iconSun = document.getElementById('iconSun');
+
+        function syncIcons(theme) {
+            iconMoon.style.display = theme === 'light' ? 'none' : 'block';
+            iconSun.style.display = theme === 'light' ? 'block' : 'none';
+        }
+
+        syncIcons(document.documentElement.getAttribute('data-theme') || 'dark');
+
+        btn.addEventListener('click', function() {
+            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            const next = isLight ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('hopeline-theme', next);
+            syncIcons(next);
+        });
+    })();
+    </script>
     <?php
 }
