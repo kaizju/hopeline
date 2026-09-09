@@ -78,10 +78,10 @@ $unreadAlerts = 0;
 
     <div class="unit-grid">
         <?php foreach ($units as $u): $statusClass = 'st-' . str_replace(' ', '', $u['status']); ?>
-        <div class="unit-card">
-            <div class="unit-top">
+        <div class="ptv-unit-card">
+            <div class="ptv-unit-top">
                 <div>
-                    <div class="unit-name"><?php echo htmlspecialchars($u['unit_name']); ?></div>
+                    <div class="ptv-unit-name"><?php echo htmlspecialchars($u['unit_name']); ?></div>
                     <div class="unit-plate"><?php echo htmlspecialchars($u['plate_no'] ?: 'No plate on file'); ?></div>
                 </div>
                 <form method="POST">
