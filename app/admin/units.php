@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$view = $_GET['view'] === 'archived' ? 'archived' : 'active';
+$view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
 $where = $view === 'archived' ? "WHERE u.archived_at IS NOT NULL" : "WHERE u.archived_at IS NULL";
 
 $units = $pdo->query("

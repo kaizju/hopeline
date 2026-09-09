@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$view = $_GET['view'] === 'archived' ? 'archived' : 'active';
+$view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
 $statusFilter = $_GET['status'] ?? '';
 $severityFilter = $_GET['severity'] ?? '';
 $barangayFilter = $_GET['barangay'] ?? '';

@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $roleFilter = $_GET['role'] ?? '';
 $search = $_GET['q'] ?? '';
-$view = $_GET['view'] === 'archived' ? 'archived' : 'active';
+$view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
 
 $where = $view === 'archived' ? "WHERE archived_at IS NOT NULL" : "WHERE archived_at IS NULL";
 $params = [];
