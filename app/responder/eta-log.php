@@ -46,8 +46,29 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $flash = 'Arrival logged.';
         }
         if ($action === 'return_to_base') {
-    $pdo->prepare("UPDATE dispatch SET status='resolved', returned_at=NOW() WHERE id=? AND unit_id=?")
-        ->execute([$dispatchId, $unit['id']]);
+    $details = trim($_POST['incident_details'] ?? '');
+    $photoPath = null;
+
+    if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
+        $ext = strtolower(pathinfo($_FILES['incident_photo']['name'], PATHINFO_EXTENSION));
+        if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
+            $uploadDir = __DIR__ . '/../../assets/uploads/incidents/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+            $filename = 'incident_' . $dispatchId . '_' . time() . '.' . $ext;
+            if (move_uploaded_file($_FILES['incident_photo']['tmp_name'], $uploadDir . $filename)) {
+                $photoPath = 'assets/uploads/incidents/' . $filename;
+            }
+        }
+    }
+
+    $sql = "UPDATE dispatch SET status='resolved', returned_at=NOW(), incident_details=?"
+         . ($photoPath ? ", incident_photo=?" : "") . " WHERE id=? AND unit_id=?";
+    $params = [$details];
+    if ($photoPath) $params[] = $photoPath;
+    $params[] = $dispatchId;
+    $params[] = $unit['id'];
+    $pdo->prepare($sql)->execute($params);
+
     $pdo->prepare("UPDATE ptv_units SET status='Available', current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id=?")
         ->execute([$unit['id']]);
     if (function_exists('logActivity')) {
@@ -186,27 +207,36 @@ $unreadAlerts = 0;
         </script>
 
     <?php elseif ($step === 'returning'): ?>
-        <div class="elapsed-timer" id="elapsedTimer">00:00:00</div>
-        <div class="elapsed-label">Time returning to command center</div>
-        <form method="POST">
-            <input type="hidden" name="action" value="return_to_base">
-            <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
-            <button type="submit" class="btn-action">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                Back to Command Center
-            </button>
-        </form>
-        <script>
-            const resolvedAt = new Date("<?php echo date('c', strtotime($dispatch['resolved_at'])); ?>").getTime();
-            function tickReturn() {
-                const diff = Math.max(0, Date.now() - resolvedAt);
-                const h = String(Math.floor(diff / 3600000)).padStart(2,'0');
-                const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2,'0');
-                const s = String(Math.floor((diff % 60000) / 1000)).padStart(2,'0');
-                document.getElementById('elapsedTimer').textContent = h + ':' + m + ':' + s;
-            }
-            tickReturn(); setInterval(tickReturn, 1000);
-        </script>
+    <div class="elapsed-timer" id="elapsedTimer">00:00:00</div>
+    <div class="elapsed-label">Time returning to command center</div>
+
+    <form method="POST" enctype="multipart/form-data" style="text-align:left; max-width:420px; margin:0 auto 20px;">
+        <input type="hidden" name="action" value="return_to_base">
+        <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
+
+        <label for="incident_details">Incident Details <span style="color:var(--light-grayish); font-weight:400;">(optional)</span></label>
+        <textarea name="incident_details" id="incident_details" placeholder="What happened on-site — condition on arrival, actions taken, outcome"></textarea>
+
+        <label for="incident_photo" style="margin-top:14px;">Incident Photo <span style="color:var(--light-grayish); font-weight:400;">(optional)</span></label>
+        <input type="file" name="incident_photo" id="incident_photo" accept="image/*" capture="environment">
+
+        <button type="submit" class="btn-action" style="width:100%; justify-content:center; margin-top:18px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back to Command Center
+        </button>
+    </form>
+
+    <script>
+        const resolvedAt = new Date("<?php echo date('c', strtotime($dispatch['resolved_at'])); ?>").getTime();
+        function tickReturn() {
+            const diff = Math.max(0, Date.now() - resolvedAt);
+            const h = String(Math.floor(diff / 3600000)).padStart(2,'0');
+            const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2,'0');
+            const s = String(Math.floor((diff % 60000) / 1000)).padStart(2,'0');
+            document.getElementById('elapsedTimer').textContent = h + ':' + m + ':' + s;
+        }
+        tickReturn(); setInterval(tickReturn, 1000);
+    </script>
 
     <?php else: ?>
         <div class="done-msg">✅ You've arrived on site. Awaiting resolution from the command center.</div>
