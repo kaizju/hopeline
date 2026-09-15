@@ -46,26 +46,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // ---- Case closeout details (feeds the CSV report export) ----
     if ($action === 'save_closeout') {
-        $dispatchId   = (int)($_POST['dispatch_id'] ?? 0);
-        $patientName  = trim($_POST['patient_name'] ?? '');
-        $ageGroup     = $_POST['patient_age_group'] ?: null;
-        $sex          = $_POST['patient_sex'] ?: null;
-        $victimCount  = $_POST['victim_count'] !== '' ? (int)$_POST['victim_count'] : null;
-        $vitalSigns   = $_POST['vital_signs'] ?: null;
-        $alcohol      = $_POST['alcohol_breath'] ?: null;
-        $remarks      = trim($_POST['closeout_remarks'] ?? '');
+    $dispatchId   = (int)($_POST['dispatch_id'] ?? 0);
+    $patientName  = trim($_POST['patient_name'] ?? '');
+    $ageGroup     = $_POST['patient_age_group'] ?: null;
+    $sex          = $_POST['patient_sex'] ?: null;
+    $victimCount  = $_POST['victim_count'] !== '' ? (int)$_POST['victim_count'] : null;
+    $vitalSigns   = $_POST['vital_signs'] ?: null;
+    $alcohol      = $_POST['alcohol_breath'] ?: null;
+    $remarks      = trim($_POST['closeout_remarks'] ?? '');
+    $details      = trim($_POST['incident_details'] ?? '');
 
-        $pdo->prepare("UPDATE dispatch SET
-                patient_name = ?, patient_age_group = ?, patient_sex = ?, victim_count = ?,
-                vital_signs = ?, alcohol_breath = ?, closeout_remarks = ?
-            WHERE id = ?")
-            ->execute([$patientName, $ageGroup, $sex, $victimCount, $vitalSigns, $alcohol, $remarks, $dispatchId]);
-
-        if (function_exists('logActivity')) {
-            logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'incident_closeout_saved', 'success');
+    $photoPath = null;
+    if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
+        $ext = strtolower(pathinfo($_FILES['incident_photo']['name'], PATHINFO_EXTENSION));
+        if (in_array($ext, ['jpg','jpeg','png','webp'])) {
+            $uploadDir = __DIR__ . '/../../assets/uploads/incidents/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+            $filename = 'incident_' . $dispatchId . '_' . time() . '.' . $ext;
+            if (move_uploaded_file($_FILES['incident_photo']['tmp_name'], $uploadDir . $filename)) {
+                $photoPath = 'assets/uploads/incidents/' . $filename;
+            }
         }
-        $flash = 'Case details saved.';
     }
+
+    $sql = "UPDATE dispatch SET patient_name=?, patient_age_group=?, patient_sex=?, victim_count=?,
+            vital_signs=?, alcohol_breath=?, closeout_remarks=?, incident_details=?"
+            . ($photoPath ? ", incident_photo=?" : "") . " WHERE id=?";
+    $params = [$patientName, $ageGroup, $sex, $victimCount, $vitalSigns, $alcohol, $remarks, $details];
+    if ($photoPath) $params[] = $photoPath;
+    $params[] = $dispatchId;
+    $pdo->prepare($sql)->execute($params);
+
+    if (function_exists('logActivity')) {
+        logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'incident_closeout_saved', 'success');
+    }
+    $flash = 'Case details saved.';
+}
 }
 
 $view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
@@ -271,6 +287,19 @@ $unreadAlerts = 0;
                             <label>Remarks</label>
                             <textarea name="closeout_remarks" rows="2"><?php echo htmlspecialchars($inc['closeout_remarks'] ?? ''); ?></textarea>
                         </div>
+                        <div class="field">
+    <label>Incident Details</label>
+    <textarea name="incident_details" rows="3"><?php echo htmlspecialchars($inc['incident_details'] ?? ''); ?></textarea>
+</div>
+<div class="field">
+    <label>Incident Photo</label>
+    <input type="file" name="incident_photo" accept="image/*">
+    <?php if (!empty($inc['incident_photo'])): ?>
+        <div style="margin-top:8px;">
+            <img src="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" style="max-width:140px;border-radius:8px;">
+        </div>
+    <?php endif; ?>
+</div>
 
                         <div class="modal-actions">
                             <button type="button" class="btn-cancel" onclick="document.getElementById('closeout-<?php echo $inc['dispatch_id']; ?>').classList.remove('show')">Cancel</button>
