@@ -21,7 +21,7 @@ if ($unit) {
         SELECT d.*, c.clip_ref, c.barangay, c.incident_type, c.severity
         FROM dispatch d
         JOIN clip_reports c ON c.id = d.clip_report_id
-        WHERE d.unit_id = ? AND d.status IN ('assigned','en_route','on_site')
+        WHERE d.unit_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
         ORDER BY d.dispatched_at DESC LIMIT 1
     ");
     $dStmt->execute([$unit['id']]);
@@ -86,9 +86,9 @@ function fmtDuration($seconds) {
 
         <?php if ($dispatch): ?>
             <?php
-            $bannerClass = ['assigned' => 'assigned', 'en_route' => 'en-route', 'on_site' => 'on-site'][$dispatch['status']];
-            $ctaLabel = ['assigned' => 'Depart Now', 'en_route' => 'Mark Arrived', 'on_site' => 'View Status'][$dispatch['status']];
-            $statusText = ['assigned' => 'Awaiting departure', 'en_route' => 'En route', 'on_site' => 'On site'][$dispatch['status']];
+           $bannerClass = ['assigned' => 'assigned', 'en_route' => 'en-route', 'on_site' => 'on-site', 'returning' => 'returning'][$dispatch['status']];
+$ctaLabel = ['assigned' => 'Depart Now', 'en_route' => 'Mark Arrived', 'on_site' => 'View Status', 'returning' => 'Back to Command Center'][$dispatch['status']];
+$statusText = ['assigned' => 'Awaiting departure', 'en_route' => 'En route', 'on_site' => 'On site', 'returning' => 'Returning to command center'][$dispatch['status']];
             ?>
             <div class="status-banner <?php echo $bannerClass; ?>">
                 <div class="left">

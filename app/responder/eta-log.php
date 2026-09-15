@@ -45,6 +45,16 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $flash = 'Arrival logged.';
         }
+        if ($action === 'return_to_base') {
+    $pdo->prepare("UPDATE dispatch SET status='resolved', returned_at=NOW() WHERE id=? AND unit_id=?")
+        ->execute([$dispatchId, $unit['id']]);
+    $pdo->prepare("UPDATE ptv_units SET status='Available', current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id=?")
+        ->execute([$unit['id']]);
+    if (function_exists('logActivity')) {
+        logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'returned_to_command_center', 'success');
+    }
+    $flash = 'Welcome back! Unit marked Available.';
+}
     } catch (PDOException $e) {
         $flash = 'Action failed: ' . $e->getMessage();
     }
@@ -60,7 +70,7 @@ if ($unit) {
         SELECT d.*, c.clip_ref, c.barangay, c.incident_type, c.severity
         FROM dispatch d
         JOIN clip_reports c ON c.id = d.clip_report_id
-        WHERE d.unit_id = ? AND d.status IN ('assigned','en_route','on_site')
+        WHERE d.unit_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
         ORDER BY d.dispatched_at DESC LIMIT 1
     ");
     $dStmt->execute([$unit['id']]);
@@ -107,11 +117,11 @@ $unreadAlerts = 0;
         <?php
         $step = $dispatch['status']; // assigned | en_route | on_site
         function stepClass($target, $current) {
-            $order = ['assigned' => 0, 'en_route' => 1, 'on_site' => 2];
-            if ($order[$target] < $order[$current]) return 'done';
-            if ($order[$target] === $order[$current]) return 'current';
-            return '';
-        }
+    $order = ['assigned' => 0, 'en_route' => 1, 'on_site' => 2, 'returning' => 3];
+    if ($order[$target] < $order[$current]) return 'done';
+    if ($order[$target] === $order[$current]) return 'current';
+    return '';
+}
         ?>
         <div class="timeline">
             <div class="tl-step <?php echo stepClass('assigned', $step) ?: 'done'; ?>">
@@ -131,48 +141,77 @@ $unreadAlerts = 0;
                 <div class="tl-label">Arrived</div>
                 <div class="tl-time"><?php echo $dispatch['arrived_at'] ? date('g:i A', strtotime($dispatch['arrived_at'])) : '—'; ?></div>
             </div>
+            <div class="tl-step <?php echo stepClass('returning', $step); ?>">
+    <div class="tl-line"></div>
+    <div class="tl-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 12l6-6M3 12l6 6"/></svg></div>
+    <div class="tl-label">Returned</div>
+    <div class="tl-time"><?php echo $dispatch['returned_at'] ? date('g:i A', strtotime($dispatch['returned_at'])) : '—'; ?></div>
+</div>
         </div>
 
-        <div class="action-card">
-            <?php if ($step === 'assigned'): ?>
-                <div class="elapsed-label">Ready to head out?</div>
-                <form method="POST">
-                    <input type="hidden" name="action" value="depart">
-                    <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
-                    <button type="submit" class="btn-action">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-                        Depart Command Center
-                    </button>
-                </form>
+       <div class="action-card">
+    <?php if ($step === 'assigned'): ?>
+        <div class="elapsed-label">Ready to head out?</div>
+        <form method="POST">
+            <input type="hidden" name="action" value="depart">
+            <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
+            <button type="submit" class="btn-action">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                Depart Command Center
+            </button>
+        </form>
 
-            <?php elseif ($step === 'en_route'): ?>
-                <div class="elapsed-timer" id="elapsedTimer">00:00:00</div>
-                <div class="elapsed-label">Time en route</div>
-                <form method="POST">
-                    <input type="hidden" name="action" value="arrive">
-                    <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
-                    <button type="submit" class="btn-action">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>
-                        Arrived at Site
-                    </button>
-                </form>
-                <a href="<?php echo BASE_URL; ?>/app/responder/report-delay.php" class="btn-secondary">Running late? Report a delay →</a>
-                <script>
-                    const departedAt = new Date("<?php echo date('c', strtotime($dispatch['departed_at'])); ?>").getTime();
-                    function tick() {
-                        const diff = Math.max(0, Date.now() - departedAt);
-                        const h = String(Math.floor(diff / 3600000)).padStart(2,'0');
-                        const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2,'0');
-                        const s = String(Math.floor((diff % 60000) / 1000)).padStart(2,'0');
-                        document.getElementById('elapsedTimer').textContent = h + ':' + m + ':' + s;
-                    }
-                    tick(); setInterval(tick, 1000);
-                </script>
+    <?php elseif ($step === 'en_route'): ?>
+        <div class="elapsed-timer" id="elapsedTimer">00:00:00</div>
+        <div class="elapsed-label">Time en route</div>
+        <form method="POST">
+            <input type="hidden" name="action" value="arrive">
+            <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
+            <button type="submit" class="btn-action">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>
+                Arrived at Site
+            </button>
+        </form>
+        <a href="<?php echo BASE_URL; ?>/app/responder/report-delay.php" class="btn-secondary">Running late? Report a delay →</a>
+        <script>
+            const departedAt = new Date("<?php echo date('c', strtotime($dispatch['departed_at'])); ?>").getTime();
+            function tick() {
+                const diff = Math.max(0, Date.now() - departedAt);
+                const h = String(Math.floor(diff / 3600000)).padStart(2,'0');
+                const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2,'0');
+                const s = String(Math.floor((diff % 60000) / 1000)).padStart(2,'0');
+                document.getElementById('elapsedTimer').textContent = h + ':' + m + ':' + s;
+            }
+            tick(); setInterval(tick, 1000);
+        </script>
 
-            <?php else: ?>
-                <div class="done-msg">✅ You've arrived on site. Awaiting resolution from the command center.</div>
-            <?php endif; ?>
-        </div>
+    <?php elseif ($step === 'returning'): ?>
+        <div class="elapsed-timer" id="elapsedTimer">00:00:00</div>
+        <div class="elapsed-label">Time returning to command center</div>
+        <form method="POST">
+            <input type="hidden" name="action" value="return_to_base">
+            <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
+            <button type="submit" class="btn-action">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                Back to Command Center
+            </button>
+        </form>
+        <script>
+            const resolvedAt = new Date("<?php echo date('c', strtotime($dispatch['resolved_at'])); ?>").getTime();
+            function tickReturn() {
+                const diff = Math.max(0, Date.now() - resolvedAt);
+                const h = String(Math.floor(diff / 3600000)).padStart(2,'0');
+                const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2,'0');
+                const s = String(Math.floor((diff % 60000) / 1000)).padStart(2,'0');
+                document.getElementById('elapsedTimer').textContent = h + ':' + m + ':' + s;
+            }
+            tickReturn(); setInterval(tickReturn, 1000);
+        </script>
+
+    <?php else: ?>
+        <div class="done-msg">✅ You've arrived on site. Awaiting resolution from the command center.</div>
+    <?php endif; ?>
+</div>
     <?php endif; ?>
 </main>
 
