@@ -600,6 +600,7 @@ tbody tr:hover { background: rgba(var(--surface-rgb), 0.03); }
 .status-banner.available { background: rgba(63,122,92,0.1); border-color: #3f7a5c; }
 .status-banner.assigned, .status-banner.en-route { background: rgba(217,117,43,0.1); border-color: var(--high); }
 .status-banner.on-site { background: rgba(176,32,41,0.1); border-color: var(--redwood); }
+.status-banner.returning { background: rgba(115,154,185,0.1); border-color: var(--returning); }
 .status-banner .left { display: flex; align-items: center; gap: 12px; }
 .status-banner .icon-wrap { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: rgba(var(--surface-rgb), 0.08); }
 .status-banner .icon-wrap svg { width: 20px; height: 20px; color: var(--macadamia); }
