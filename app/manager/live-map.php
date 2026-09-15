@@ -8,15 +8,16 @@ requireRole('manager');
 $units = [];
 try {
     $stmt = $pdo->query("
-        SELECT u.id, u.unit_name, u.plate_no, u.driver_name, u.status,
-               u.current_lat, u.current_lng,
-               d.departed_at, c.clip_ref, c.barangay, c.severity,
-               c.latitude AS dest_lat, c.longitude AS dest_lng
-        FROM ptv_units u
-        LEFT JOIN dispatch d ON d.unit_id = u.id AND d.status = 'en_route'
-        LEFT JOIN clip_reports c ON c.id = d.clip_report_id
-        ORDER BY u.unit_name ASC
-    ");
+    SELECT u.id, u.unit_name, u.plate_no, u.driver_name, u.status,
+           u.current_lat, u.current_lng,
+           d.status AS dispatch_status, d.departed_at, d.resolved_at,
+           c.clip_ref, c.barangay, c.severity,
+           c.latitude AS dest_lat, c.longitude AS dest_lng
+    FROM ptv_units u
+    LEFT JOIN dispatch d ON d.unit_id = u.id AND d.status IN ('en_route','returning')
+    LEFT JOIN clip_reports c ON c.id = d.clip_report_id
+    ORDER BY u.unit_name ASC
+");
     $units = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
 
@@ -183,6 +184,77 @@ try {
 
     renderMarkers();
 
+    /* =====================================================================
+       OSRM live route tracking — animates En Route / Returning units along
+       the real road route instead of teleporting between two fixed points.
+       ===================================================================== */
+    const PTV_BASE = { lat: 8.371714652741774, lng: 124.85717564826615 };
+    const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
+    const activeRoutes = {};
+    const routeLines = {};
+
+    async function fetchRoute(from, to) {
+        const url = `${OSRM_URL}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data.routes || !data.routes.length) return null;
+        return {
+            coords: data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]),
+            duration: data.routes[0].duration
+        };
+    }
+
+    function interpolate(coords, fraction) {
+        if (fraction <= 0) return coords[0];
+        if (fraction >= 1) return coords[coords.length - 1];
+        let total = 0; const lens = [];
+        for (let i = 1; i < coords.length; i++) { const d = map.distance(coords[i-1], coords[i]); lens.push(d); total += d; }
+        let target = total * fraction;
+        for (let i = 0; i < lens.length; i++) {
+            if (target <= lens[i]) {
+                const t = lens[i] === 0 ? 0 : target / lens[i];
+                const [lat1, lng1] = coords[i], [lat2, lng2] = coords[i+1];
+                return [lat1 + (lat2-lat1)*t, lng1 + (lng2-lng1)*t];
+            }
+            target -= lens[i];
+        }
+        return coords[coords.length - 1];
+    }
+
+    async function setupUnitRoute(u) {
+        if (!['en_route','returning'].includes(u.dispatch_status) || !u.dest_lat) return;
+        const dest = { lat: parseFloat(u.dest_lat), lng: parseFloat(u.dest_lng) };
+        const from = u.dispatch_status === 'en_route' ? PTV_BASE : dest;
+        const to   = u.dispatch_status === 'en_route' ? dest : PTV_BASE;
+        const startStr = u.dispatch_status === 'en_route' ? u.departed_at : u.resolved_at;
+        if (!startStr) return;
+
+        const route = await fetchRoute(from, to);
+        if (!route) return;
+
+        activeRoutes[u.id] = { coords: route.coords, duration: route.duration,
+            startTime: new Date(startStr.replace(' ', 'T')).getTime() };
+
+        if (routeLines[u.id]) map.removeLayer(routeLines[u.id]);
+        routeLines[u.id] = L.polyline(route.coords, {
+            color: u.dispatch_status === 'en_route' ? '#d9752b' : '#739ab9',
+            weight: 4, opacity: 0.7,
+            dashArray: u.dispatch_status === 'returning' ? '6,6' : null
+        }).addTo(map);
+    }
+
+    function tickRoutes() {
+        Object.keys(activeRoutes).forEach(id => {
+            const r = activeRoutes[id];
+            const fraction = Math.min(1, (Date.now() - r.startTime) / 1000 / r.duration);
+            const pos = interpolate(r.coords, fraction);
+            if (markers[id]) markers[id].setLatLng(pos);
+        });
+    }
+
+    unitsData.forEach(setupUnitRoute);
+    /* ===================================================================== */
+
     // ---------- Units list panel ----------
     const unitsListEl = document.getElementById('unitsList');
     let activeFilter = 'all';
@@ -272,6 +344,7 @@ try {
                 markers[u.id].setPopupContent(markers[u.id].getPopup().getContent());
             }
         });
+        tickRoutes();
         document.getElementById('lastUpdated').textContent = 'Updated just now';
     }, 5000);
 </script>
