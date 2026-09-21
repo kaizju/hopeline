@@ -6,11 +6,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-define('BASE_URL', 'https://localhost/hopeline/');
-$host = 'localhost';
-$dbname = 'hopeline';
-$username = 'root';
-$password = '';
+define('BASE_URL', 'https://hopeline.ics-dev.io/');
+$host = 'u442411629_hopeline_db';
+$dbname = 'u442411629_hopeline_db';
+$username = 'u442411629_hoeline_dev';
+$password = 'w[9_£J98gFz}';
 
 try {
     $pdo = new PDO(
