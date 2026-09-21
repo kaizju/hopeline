@@ -42,7 +42,7 @@ function render_sidebar_shell(array $opts): void {
     })();
     </script>
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
-
+   <script src="../../assets/js/mobile-nav.js" defer></script>
     <div class="sidebar">
         <div class="sidebar-header">
             <div class="brand">

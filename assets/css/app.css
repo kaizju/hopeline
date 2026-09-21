@@ -666,3 +666,222 @@ tbody tr:hover { background: rgba(var(--surface-rgb), 0.03); }
 .nav-note { font-size: 11.5px; color: var(--light-grayish); padding: 0 18px 12px; }
 .me-arrow { width: 26px; height: 26px; }
 .me-arrow svg { width: 26px; height: 26px; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6)); }
+/* =====================================================================
+   APPEND THIS TO THE VERY END OF assets/css/app.css
+   Mobile / tablet layer for Admin, Manager and Responder.
+
+   Works together with assets/js/mobile-nav.js, which injects the top bar
+   (.m-topbar) + backdrop (.m-backdrop) and wraps <table>s in .table-scroll.
+
+   Breakpoints:  <= 900px  drawer sidebar, natural page scroll
+                 <= 700px  live map stacks, 2-col info grids
+                 <= 600px  single-column forms, full-width buttons
+                 <= 480px  1-col resource / quick links / info grids
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   A. FIXES THAT APPLY AT EVERY SCREEN SIZE
+   --------------------------------------------------------------------- */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* BUG FIX: `input[type="text"]` (0,1,1) beat `.search-input` (0,1,0), which
+   reset the left padding to 11px so the placeholder ran under the search
+   icon. Bump specificity and leave room for the ⌘K hint on the right. */
+.sidebar .search-wrap .search-input { padding: 8px 58px 8px 32px; }
+
+/* Injected elements are invisible on desktop */
+.m-topbar, .m-backdrop { display: none; }
+
+/* Tables get wrapped by mobile-nav.js so they scroll sideways on their own
+   instead of stretching the whole page */
+.table-scroll { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* Keyboard shortcut hints make no sense on touch devices */
+@media (hover: none) { .kbd { display: none; } .sidebar .search-wrap .search-input { padding-right: 10px; } }
+
+/* ---------------------------------------------------------------------
+   B. <= 900px  —  DRAWER NAV + PAGE SHELL
+   --------------------------------------------------------------------- */
+@media (max-width: 900px) {
+    :root { --m-topbar-h: 56px; }
+
+    /* Let the page scroll naturally (address bar can collapse, no 100vh bugs) */
+    html, body { height: auto; overflow: visible; }
+    body { display: block; min-height: 100vh; min-height: 100dvh; overflow-x: hidden; }
+    body.nav-open { overflow: hidden; }
+
+    /* ----- Top bar ----- */
+    .m-topbar {
+        display: flex; align-items: center; gap: 10px;
+        position: fixed; top: 0; left: 0; right: 0; z-index: 1040;
+        height: calc(var(--m-topbar-h) + env(safe-area-inset-top, 0px));
+        padding: env(safe-area-inset-top, 0px) 12px 0 8px;
+        background: var(--bg-page);
+        border-bottom: 1px solid rgba(var(--border-rgb), 0.15);
+    }
+    .m-menu-btn {
+        width: 42px; height: 42px; flex-shrink: 0; border: 0; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        background: none; color: var(--macadamia); cursor: pointer;
+    }
+    .m-menu-btn:active { background: rgba(var(--border-rgb), 0.18); }
+    .m-menu-btn:focus-visible { outline: 2px solid var(--redwood); outline-offset: 1px; }
+    .m-menu-btn svg { width: 22px; height: 22px; }
+    .m-brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .m-title { min-width: 0; color: var(--macadamia); font-weight: 700; font-size: 14.5px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .m-title small { display: block; color: var(--light-grayish); font-size: 9.5px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; }
+
+    /* ----- Backdrop ----- */
+    .m-backdrop { display: block; position: fixed; inset: 0; z-index: 1090; background: rgba(0,0,0,0.55); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+    body.nav-open .m-backdrop { opacity: 1; pointer-events: auto; }
+
+    /* ----- Sidebar becomes an off-canvas drawer ----- */
+    .sidebar {
+        width: min(84vw, 300px);
+        height: 100vh; height: 100dvh;
+        z-index: 1100;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform 0.25s ease, visibility 0s linear 0.25s;
+    }
+    body.nav-open .sidebar {
+        transform: none; visibility: visible;
+        transition: transform 0.25s ease;
+        box-shadow: 8px 0 40px rgba(0,0,0,0.45);
+    }
+    .nav-item { padding: 11px 12px; }
+    .kbd { display: none; }
+    .sidebar .search-wrap .search-input { padding-right: 10px; font-size: 16px; }
+
+    /* ----- Page shell ----- */
+    .main {
+        margin-left: 0; width: 100%; max-width: 100%;
+        height: auto; overflow: visible;
+        padding: calc(var(--m-topbar-h) + env(safe-area-inset-top, 0px) + 16px) 16px calc(40px + env(safe-area-inset-bottom, 0px));
+    }
+    .main-fullscreen {
+        margin-left: 0; padding: calc(var(--m-topbar-h) + env(safe-area-inset-top, 0px)) 0 0;
+        height: 100vh; height: 100dvh; overflow: hidden;
+    }
+
+    /* GPS pill lives inside the top bar on mobile (responder pages) */
+    #gpsPill { top: calc(env(safe-area-inset-top, 0px) + 14px); right: 12px; z-index: 1050; padding: 5px 10px; font-size: 11px; }
+    #gpsOverlay { padding: 16px; }
+
+    /* Modals sit above the top bar and never overflow the screen */
+    .modal-overlay { z-index: 1200; padding: 14px; }
+    .modal { max-width: 100%; max-height: calc(100vh - 28px); max-height: calc(100dvh - 28px); overflow-y: auto; }
+
+    /* Form controls: 16px stops mobile browsers from zooming on focus,
+       and gives a proper touch height. Compact table controls opt out. */
+    .main input, .main select, .main textarea { font-size: 16px; }
+    .main select, .main input:not([type="checkbox"]):not([type="radio"]) { min-height: 42px; }
+    .main .role-select, .main .status-select { font-size: 12px; min-height: 0; }
+
+    /* Bigger tap targets for small action pills */
+    .btn-mini, .btn-resolve, .btn-cancel-inc, .btn-dispatch, .btn-cancel { padding: 8px 14px; }
+    .row-actions { flex-wrap: wrap; }
+
+    /* Tables: tighter cells; the wrapper scrolls sideways */
+    thead th { padding: 10px 12px; }
+    tbody td { padding: 10px 12px; }
+
+    .unit-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+    .summary-card { position: static; }
+    .empty-state { padding: 36px 16px; overflow-wrap: break-word; }
+}
+
+@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
+    .sidebar, .m-backdrop { transition: none; }
+}
+
+/* ---------------------------------------------------------------------
+   C. <= 700px  —  LIVE UNIT MAP STACKS, INCIDENT GRIDS
+   --------------------------------------------------------------------- */
+@media (max-width: 700px) {
+    /* Live Unit Map: map on top, unit list underneath */
+    .topbar { padding: 12px 14px; flex-wrap: wrap; gap: 8px; }
+    .topbar h1 { font-size: 16px; }
+    .topbar-right { gap: 10px; flex-wrap: wrap; }
+    .content { flex-direction: column; }
+    .map-wrap { order: 1; flex: 1 1 0; min-height: 260px; }
+    .units-panel { order: 2; flex: 0 0 40%; width: 100%; border-right: 0; border-top: 1px solid rgba(var(--border-rgb), 0.2); }
+    .map-legend { left: 10px; right: 10px; bottom: 10px; flex-wrap: wrap; gap: 6px 12px; }
+
+    /* Active Incidents */
+    .incident-body { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ---------------------------------------------------------------------
+   D. <= 600px  —  SINGLE-COLUMN FORMS, FULL-WIDTH ACTIONS
+   --------------------------------------------------------------------- */
+@media (max-width: 600px) {
+    .main { padding-left: 14px; padding-right: 14px; }
+
+    .page-head h1 { font-size: 19px; }
+    .page-head--flex { align-items: flex-start; }
+    .card, .incident-card, .history-card, .delay-card { padding-left: 14px; padding-right: 14px; }
+    .card-sub { margin-left: 0; }
+
+    /* Dashboards */
+    .stat-card { padding: 14px; }
+    .stat-value { font-size: 21px; }
+    .audit-row { flex-wrap: wrap; }
+
+    /* Filters / toolbars */
+    .filter-bar { padding: 12px; }
+    .filter-bar .filter-field { flex: 1 1 calc(50% - 10px); min-width: 130px; }
+    .filter-field input, .filter-field select { width: 100%; }
+    .toolbar > * { flex: 1 1 auto; }
+    .pagination { flex-wrap: wrap; }
+
+    /* Active Incidents: dispatch form goes full width */
+    .incident-actions { gap: 8px; }
+    .dispatch-form { flex: 1 1 100%; flex-wrap: wrap; }
+    .dispatch-form select { max-width: none; min-width: 0; }
+
+    /* Delay cards */
+    .delay-card { flex-wrap: wrap; }
+    .delay-side { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; }
+    .delay-duration { text-align: left; }
+    .tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+    .tab { flex-shrink: 0; white-space: nowrap; }
+
+    /* CLIP Report */
+    .field-row { grid-template-columns: 1fr; }
+    .incident-grid { grid-template-columns: repeat(2, 1fr); }
+    .severity-grid { grid-template-columns: repeat(2, 1fr); }
+    .loc-tools > .btn-tool { flex: 1 1 auto; justify-content: center; }
+    #map { height: 240px; }
+    .submit-row { flex-direction: column-reverse; }
+    .submit-row > * { width: 100%; justify-content: center; text-align: center; }
+    .eta-panel { padding: 10px 12px; }
+
+    /* Buttons */
+    .btn-save, .btn-inline { width: 100%; text-align: center; }
+    .btn-action { width: 100%; justify-content: center; padding: 14px 24px; }
+    .modal-actions > * { flex: 1; }
+
+    /* Responder: assignment + timeline */
+    .nav-instr { font-size: 15px; }
+    .nav-arrow { font-size: 28px; width: 36px; }
+    #navMap { height: 50vh; height: 50dvh; min-height: 300px; }
+    .nav-stats .v { font-size: 16px; }
+    .action-card { padding: 20px 16px; }
+    .elapsed-timer { font-size: 30px; }
+    .tl-label { font-size: 11px; }
+    .tl-time { font-size: 10px; }
+    .status-banner { padding: 14px; }
+}
+
+/* ---------------------------------------------------------------------
+   E. <= 480px  —  PHONES
+   --------------------------------------------------------------------- */
+@media (max-width: 480px) {
+    .resource-grid, .info-grid, .quick-links { grid-template-columns: 1fr; }
+    .incident-body { gap: 12px; }
+    .filter-bar .filter-field { flex-basis: 100%; }
+    .hc-grid { gap: 10px; }
+}
