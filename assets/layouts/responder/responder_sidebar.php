@@ -46,6 +46,8 @@ $headerIcon = '
 
 ob_start();
 ?>
+     <script>window.HOPEGPS_CONFIG = { endpoint: '<?php echo BASE_URL; ?>/api/update-location.php' };</script>
+     <script src="<?php echo BASE_URL; ?>/assets/js/gps-tracker.js"></script>
 <div class="nav-section-label">Overview</div>
 <a class="nav-item <?php echo navActive('dashboard', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/responder/dashboard.php">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>

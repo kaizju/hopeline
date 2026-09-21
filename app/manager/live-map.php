@@ -348,6 +348,7 @@ try {
         document.getElementById('lastUpdated').textContent = 'Updated just now';
     }, 5000);
 </script>
-
+     <script>window.LIVEMAP_GPS_API = '<?php echo BASE_URL; ?>/api/unit-locations.php';</script>
+     <script src="<?php echo BASE_URL; ?>/assets/js/live-map-gps.js"></script>
 </body>
 </html>
