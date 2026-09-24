@@ -11,7 +11,7 @@ $activeIncidents = $pdo->query("
     FROM clip_reports c
     LEFT JOIN dispatch d ON d.clip_report_id = c.id
     LEFT JOIN ptv_units u ON u.id = d.unit_id
-    WHERE c.status != 'resolved'
+    WHERE c.status NOT IN ('resolved','cancelled')
     ORDER BY FIELD(c.severity,'Critical','High','Moderate','Low'), c.created_at DESC
     LIMIT 6
 ")->fetchAll(PDO::FETCH_ASSOC);
