@@ -17,7 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $latitude      = trim($_POST['latitude'] ?? '');
     $longitude     = trim($_POST['longitude'] ?? '');
     $incidentType  = trim($_POST['incident_type'] ?? '');
-    $severity      = null; // Severity classification removed from this form.
+   $severityMap = ['Fire'=>'Critical','Medical Emergency'=>'High','Vehicular Accident'=>'High',
+                'Flood / Landslide'=>'High','Violence / Assault'=>'High','Other'=>'Moderate'];
+$severity = $severityMap[$incidentType] ?? 'Moderate';
     $resourcesRaw  = $_POST['resources'] ?? []; // ['Ambulance' => '1', 'Fire Truck' => '0', ...]
     $problemNotes  = trim($_POST['problem_notes'] ?? '');
 

@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'restore_unit') {
             $unitId = (int)($_POST['unit_id'] ?? 0);
-            $pdo->prepare("UPDATE ptv_units SET archived_at = NULL WHERE id = ?")->execute([$unitId]);
+            $pdo->prepare("UPDATE ptv_units SET archived_at = NULL, status = 'Available' WHERE id = ?")->execute([$unitId]);
             if (function_exists('logActivity')) {
                 logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'unit_restored', 'success');
             }
