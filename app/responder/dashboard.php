@@ -133,10 +133,6 @@ $statusText = ['assigned' => 'Awaiting departure', 'en_route' => 'En route', 'on
                 <div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15V7a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg></div>
                 <div><div class="qt">Assigned Incident</div><div class="qs">View current dispatch details</div></div>
             </a>
-            <a href="<?php echo BASE_URL; ?>/app/responder/eta-log.php" class="quick-link">
-                <div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
-                <div><div class="qt">Depart / Arrive Log</div><div class="qs">Log your ETA</div></div>
-            </a>
             <a href="<?php echo BASE_URL; ?>/app/responder/report-delay.php" class="quick-link">
                 <div class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></div>
                 <div><div class="qt">Report Delay</div><div class="qs">Flag anything slowing you down</div></div>
