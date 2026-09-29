@@ -101,7 +101,7 @@ $statusText = ['assigned' => 'Awaiting departure', 'en_route' => 'En route', 'on
                         <?php if ($activeDelay): ?><div class="delay-note">⚠ Active delay: <?php echo htmlspecialchars($activeDelay['reason']); ?></div><?php endif; ?>
                     </div>
                 </div>
-                <a href="<?php echo BASE_URL; ?>/app/responder/eta-log.php" class="btn-inline"><?php echo $ctaLabel; ?></a>
+                <a href="<?php echo BASE_URL; ?>/app/responder/assignment.php" class="btn-inline"><?php echo $ctaLabel; ?></a>
             </div>
         <?php else: ?>
             <div class="status-banner available">

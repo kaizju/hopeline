@@ -32,11 +32,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($action === 'set_status') {
-            $unitId = (int)($_POST['unit_id'] ?? 0);
-            $status = $_POST['status'] ?? 'Available';
-            $pdo->prepare("UPDATE ptv_units SET status = ? WHERE id = ?")->execute([$status, $unitId]);
-            $flash = 'Unit status updated.';
+    $unitId = (int)($_POST['unit_id'] ?? 0);
+    $status = $_POST['status'] ?? 'Available';
+
+    $pdo->beginTransaction();
+
+    $pdo->prepare("UPDATE ptv_units SET status = ? WHERE id = ?")->execute([$status, $unitId]);
+
+    // Freeing the unit (Available / Offline) must also close its open dispatch,
+    // otherwise the responder page keeps showing the old assignment.
+    if (in_array($status, ['Available', 'Offline'], true)) {
+        // Mark the linked incidents resolved first (before the dispatch leaves the "active" set)
+        $pdo->prepare("
+            UPDATE clip_reports c
+            JOIN dispatch d ON d.clip_report_id = c.id
+            SET c.status = 'resolved'
+            WHERE d.unit_id = ?
+              AND d.status IN ('assigned','en_route','on_site','returning')
+              AND c.status NOT IN ('resolved','cancelled')
+        ")->execute([$unitId]);
+
+        $pdo->prepare("
+            UPDATE dispatch
+            SET status = 'resolved',
+                resolved_at = COALESCE(resolved_at, NOW()),
+                returned_at = COALESCE(returned_at, NOW())
+            WHERE unit_id = ?
+              AND status IN ('assigned','en_route','on_site','returning')
+        ")->execute([$unitId]);
+
+        // Put the unit back at base
+        if ($status === 'Available') {
+            $pdo->prepare("UPDATE ptv_units SET current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id = ?")
+                ->execute([$unitId]);
         }
+    }
+
+    $pdo->commit();
+    $flash = 'Unit status updated.';
+}
 
         // ---- Archive (replaces Delete) ----
         if ($action === 'archive_unit') {

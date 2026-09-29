@@ -73,11 +73,11 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $flash = 'Action failed: ' . $e->getMessage();
     }
 
-    // re-fetch unit so the status below is current
-    $unitStmt->execute([$_SESSION['user_id']]);
-    $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
+    $_SESSION['flash'] = $flash;
+    redirect('/app/responder/assignment.php');
 }
-
+$flash = $_SESSION['flash'] ?? '';
+unset($_SESSION['flash']);
 $unitStatus = $unit['status'] ?? 'Available';
 
 // Get the active dispatch (if any) for this unit
@@ -134,7 +134,7 @@ $unreadAlerts = 0;
         <h1>Assigned Incident</h1>
         <p>Your current dispatch details.</p>
     </div>
-
+<?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
     <?php if (!$unit): ?>
         <div class="card">
             <div class="empty-state">
@@ -231,15 +231,29 @@ $unreadAlerts = 0;
 <?php endif; ?>
 </div>
 
-<?php if (in_array($step, ['en_route', 'returning'])): ?>
+<?php if (in_array($step, ['en_route', 'on_site', 'returning'])): ?>
 <script>
-    (function tick() {
-        const diff = Math.max(0, Date.now() - startedAt);
-        const p = n => String(n).padStart(2, '0');
-        document.getElementById('elapsedTimer').textContent =
-            p(Math.floor(diff / 3600000)) + ':' + p(Math.floor((diff % 3600000) / 60000)) + ':' + p(Math.floor((diff % 60000) / 1000));
-        setTimeout(tick, 1000);
-    })();
+    (function () {
+    var current = <?php echo json_encode($dispatch ? $dispatch['id'] . ':' . $dispatch['status'] : 'none'); ?>;
+    function check() {
+        fetch('<?php echo BASE_URL; ?>/api/dispatch-status.php', { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) { if (d && d.ok && d.key !== current) location.reload(); })
+            .catch(function () {});
+    }
+    setInterval(check, 5000);
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') check();
+    });
+})();
+   (function tick() {
+    const el = document.getElementById('elapsedTimer');
+    if (!el || typeof startedAt === 'undefined') return;
+    const diff = Math.max(0, Date.now() - startedAt);
+    const p = n => String(n).padStart(2, '0');
+    el.textContent = p(Math.floor(diff / 3600000)) + ':' + p(Math.floor((diff % 3600000) / 60000)) + ':' + p(Math.floor((diff % 60000) / 1000));
+    setTimeout(tick, 1000);
+})();
 </script>
 <?php endif; ?>
         <?php if ($showNav): ?>
@@ -320,7 +334,7 @@ $unreadAlerts = 0;
                 <?php endif; ?>
             </div>
 
-            <a href="<?php echo BASE_URL; ?>/app/responder/eta-log.php" class="cta-btn">
+            
                 <?php
                 if ($dispatch['status'] === 'assigned') echo 'Go to Depart / Arrive Log →';
                 elseif ($dispatch['status'] === 'en_route') echo 'Mark Arrived at Site →';
