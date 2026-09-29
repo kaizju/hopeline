@@ -4,71 +4,100 @@ require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('manager');
 
-$flash = '';
+// Show + clear flash from the previous request
+$flash = $_SESSION['flash'] ?? '';
+unset($_SESSION['flash']);
 
-// ---- Handle dispatch / resolve actions ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $msg = '';
     try {
-        if (($_POST['action'] ?? '') === 'dispatch') {
+        if ($action === 'dispatch') {
             $clipId = (int)($_POST['clip_report_id'] ?? 0);
             $unitId = (int)($_POST['unit_id'] ?? 0);
 
             $pdo->beginTransaction();
-            $stmt = $pdo->prepare("INSERT INTO dispatch (clip_report_id, unit_id, dispatched_by, status) VALUES (?, ?, ?, 'assigned')");
-            $stmt->execute([$clipId, $unitId, currentUserId()]);
-            $pdo->prepare("UPDATE clip_reports SET status='dispatched' WHERE id=?")->execute([$clipId]);
-            $pdo->prepare("UPDATE ptv_units SET status='En Route' WHERE id=?")->execute([$unitId]);
-            $pdo->commit();
 
-            if (function_exists('logActivity')) {
-                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'dispatch_assigned', 'success');
+            // Is this exact unit already on this incident?
+            $dup = $pdo->prepare("SELECT COUNT(*) FROM dispatch
+                                  WHERE clip_report_id = ? AND unit_id = ?
+                                    AND status IN ('assigned','en_route','on_site','returning')
+                                  FOR UPDATE");
+            $dup->execute([$clipId, $unitId]);
+
+            // Is the unit still free?
+            $u = $pdo->prepare("SELECT status FROM ptv_units WHERE id = ? FOR UPDATE");
+            $u->execute([$unitId]);
+            $unitStatus = $u->fetchColumn();
+
+            if ($dup->fetchColumn() > 0) {
+                $pdo->rollBack();
+                $msg = 'That unit is already assigned to this incident.';
+            } elseif ($unitStatus !== 'Available') {
+                $pdo->rollBack();
+                $msg = 'That unit is no longer available.';
+            } else {
+                $pdo->prepare("INSERT INTO dispatch (clip_report_id, unit_id, dispatched_by, status) VALUES (?, ?, ?, 'assigned')")
+                    ->execute([$clipId, $unitId, currentUserId()]);
+                $pdo->prepare("UPDATE clip_reports SET status='dispatched' WHERE id=?")->execute([$clipId]);
+                $pdo->prepare("UPDATE ptv_units SET status='Assigned' WHERE id=?")->execute([$unitId]);
+                $pdo->commit();
+
+                if (function_exists('logActivity')) {
+                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'dispatch_assigned', 'success');
+                }
+                $msg = 'Unit dispatched successfully.';
             }
-            $flash = 'Unit dispatched successfully.';
         }
 
-        if (($_POST['action'] ?? '') === 'resolve') {
-    $clipId = (int)($_POST['clip_report_id'] ?? 0);
+        if ($action === 'resolve') {
+            $clipId = (int)($_POST['clip_report_id'] ?? 0);
+            $pdo->beginTransaction();
 
-    $pdo->beginTransaction();
+            $find = $pdo->prepare("SELECT id, unit_id FROM dispatch
+                                   WHERE clip_report_id = ? AND status IN ('assigned','en_route','on_site')
+                                   FOR UPDATE");
+            $find->execute([$clipId]);
+            $active = $find->fetchAll(PDO::FETCH_ASSOC);
 
-    $find = $pdo->prepare("SELECT id, unit_id FROM dispatch
-                           WHERE clip_report_id = ? AND status IN ('assigned','en_route','on_site')
-                           FOR UPDATE");
-    $find->execute([$clipId]);
-    $active = $find->fetchAll(PDO::FETCH_ASSOC);
-
-    if (!$active) {
-        throw new PDOException('No active dispatch found for this incident.');
-    }
-
-    $pdo->prepare("UPDATE clip_reports SET status='resolved' WHERE id=?")->execute([$clipId]);
-
-    foreach ($active as $d) {
-        $pdo->prepare("UPDATE dispatch SET status='returning', resolved_at=NOW() WHERE id=?")
-            ->execute([$d['id']]);
-        $pdo->prepare("UPDATE ptv_units SET status='Returning' WHERE id=?")
-            ->execute([$d['unit_id']]);
-    }
-
-    $pdo->commit();
-    $flash = 'Incident marked as resolved. Unit is now returning to command center.';
-}
+            if (!$active) {
+                $pdo->rollBack();
+                $msg = 'No active dispatch found for this incident.';
+            } else {
+                $pdo->prepare("UPDATE clip_reports SET status='resolved' WHERE id=?")->execute([$clipId]);
+                foreach ($active as $d) {
+                    $pdo->prepare("UPDATE dispatch SET status='returning', resolved_at=NOW() WHERE id=?")->execute([$d['id']]);
+                    $pdo->prepare("UPDATE ptv_units SET status='Returning' WHERE id=?")->execute([$d['unit_id']]);
+                }
+                $pdo->commit();
+                $msg = 'Incident marked as resolved. Unit is now returning to command center.';
+            }
+        }
     } catch (PDOException $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        $flash = 'Action failed: ' . $e->getMessage();
+        $msg = 'Action failed: ' . $e->getMessage();
     }
+
+    // Post/Redirect/Get: this is what stops reload from re-submitting
+    $_SESSION['flash'] = $msg;
+    header('Location: active-incidents.php');
+    exit;
 }
 
 // ---- Fetch data ----
 try {
     $incidents = $pdo->query("
-        SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.unit_id, u.unit_name
-        FROM clip_reports c
-        LEFT JOIN dispatch d ON d.clip_report_id = c.id AND d.status IN ('assigned','en_route','on_site')
-        LEFT JOIN ptv_units u ON u.id = d.unit_id
-        WHERE c.status != 'resolved' AND c.status != 'cancelled'
-        ORDER BY FIELD(c.severity,'Critical','High','Moderate','Low'), c.created_at ASC
-    ")->fetchAll(PDO::FETCH_ASSOC);
+    SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.unit_id, u.unit_name
+    FROM clip_reports c
+    LEFT JOIN dispatch d ON d.id = (
+        SELECT MAX(d2.id) FROM dispatch d2
+        WHERE d2.clip_report_id = c.id
+          AND d2.status IN ('assigned','en_route','on_site')
+    )
+    LEFT JOIN ptv_units u ON u.id = d.unit_id
+    WHERE c.status NOT IN ('resolved','cancelled')
+    ORDER BY FIELD(c.severity,'Critical','High','Moderate','Low'), c.created_at ASC
+")->fetchAll(PDO::FETCH_ASSOC);
 
     $availableUnits = $pdo->query("SELECT id, unit_name, plate_no FROM ptv_units WHERE status='Available' ORDER BY unit_name")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {

@@ -17,7 +17,7 @@ $s = $pdo->prepare("
     SELECT d.id, d.status FROM dispatch d
     JOIN ptv_units u ON u.id = d.unit_id
     WHERE u.responder_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
-    ORDER BY d.dispatched_at DESC LIMIT 1
+    ORDER BY d.dispatched_at DESC, d.id DESC LIMIT 1
 ");
 $s->execute([$uid]);
 $r = $s->fetch(PDO::FETCH_ASSOC);

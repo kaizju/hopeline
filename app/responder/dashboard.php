@@ -22,7 +22,7 @@ if ($unit) {
         FROM dispatch d
         JOIN clip_reports c ON c.id = d.clip_report_id
         WHERE d.unit_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
-        ORDER BY d.dispatched_at DESC LIMIT 1
+        ORDER BY d.dispatched_at DESC, d.id DESC LIMIT 1
     ");
     $dStmt->execute([$unit['id']]);
     $dispatch = $dStmt->fetch(PDO::FETCH_ASSOC);
