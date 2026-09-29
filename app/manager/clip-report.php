@@ -58,13 +58,15 @@ $severity = $severityMap[$incidentType] ?? 'Moderate';
 
         try {
             $stmt = $pdo->prepare("INSERT INTO clip_reports
-                (clip_ref, caller_name, caller_contact, barangay, sitio_purok, landmark, latitude, longitude, incident_type, severity, problem_resources, problem_notes, reported_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([
-                $clipRef, $callerName, $callerContact, $barangay, $sitioPurok, $landmark,
-                $latitude ?: null, $longitude ?: null, $incidentType, $severity,
-                $resourcesStr, $problemNotes, $reportedBy
-            ]);
+    (clip_ref, caller_name, caller_contact, barangay, sitio_purok, landmark, latitude, longitude, incident_type, severity, problem_resources, problem_notes, predicted_eta_minutes, reported_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+$stmt->execute([
+    $clipRef, $callerName, $callerContact, $barangay, $sitioPurok, $landmark,
+    $latitude ?: null, $longitude ?: null, $incidentType, $severity,
+    $resourcesStr, $problemNotes,
+    ($_POST['eta_minutes'] ?? '') !== '' ? (float)$_POST['eta_minutes'] : null,
+    $reportedBy
+]);
 
             if (function_exists('logActivity')) {
                 logActivity($pdo, $reportedBy, $reportedByEmail, 'clip_report_created', 'success');

@@ -1,8 +1,11 @@
 -- ============================================================
---  HOPELINE — full database (schema + demo accounts only)
---  Engine: InnoDB | Charset: utf8mb4
+--  HOPELINE — full database (schema + demo data)
+--  Engine: InnoDB | Charset: utf8mb4 | Target: MariaDB 10.4+ (XAMPP)
 --  Demo logins (password for all: password123)
 --    admin@hopeline.local / manager@hopeline.local / user@hopeline.local
+--
+--  WARNING: this script DROPs and recreates every table.
+--  For an existing database, use the ALTER statements instead.
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS `hopeline`
@@ -11,6 +14,9 @@ USE `hopeline`;
 
 SET FOREIGN_KEY_CHECKS = 0;
 SET NAMES utf8mb4;
+
+-- Old view is no longer used by any page
+DROP VIEW IF EXISTS `v_incident_timeline`;
 
 -- 1. users
 DROP TABLE IF EXISTS `users`;
@@ -31,7 +37,7 @@ CREATE TABLE `users` (
   KEY `idx_users_archived_at` (`archived_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 2. settings (settings.php seeds defaults on first visit)
+-- 2. settings (settings.php also creates/seeds this on first visit)
 DROP TABLE IF EXISTS `settings`;
 CREATE TABLE `settings` (
   `setting_key`   varchar(100) NOT NULL,
@@ -40,7 +46,9 @@ CREATE TABLE `settings` (
   PRIMARY KEY (`setting_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. activity_log (includes ip_address / user_agent used by logActivity())
+-- 3. activity_log
+--    NOTE: includes/activity-logger.php must INSERT INTO `activity_log`
+--    (singular). It currently writes to `activity_logs`, which doesn't exist.
 DROP TABLE IF EXISTS `activity_log`;
 CREATE TABLE `activity_log` (
   `id`         int(11)      NOT NULL AUTO_INCREMENT,
@@ -54,6 +62,8 @@ CREATE TABLE `activity_log` (
   PRIMARY KEY (`id`),
   KEY `idx_activity_user` (`user_id`),
   KEY `idx_activity_created_at` (`created_at`),
+  KEY `idx_activity_action` (`action`),
+  KEY `idx_activity_email` (`email`),
   CONSTRAINT `fk_activity_user`
     FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
     ON UPDATE RESTRICT ON DELETE SET NULL
@@ -62,36 +72,39 @@ CREATE TABLE `activity_log` (
 -- 4. clip_reports
 DROP TABLE IF EXISTS `clip_reports`;
 CREATE TABLE `clip_reports` (
-  `id`                 int(11)       NOT NULL AUTO_INCREMENT,
-  `clip_ref`           varchar(30)   NOT NULL,
-  `caller_name`        varchar(150)  NOT NULL,
-  `caller_contact`     varchar(20)   DEFAULT NULL,
-  `barangay`           varchar(100)  NOT NULL,
-  `sitio_purok`        varchar(150)  DEFAULT NULL,
-  `landmark`           varchar(255)  DEFAULT NULL,
-  `latitude`           decimal(10,7) DEFAULT NULL,
-  `longitude`          decimal(10,7) DEFAULT NULL,
-  `incident_type`      varchar(50)   NOT NULL,
-  `severity`           enum('Critical','High','Moderate','Low') DEFAULT NULL,
-  `problem_resources`  varchar(255)  NOT NULL,
-  `problem_notes`      text          DEFAULT NULL,
-  `status`             enum('pending','dispatched','resolved','cancelled') NOT NULL DEFAULT 'pending',
-  `archived_at`        datetime      DEFAULT NULL,
-  `reported_by`        int(11)       NOT NULL,
-  `created_at`         datetime      DEFAULT current_timestamp(),
-  `updated_at`         datetime      DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `id`                    int(11)       NOT NULL AUTO_INCREMENT,
+  `clip_ref`              varchar(30)   NOT NULL,
+  `caller_name`           varchar(150)  NOT NULL,
+  `caller_contact`        varchar(20)   DEFAULT NULL,
+  `barangay`              varchar(100)  NOT NULL,
+  `sitio_purok`           varchar(150)  DEFAULT NULL,
+  `landmark`              varchar(255)  DEFAULT NULL,
+  `latitude`              decimal(10,7) DEFAULT NULL,
+  `longitude`             decimal(10,7) DEFAULT NULL,
+  `incident_type`         varchar(50)   NOT NULL,
+  `severity`              enum('Critical','High','Moderate','Low') DEFAULT NULL,
+  `problem_resources`     varchar(255)  NOT NULL,
+  `problem_notes`         text          DEFAULT NULL,
+  `predicted_eta_minutes` decimal(6,2)  DEFAULT NULL,   -- NEW: saved from the CLIP form's eta_minutes
+  `status`                enum('pending','dispatched','resolved','cancelled') NOT NULL DEFAULT 'pending',
+  `archived_at`           datetime      DEFAULT NULL,
+  `reported_by`           int(11)       NOT NULL,
+  `created_at`            datetime      DEFAULT current_timestamp(),
+  `updated_at`            datetime      DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_clip_ref` (`clip_ref`),
   KEY `idx_clip_reported_by` (`reported_by`),
   KEY `idx_clip_status` (`status`),
   KEY `idx_clip_barangay` (`barangay`),
   KEY `idx_clip_created_at` (`created_at`),
+  KEY `idx_clip_archived_at` (`archived_at`),
+  KEY `idx_clip_severity` (`severity`),
   CONSTRAINT `fk_clip_reported_by`
     FOREIGN KEY (`reported_by`) REFERENCES `users` (`id`)
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. ptv_units (includes driver_name, used by live map)
+-- 5. ptv_units (last_ping_at removed: code uses last_location_at)
 DROP TABLE IF EXISTS `ptv_units`;
 CREATE TABLE `ptv_units` (
   `id`               int(11)       NOT NULL AUTO_INCREMENT,
@@ -103,7 +116,6 @@ CREATE TABLE `ptv_units` (
   `archived_at`      datetime      DEFAULT NULL,
   `current_lat`      decimal(10,7) DEFAULT NULL,
   `current_lng`      decimal(10,7) DEFAULT NULL,
-  `last_ping_at`     datetime      DEFAULT NULL,
   `last_location_at` datetime      DEFAULT NULL,
   `gps_accuracy`     float         DEFAULT NULL,
   `gps_heading`      float         DEFAULT NULL,
@@ -119,7 +131,11 @@ CREATE TABLE `ptv_units` (
     ON UPDATE RESTRICT ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. dispatch
+-- 6. dispatch (distance_km removed: unused)
+--    active_unit_key: equals unit_id while the dispatch is active, NULL once
+--    resolved/cancelled. The UNIQUE index on it means one unit can never have
+--    two active dispatches, which blocks the reload-duplicates bug at DB level.
+--    (NULLs are ignored by unique indexes, so finished dispatches never clash.)
 DROP TABLE IF EXISTS `dispatch`;
 CREATE TABLE `dispatch` (
   `id`                    int(11)      NOT NULL AUTO_INCREMENT,
@@ -128,7 +144,6 @@ CREATE TABLE `dispatch` (
   `dispatched_by`         int(11)      NOT NULL,
   `status`                enum('assigned','en_route','on_site','returning','resolved','cancelled') NOT NULL DEFAULT 'assigned',
   `predicted_eta_minutes` decimal(6,2) DEFAULT NULL,
-  `distance_km`           decimal(6,2) DEFAULT NULL,
   `dispatched_at`         datetime     DEFAULT current_timestamp(),
   `departed_at`           datetime     DEFAULT NULL,
   `arrived_at`            datetime     DEFAULT NULL,
@@ -143,9 +158,12 @@ CREATE TABLE `dispatch` (
   `closeout_remarks`      varchar(255) DEFAULT NULL,
   `incident_photo`        varchar(255) DEFAULT NULL,
   `incident_details`      text         DEFAULT NULL,
+  `active_unit_key`       int(11)
+      AS (IF(`status` IN ('assigned','en_route','on_site','returning'), `unit_id`, NULL)) STORED,
   PRIMARY KEY (`id`),
-  KEY `idx_dispatch_clip_report` (`clip_report_id`),
-  KEY `idx_dispatch_unit` (`unit_id`),
+  UNIQUE KEY `uq_dispatch_active_unit` (`active_unit_key`),
+  KEY `idx_dispatch_unit_status` (`unit_id`, `status`),
+  KEY `idx_dispatch_clip_status` (`clip_report_id`, `status`),
   KEY `idx_dispatch_by` (`dispatched_by`),
   KEY `idx_dispatch_status` (`status`),
   KEY `idx_dispatch_dispatched_at` (`dispatched_at`),
@@ -182,9 +200,10 @@ CREATE TABLE `delay_logs` (
   `started_at`  datetime     DEFAULT current_timestamp(),
   `resolved_at` datetime     DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_delay_dispatch` (`dispatch_id`),
+  KEY `idx_delay_dispatch_resolved` (`dispatch_id`, `resolved_at`),
   KEY `idx_delay_unit` (`unit_id`),
   KEY `idx_delay_logged_by` (`logged_by`),
+  KEY `idx_delay_started_at` (`started_at`),
   CONSTRAINT `fk_delay_dispatch`
     FOREIGN KEY (`dispatch_id`) REFERENCES `dispatch` (`id`)
     ON UPDATE RESTRICT ON DELETE CASCADE,
@@ -196,38 +215,10 @@ CREATE TABLE `delay_logs` (
     ON UPDATE RESTRICT ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. v_incident_timeline (view)
-DROP VIEW IF EXISTS `v_incident_timeline`;
-CREATE VIEW `v_incident_timeline` AS
-SELECT
-  c.`id`                AS `incident_id`,
-  c.`clip_ref`          AS `clip_ref`,
-  c.`caller_name`       AS `caller_name`,
-  c.`barangay`          AS `barangay`,
-  c.`incident_type`     AS `incident_type`,
-  c.`severity`          AS `severity`,
-  c.`problem_resources` AS `problem_resources`,
-  c.`status`            AS `incident_status`,
-  c.`created_at`        AS `report_received_at`,
-  d.`id`                    AS `dispatch_id`,
-  d.`status`                AS `dispatch_status`,
-  u.`unit_name`             AS `unit_name`,
-  d.`predicted_eta_minutes` AS `predicted_eta_minutes`,
-  d.`dispatched_at`         AS `dispatched_at`,
-  d.`departed_at`           AS `departed_at`,
-  d.`arrived_at`            AS `arrived_at`,
-  d.`resolved_at`           AS `resolved_at`,
-  TIMESTAMPDIFF(SECOND, d.`departed_at`, d.`arrived_at`) AS `actual_travel_seconds`,
-  TIMESTAMPDIFF(SECOND, c.`created_at`, d.`resolved_at`) AS `total_response_seconds`,
-  (SELECT COUNT(*) FROM `delay_logs` dl WHERE dl.`dispatch_id` = d.`id`) AS `delay_count`
-FROM `clip_reports` c
-LEFT JOIN `dispatch`  d ON d.`clip_report_id` = c.`id`
-LEFT JOIN `ptv_units` u ON u.`id` = d.`unit_id`;
-
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
---  SEED: demo accounts only (password: password123)
+--  SEED: demo accounts + one PTV unit (password: password123)
 --  Change or remove before production.
 -- ============================================================
 INSERT INTO `users` (`name`, `email`, `password`, `role`, `contact_no`, `is_verified`) VALUES
@@ -237,3 +228,8 @@ INSERT INTO `users` (`name`, `email`, `password`, `role`, `contact_no`, `is_veri
    '$2y$10$O/YbHs.v/iEzxCQHv/KMnuVEcoxXL/UdrS4Ka24gVTgUGIxNyKLHa', 'manager', '09170000002', 1),
   ('Responder One',        'user@hopeline.local',
    '$2y$10$TOA3EkeQZzdLt2mVJGLqEOS03MitUPr9.T.wdUObMGCE3SPDi0Dla', 'user',    '09170000003', 1);
+
+-- Demo PTV unit linked to the demo responder, parked at the LDRRMO base
+INSERT INTO `ptv_units` (`unit_name`, `plate_no`, `responder_id`, `status`, `current_lat`, `current_lng`)
+SELECT 'PTV-1', 'LGU-1234', `id`, 'Available', 8.3717147, 124.8571756
+FROM `users` WHERE `email` = 'user@hopeline.local';

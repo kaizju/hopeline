@@ -37,8 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->rollBack();
                 $msg = 'That unit is no longer available.';
             } else {
-                $pdo->prepare("INSERT INTO dispatch (clip_report_id, unit_id, dispatched_by, status) VALUES (?, ?, ?, 'assigned')")
-                    ->execute([$clipId, $unitId, currentUserId()]);
+                $pdo->prepare("INSERT INTO dispatch (clip_report_id, unit_id, dispatched_by, status, predicted_eta_minutes)
+               SELECT ?, ?, ?, 'assigned', predicted_eta_minutes FROM clip_reports WHERE id = ?")
+    ->execute([$clipId, $unitId, currentUserId(), $clipId]);
                 $pdo->prepare("UPDATE clip_reports SET status='dispatched' WHERE id=?")->execute([$clipId]);
                 $pdo->prepare("UPDATE ptv_units SET status='Assigned' WHERE id=?")->execute([$unitId]);
                 $pdo->commit();
