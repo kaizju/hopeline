@@ -28,19 +28,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (($_POST['action'] ?? '') === 'resolve') {
     $clipId = (int)($_POST['clip_report_id'] ?? 0);
-    $dispatchId = (int)($_POST['dispatch_id'] ?? 0);
-    $unitId = (int)($_POST['unit_id'] ?? 0);
 
     $pdo->beginTransaction();
+
+    $find = $pdo->prepare("SELECT id, unit_id FROM dispatch
+                           WHERE clip_report_id = ? AND status IN ('assigned','en_route','on_site')
+                           FOR UPDATE");
+    $find->execute([$clipId]);
+    $active = $find->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!$active) {
+        throw new PDOException('No active dispatch found for this incident.');
+    }
+
     $pdo->prepare("UPDATE clip_reports SET status='resolved' WHERE id=?")->execute([$clipId]);
-    if ($dispatchId) {
-        // Case is closed, but the unit still needs to physically return to HQ —
-        // dispatch stays open as 'returning' until the responder logs arrival.
-        $pdo->prepare("UPDATE dispatch SET status='returning', resolved_at=NOW() WHERE id=?")->execute([$dispatchId]);
+
+    foreach ($active as $d) {
+        $pdo->prepare("UPDATE dispatch SET status='returning', resolved_at=NOW() WHERE id=?")
+            ->execute([$d['id']]);
+        $pdo->prepare("UPDATE ptv_units SET status='Returning' WHERE id=?")
+            ->execute([$d['unit_id']]);
     }
-    if ($unitId) {
-        $pdo->prepare("UPDATE ptv_units SET status='Returning' WHERE id=?")->execute([$unitId]);
-    }
+
     $pdo->commit();
     $flash = 'Incident marked as resolved. Unit is now returning to command center.';
 }

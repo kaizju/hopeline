@@ -22,26 +22,34 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     try {
         if ($action === 'depart') {
-            $pdo->prepare("UPDATE dispatch SET status='en_route', departed_at=NOW() WHERE id=? AND unit_id=?")
-                ->execute([$dispatchId, $unit['id']]);
-            $pdo->prepare("
-                UPDATE ptv_units u
-                JOIN dispatch d ON d.id = ?
-                JOIN clip_reports c ON c.id = d.clip_report_id
-                SET u.status='En Route', u.current_lat = c.latitude, u.current_lng = c.longitude
-                WHERE u.id = ?
-            ")->execute([$dispatchId, $unit['id']]);
-            if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'departed_command_center', 'success');
-            $flash = 'Departure logged. Drive safe.';
-        }
+    $st = $pdo->prepare("UPDATE dispatch SET status='en_route', departed_at=NOW()
+                         WHERE id=? AND unit_id=? AND status='assigned'");
+    $st->execute([$dispatchId, $unit['id']]);
+    if ($st->rowCount()) {
+        $pdo->prepare("
+            UPDATE ptv_units u
+            JOIN dispatch d ON d.id = ?
+            JOIN clip_reports c ON c.id = d.clip_report_id
+            SET u.status='En Route', u.current_lat = c.latitude, u.current_lng = c.longitude
+            WHERE u.id = ?
+        ")->execute([$dispatchId, $unit['id']]);
+        $flash = 'Departure logged. Drive safe.';
+    } else {
+        $flash = 'This dispatch has changed. Your screen was refreshed.';
+    }
+}
 
-        if ($action === 'arrive') {
-            $pdo->prepare("UPDATE dispatch SET status='on_site', arrived_at=NOW() WHERE id=? AND unit_id=?")
-                ->execute([$dispatchId, $unit['id']]);
-            $pdo->prepare("UPDATE ptv_units SET status='On Site' WHERE id=?")->execute([$unit['id']]);
-            if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'arrived_at_site', 'success');
-            $flash = 'Arrival logged.';
-        }
+if ($action === 'arrive') {
+    $st = $pdo->prepare("UPDATE dispatch SET status='on_site', arrived_at=NOW()
+                         WHERE id=? AND unit_id=? AND status='en_route'");
+    $st->execute([$dispatchId, $unit['id']]);
+    if ($st->rowCount()) {
+        $pdo->prepare("UPDATE ptv_units SET status='On Site' WHERE id=?")->execute([$unit['id']]);
+        $flash = 'Arrival logged.';
+    } else {
+        $flash = 'This dispatch has changed. Your screen was refreshed.';
+    }
+}
 
         if ($action === 'return_to_base') {
             $details = trim($_POST['incident_details'] ?? '');
