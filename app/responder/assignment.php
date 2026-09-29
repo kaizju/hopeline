@@ -8,6 +8,76 @@ requireRole('user');
 $unitStmt = $pdo->prepare("SELECT * FROM ptv_units WHERE responder_id = ? LIMIT 1");
 $unitStmt->execute([$_SESSION['user_id']]);
 $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
+
+function stepClass($target, $current) {
+    $order = ['assigned' => 0, 'en_route' => 1, 'on_site' => 2, 'returning' => 3];
+    if ($order[$target] < $order[$current]) return 'done';
+    if ($order[$target] === $order[$current]) return 'current';
+    return '';
+}
+
+$flash = '';
+if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $dispatchId = (int)($_POST['dispatch_id'] ?? 0);
+    $action = $_POST['action'] ?? '';
+    try {
+        if ($action === 'depart') {
+            $pdo->prepare("UPDATE dispatch SET status='en_route', departed_at=NOW() WHERE id=? AND unit_id=?")
+                ->execute([$dispatchId, $unit['id']]);
+            $pdo->prepare("
+                UPDATE ptv_units u
+                JOIN dispatch d ON d.id = ?
+                JOIN clip_reports c ON c.id = d.clip_report_id
+                SET u.status='En Route', u.current_lat = c.latitude, u.current_lng = c.longitude
+                WHERE u.id = ?
+            ")->execute([$dispatchId, $unit['id']]);
+            if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'departed_command_center', 'success');
+            $flash = 'Departure logged. Drive safe.';
+        }
+
+        if ($action === 'arrive') {
+            $pdo->prepare("UPDATE dispatch SET status='on_site', arrived_at=NOW() WHERE id=? AND unit_id=?")
+                ->execute([$dispatchId, $unit['id']]);
+            $pdo->prepare("UPDATE ptv_units SET status='On Site' WHERE id=?")->execute([$unit['id']]);
+            if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'arrived_at_site', 'success');
+            $flash = 'Arrival logged.';
+        }
+
+        if ($action === 'return_to_base') {
+            $details = trim($_POST['incident_details'] ?? '');
+            $photoPath = null;
+            if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
+                $ext = strtolower(pathinfo($_FILES['incident_photo']['name'], PATHINFO_EXTENSION));
+                if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
+                    $uploadDir = __DIR__ . '/../../assets/uploads/incidents/';
+                    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                    $filename = 'incident_' . $dispatchId . '_' . time() . '.' . $ext;
+                    if (move_uploaded_file($_FILES['incident_photo']['tmp_name'], $uploadDir . $filename)) {
+                        $photoPath = 'assets/uploads/incidents/' . $filename;
+                    }
+                }
+            }
+            $sql = "UPDATE dispatch SET status='resolved', returned_at=NOW(), incident_details=?"
+                 . ($photoPath ? ", incident_photo=?" : "") . " WHERE id=? AND unit_id=?";
+            $params = [$details];
+            if ($photoPath) $params[] = $photoPath;
+            $params[] = $dispatchId;
+            $params[] = $unit['id'];
+            $pdo->prepare($sql)->execute($params);
+            $pdo->prepare("UPDATE ptv_units SET status='Available', current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id=?")
+                ->execute([$unit['id']]);
+            if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'returned_to_command_center', 'success');
+            $flash = 'Welcome back! Unit marked Available.';
+        }
+    } catch (PDOException $e) {
+        $flash = 'Action failed: ' . $e->getMessage();
+    }
+
+    // re-fetch unit so the status below is current
+    $unitStmt->execute([$_SESSION['user_id']]);
+    $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
+}
+
 $unitStatus = $unit['status'] ?? 'Available';
 
 // Get the active dispatch (if any) for this unit
@@ -82,7 +152,96 @@ $unreadAlerts = 0;
         </div>
     <?php else: ?>
         <div class="status-strip"><span class="dot"></span> Unit: <?php echo htmlspecialchars($unit['unit_name']); ?> (<?php echo htmlspecialchars($unit['plate_no']); ?>)</div>
+<?php $step = $dispatch['status']; ?>
+<div class="timeline">
+    <div class="tl-step <?php echo stepClass('assigned', $step) ?: 'done'; ?>">
+        <div class="tl-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <div class="tl-label">Assigned</div>
+        <div class="tl-time"><?php echo date('g:i A', strtotime($dispatch['dispatched_at'])); ?></div>
+    </div>
+    <div class="tl-step <?php echo stepClass('en_route', $step); ?>">
+        <div class="tl-line"></div>
+        <div class="tl-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-2"/><circle cx="6.5" cy="18.5" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/></svg></div>
+        <div class="tl-label">Departed</div>
+        <div class="tl-time"><?php echo $dispatch['departed_at'] ? date('g:i A', strtotime($dispatch['departed_at'])) : '—'; ?></div>
+    </div>
+    <div class="tl-step <?php echo stepClass('on_site', $step); ?>">
+        <div class="tl-line"></div>
+        <div class="tl-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <div class="tl-label">Arrived</div>
+        <div class="tl-time"><?php echo $dispatch['arrived_at'] ? date('g:i A', strtotime($dispatch['arrived_at'])) : '—'; ?></div>
+    </div>
+    <div class="tl-step <?php echo stepClass('returning', $step); ?>">
+        <div class="tl-line"></div>
+        <div class="tl-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 12l6-6M3 12l6 6"/></svg></div>
+        <div class="tl-label">Returned</div>
+        <div class="tl-time"><?php echo $dispatch['returned_at'] ? date('g:i A', strtotime($dispatch['returned_at'])) : '—'; ?></div>
+    </div>
+</div>
 
+<div class="action-card" style="margin-bottom:18px;">
+<?php if ($step === 'assigned'): ?>
+    <div class="elapsed-label">Ready to head out?</div>
+    <form method="POST">
+        <input type="hidden" name="action" value="depart">
+        <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
+        <button type="submit" class="btn-action">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+            Depart Command Center
+        </button>
+    </form>
+
+<?php elseif ($step === 'en_route'): ?>
+    <div class="elapsed-timer" id="elapsedTimer">00:00:00</div>
+    <div class="elapsed-label">Time en route</div>
+    <form method="POST">
+        <input type="hidden" name="action" value="arrive">
+        <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
+        <button type="submit" class="btn-action">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>
+            Arrived at Site
+        </button>
+    </form>
+    <a href="<?php echo BASE_URL; ?>/app/responder/report-delay.php" class="btn-secondary">Running late? Report a delay →</a>
+    <script>
+        const startedAt = new Date("<?php echo date('c', strtotime($dispatch['departed_at'])); ?>").getTime();
+    </script>
+
+<?php elseif ($step === 'returning'): ?>
+    <div class="elapsed-timer" id="elapsedTimer">00:00:00</div>
+    <div class="elapsed-label">Time returning to command center</div>
+    <form method="POST" enctype="multipart/form-data" style="text-align:left; max-width:420px; margin:0 auto 20px;">
+        <input type="hidden" name="action" value="return_to_base">
+        <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
+        <label for="incident_details">Incident Details <span style="color:var(--light-grayish); font-weight:400;">(optional)</span></label>
+        <textarea name="incident_details" id="incident_details" placeholder="What happened on-site — condition on arrival, actions taken, outcome"></textarea>
+        <label for="incident_photo" style="margin-top:14px;">Incident Photo <span style="color:var(--light-grayish); font-weight:400;">(optional)</span></label>
+        <input type="file" name="incident_photo" id="incident_photo" accept="image/*" capture="environment">
+        <button type="submit" class="btn-action" style="width:100%; justify-content:center; margin-top:18px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Back to Command Center
+        </button>
+    </form>
+    <script>
+        const startedAt = new Date("<?php echo date('c', strtotime($dispatch['resolved_at'])); ?>").getTime();
+    </script>
+
+<?php else: ?>
+    <div class="done-msg">✅ You've arrived on site. Awaiting resolution from the command center.</div>
+<?php endif; ?>
+</div>
+
+<?php if (in_array($step, ['en_route', 'returning'])): ?>
+<script>
+    (function tick() {
+        const diff = Math.max(0, Date.now() - startedAt);
+        const p = n => String(n).padStart(2, '0');
+        document.getElementById('elapsedTimer').textContent =
+            p(Math.floor(diff / 3600000)) + ':' + p(Math.floor((diff % 3600000) / 60000)) + ':' + p(Math.floor((diff % 60000) / 1000));
+        setTimeout(tick, 1000);
+    })();
+</script>
+<?php endif; ?>
         <?php if ($showNav): ?>
         <!-- ================= Navigation ================= -->
         <div class="nav-card">
