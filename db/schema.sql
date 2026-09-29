@@ -1,20 +1,18 @@
 -- ============================================================
---  HOPELINE — MySQL / MariaDB schema
---  Reconstructed from schema documentation (Sep 21, 2026)
+--  HOPELINE — full database (schema + demo accounts only)
 --  Engine: InnoDB | Charset: utf8mb4
+--  Demo logins (password for all: password123)
+--    admin@hopeline.local / manager@hopeline.local / user@hopeline.local
 -- ============================================================
+
+CREATE DATABASE IF NOT EXISTS `hopeline`
+  DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `hopeline`;
 
 SET FOREIGN_KEY_CHECKS = 0;
 SET NAMES utf8mb4;
 
--- CREATE DATABASE IF NOT EXISTS `hopeline`
---   DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
--- USE `hopeline`;
-
-
--- ------------------------------------------------------------
 -- 1. users
--- ------------------------------------------------------------
 DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `id`          int(11)       NOT NULL AUTO_INCREMENT,
@@ -33,10 +31,7 @@ CREATE TABLE `users` (
   KEY `idx_users_archived_at` (`archived_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
--- ------------------------------------------------------------
--- 2. settings
--- ------------------------------------------------------------
+-- 2. settings (settings.php seeds defaults on first visit)
 DROP TABLE IF EXISTS `settings`;
 CREATE TABLE `settings` (
   `setting_key`   varchar(100) NOT NULL,
@@ -45,10 +40,7 @@ CREATE TABLE `settings` (
   PRIMARY KEY (`setting_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
--- ------------------------------------------------------------
--- 3. activity_log
--- ------------------------------------------------------------
+-- 3. activity_log (includes ip_address / user_agent used by logActivity())
 DROP TABLE IF EXISTS `activity_log`;
 CREATE TABLE `activity_log` (
   `id`         int(11)      NOT NULL AUTO_INCREMENT,
@@ -56,6 +48,8 @@ CREATE TABLE `activity_log` (
   `email`      varchar(150) DEFAULT NULL,
   `action`     varchar(100) NOT NULL,
   `status`     varchar(20)  NOT NULL,
+  `ip_address` varchar(45)  DEFAULT NULL,
+  `user_agent` varchar(255) DEFAULT NULL,
   `created_at` datetime     DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_activity_user` (`user_id`),
@@ -65,10 +59,7 @@ CREATE TABLE `activity_log` (
     ON UPDATE RESTRICT ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
--- ------------------------------------------------------------
 -- 4. clip_reports
--- ------------------------------------------------------------
 DROP TABLE IF EXISTS `clip_reports`;
 CREATE TABLE `clip_reports` (
   `id`                 int(11)       NOT NULL AUTO_INCREMENT,
@@ -100,27 +91,25 @@ CREATE TABLE `clip_reports` (
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
--- ------------------------------------------------------------
--- 5. ptv_units
--- ------------------------------------------------------------
+-- 5. ptv_units (includes driver_name, used by live map)
 DROP TABLE IF EXISTS `ptv_units`;
 CREATE TABLE `ptv_units` (
   `id`               int(11)       NOT NULL AUTO_INCREMENT,
   `unit_name`        varchar(100)  NOT NULL,
   `plate_no`         varchar(20)   DEFAULT NULL,
+  `driver_name`      varchar(150)  DEFAULT NULL,
   `responder_id`     int(11)       DEFAULT NULL,
   `status`           enum('Available','En Route','On Site','Returning','Offline') NOT NULL DEFAULT 'Available',
   `archived_at`      datetime      DEFAULT NULL,
   `current_lat`      decimal(10,7) DEFAULT NULL,
   `current_lng`      decimal(10,7) DEFAULT NULL,
   `last_ping_at`     datetime      DEFAULT NULL,
-  `updated_at`       datetime      DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `created_at`       datetime      DEFAULT current_timestamp(),
   `last_location_at` datetime      DEFAULT NULL,
   `gps_accuracy`     float         DEFAULT NULL,
   `gps_heading`      float         DEFAULT NULL,
   `gps_speed`        float         DEFAULT NULL,
+  `updated_at`       datetime      DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_at`       datetime      DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_units_responder` (`responder_id`),
   KEY `idx_units_status` (`status`),
@@ -130,10 +119,7 @@ CREATE TABLE `ptv_units` (
     ON UPDATE RESTRICT ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
--- ------------------------------------------------------------
 -- 6. dispatch
--- ------------------------------------------------------------
 DROP TABLE IF EXISTS `dispatch`;
 CREATE TABLE `dispatch` (
   `id`                    int(11)      NOT NULL AUTO_INCREMENT,
@@ -174,10 +160,7 @@ CREATE TABLE `dispatch` (
     ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
--- ------------------------------------------------------------
 -- 7. delay_logs
--- ------------------------------------------------------------
 DROP TABLE IF EXISTS `delay_logs`;
 CREATE TABLE `delay_logs` (
   `id`          int(11)      NOT NULL AUTO_INCREMENT,
@@ -213,10 +196,7 @@ CREATE TABLE `delay_logs` (
     ON UPDATE RESTRICT ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
--- ------------------------------------------------------------
--- 8. v_incident_timeline (VIEW)
--- ------------------------------------------------------------
+-- 8. v_incident_timeline (view)
 DROP VIEW IF EXISTS `v_incident_timeline`;
 CREATE VIEW `v_incident_timeline` AS
 SELECT
@@ -229,7 +209,6 @@ SELECT
   c.`problem_resources` AS `problem_resources`,
   c.`status`            AS `incident_status`,
   c.`created_at`        AS `report_received_at`,
-
   d.`id`                    AS `dispatch_id`,
   d.`status`                AS `dispatch_status`,
   u.`unit_name`             AS `unit_name`,
@@ -238,37 +217,19 @@ SELECT
   d.`departed_at`           AS `departed_at`,
   d.`arrived_at`            AS `arrived_at`,
   d.`resolved_at`           AS `resolved_at`,
-
-  -- Travel time: departure -> arrival on site
   TIMESTAMPDIFF(SECOND, d.`departed_at`, d.`arrived_at`) AS `actual_travel_seconds`,
-
-  -- Total response: call received -> incident resolved
   TIMESTAMPDIFF(SECOND, c.`created_at`, d.`resolved_at`) AS `total_response_seconds`,
-
-  -- Number of delay entries recorded for this dispatch
   (SELECT COUNT(*) FROM `delay_logs` dl WHERE dl.`dispatch_id` = d.`id`) AS `delay_count`
 FROM `clip_reports` c
 LEFT JOIN `dispatch`  d ON d.`clip_report_id` = c.`id`
 LEFT JOIN `ptv_units` u ON u.`id` = d.`unit_id`;
 
-
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
---  SEED DATA
+--  SEED: demo accounts only (password: password123)
+--  Change or remove before production.
 -- ============================================================
-
--- ------------------------------------------------------------
---  Demo accounts  (password for all three: password123)
--- ------------------------------------------------------------
---   Admin demo .................. admin@hopeline.local    / password123
---   Manager / Dispatcher demo ... manager@hopeline.local  / password123
---   Responder demo 1 ............ user@hopeline.local     / password123
---
---  Hashes below are bcrypt, cost 10, compatible with PHP
---  password_verify() and Laravel's Hash::check().
---  CHANGE OR REMOVE THESE BEFORE DEPLOYING TO PRODUCTION.
--- ------------------------------------------------------------
 INSERT INTO `users` (`name`, `email`, `password`, `role`, `contact_no`, `is_verified`) VALUES
   ('System Administrator', 'admin@hopeline.local',
    '$2y$10$i/gPUBdIyWYHOw1CHaS.3.bMDfg7N4zjQ2qCQmdbQHHy5ytXTyPsG', 'admin',   '09170000001', 1),
@@ -276,12 +237,3 @@ INSERT INTO `users` (`name`, `email`, `password`, `role`, `contact_no`, `is_veri
    '$2y$10$O/YbHs.v/iEzxCQHv/KMnuVEcoxXL/UdrS4Ka24gVTgUGIxNyKLHa', 'manager', '09170000002', 1),
   ('Responder One',        'user@hopeline.local',
    '$2y$10$TOA3EkeQZzdLt2mVJGLqEOS03MitUPr9.T.wdUObMGCE3SPDi0Dla', 'user',    '09170000003', 1);
-
-
--- ------------------------------------------------------------
---  Optional: settings defaults
--- ------------------------------------------------------------
--- INSERT INTO `settings` (`setting_key`, `setting_value`) VALUES
---   ('app_name',            'HopeLine'),
---   ('default_eta_minutes', '10'),
---   ('gps_ping_interval',   '15');
