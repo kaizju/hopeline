@@ -106,7 +106,7 @@ $totalRows = $totalStmt->fetchColumn();
 
 $stmt = $pdo->prepare("
     SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.departed_at, d.arrived_at, u.unit_name,
-           d.patient_name, d.patient_age_group, d.patient_sex, d.victim_count, d.vital_signs, d.alcohol_breath, d.closeout_remarks
+           d.patient_name, d.patient_age_group, d.patient_sex, d.victim_count, d.vital_signs, d.alcohol_breath,d.incident_details, d.incident_photo, d.closeout_remarks
     FROM clip_reports c
     LEFT JOIN dispatch d ON d.clip_report_id = c.id
     LEFT JOIN ptv_units u ON u.id = d.unit_id
@@ -183,7 +183,7 @@ $unreadAlerts = 0;
     <table>
         <thead><tr>
             <th>CLIP Ref</th><th>Caller</th><th>Barangay</th><th>Incident</th><th>Severity</th>
-            <th>Unit</th><th>Reported</th><th>Status</th><th>Case Details</th><th>Actions</th>
+            <th>Unit</th><th>Reported</th><th>Status</th><th>Photo</th><th>Case Details</th><th>Actions</th>
         </tr></thead>
         <tbody>
             <?php foreach ($incidents as $inc): ?>
@@ -196,7 +196,10 @@ $unreadAlerts = 0;
                 <td><?php echo htmlspecialchars($inc['unit_name'] ?? '—'); ?></td>
                 <td><?php echo date('M j, g:i A', strtotime($inc['created_at'])); ?></td>
                 <td><span class="status-badge status-<?php echo $inc['status']; ?>"><?php echo ucfirst($inc['status']); ?></span></td>
-                <td>
+                <td><?php if (!empty($inc['incident_photo'])): ?>
+    <a href="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" target="_blank">
+    <img src="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" style="width:44px;height:44px;object-fit:cover;border-radius:6px;"></a>
+<?php else: ?>—<?php endif; ?></td>
                     <?php if ($inc['dispatch_id'] && $inc['status'] === 'resolved'): ?>
                         <button type="button" class="btn-mini <?php echo $inc['patient_name'] ? 'btn-activate' : 'btn-deactivate'; ?>"
                                 onclick="document.getElementById('closeout-<?php echo $inc['dispatch_id']; ?>').classList.add('show')">
@@ -233,7 +236,7 @@ $unreadAlerts = 0;
             <div class="modal-overlay" id="closeout-<?php echo $inc['dispatch_id']; ?>">
                 <div class="modal">
                     <h3>Case Details — <?php echo htmlspecialchars($inc['clip_ref']); ?></h3>
-                    <form method="POST">
+                    <form method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="action" value="save_closeout">
                         <input type="hidden" name="dispatch_id" value="<?php echo $inc['dispatch_id']; ?>">
 

@@ -27,7 +27,7 @@ try {
     $stmt = $pdo->prepare("
         SELECT c.clip_ref, c.caller_name, c.barangay, c.incident_type, c.severity, c.status,
                c.created_at AS report_received_at,
-               d.departed_at, d.arrived_at, u.unit_name,
+               d.departed_at, d.arrived_at, u.unit_name, d.incident_photo, d.incident_details,
                TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) AS travel_seconds,
                TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at) AS total_response_seconds,
                (SELECT COUNT(*) FROM delay_logs dl WHERE dl.dispatch_id = d.id) AS delay_count
@@ -60,7 +60,7 @@ function fmtDuration($seconds) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Incident History — HopeLine</title>
+<title="<?php echo htmlspecialchars($h['incident_details'] ?? ''); ?>">Incident History — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 </head>
@@ -132,6 +132,7 @@ function fmtDuration($seconds) {
                 <td><?php echo fmtDuration($h['travel_seconds']); ?></td>
                 <td><?php echo fmtDuration($h['total_response_seconds']); ?></td>
                 <td class="<?php echo $h['delay_count'] > 0 ? 'delay-flag' : 'no-delay'; ?>"><?php echo $h['delay_count']; ?></td>
+                <th>Photo</th>
                 <td><span class="status-badge <?php echo $h['status'] === 'resolved' ? 'status-resolved' : ''; ?>"><?php echo ucfirst($h['status']); ?></span></td>
             </tr>
             <?php endforeach; ?>

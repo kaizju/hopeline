@@ -51,32 +51,37 @@ if ($action === 'arrive') {
     }
 }
 
-        if ($action === 'return_to_base') {
-            $details = trim($_POST['incident_details'] ?? '');
-            $photoPath = null;
-            if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
-                $ext = strtolower(pathinfo($_FILES['incident_photo']['name'], PATHINFO_EXTENSION));
-                if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'])) {
-                    $uploadDir = __DIR__ . '/../../assets/uploads/incidents/';
-                    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-                    $filename = 'incident_' . $dispatchId . '_' . time() . '.' . $ext;
-                    if (move_uploaded_file($_FILES['incident_photo']['tmp_name'], $uploadDir . $filename)) {
-                        $photoPath = 'assets/uploads/incidents/' . $filename;
-                    }
-                }
+        if ($action === 'save_site_report') {
+    $details = trim($_POST['incident_details'] ?? '');
+    $photoPath = null;
+    if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
+        $ext = strtolower(pathinfo($_FILES['incident_photo']['name'], PATHINFO_EXTENSION));
+        if (in_array($ext, ['jpg','jpeg','png','webp']) && @getimagesize($_FILES['incident_photo']['tmp_name'])) {
+            $uploadDir = __DIR__ . '/../../assets/uploads/incidents/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+            $filename = 'incident_' . $dispatchId . '_' . time() . '.' . $ext;
+            if (move_uploaded_file($_FILES['incident_photo']['tmp_name'], $uploadDir . $filename)) {
+                $photoPath = 'assets/uploads/incidents/' . $filename;
             }
-            $sql = "UPDATE dispatch SET status='resolved', returned_at=NOW(), incident_details=?"
-                 . ($photoPath ? ", incident_photo=?" : "") . " WHERE id=? AND unit_id=?";
-            $params = [$details];
-            if ($photoPath) $params[] = $photoPath;
-            $params[] = $dispatchId;
-            $params[] = $unit['id'];
-            $pdo->prepare($sql)->execute($params);
-            $pdo->prepare("UPDATE ptv_units SET status='Available', current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id=?")
-                ->execute([$unit['id']]);
-            if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'returned_to_command_center', 'success');
-            $flash = 'Welcome back! Unit marked Available.';
         }
+    }
+    $sql = "UPDATE dispatch SET incident_details=?" . ($photoPath ? ", incident_photo=?" : "")
+         . " WHERE id=? AND unit_id=? AND status='on_site'";
+    $params = [$details];
+    if ($photoPath) $params[] = $photoPath;
+    $params[] = $dispatchId; $params[] = $unit['id'];
+    $pdo->prepare($sql)->execute($params);
+    $flash = 'Site report saved.';
+}
+
+if ($action === 'return_to_base') {
+    $pdo->prepare("UPDATE dispatch SET status='resolved', returned_at=NOW() WHERE id=? AND unit_id=? AND status='returning'")
+        ->execute([$dispatchId, $unit['id']]);
+    $pdo->prepare("UPDATE ptv_units SET status='Available', current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id=?")
+        ->execute([$unit['id']]);
+    if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'returned_to_command_center', 'success');
+    $flash = 'Welcome back! Unit marked Available.';
+}
     } catch (PDOException $e) {
         $flash = 'Action failed: ' . $e->getMessage();
     }
@@ -191,13 +196,10 @@ $unreadAlerts = 0;
 <?php if ($step === 'assigned'): ?>
     <div class="elapsed-label">Ready to head out?</div>
     <form method="POST">
-        <input type="hidden" name="action" value="depart">
-        <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
-        <button type="submit" class="btn-action">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-            Depart Command Center
-        </button>
-    </form>
+    <input type="hidden" name="action" value="return_to_base">
+    <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
+    <button type="submit" class="btn-action">Back to Command Center</button>
+</form>
 
 <?php elseif ($step === 'en_route'): ?>
     <div class="elapsed-timer" id="elapsedTimer">00:00:00</div>
@@ -234,8 +236,20 @@ $unreadAlerts = 0;
         const startedAt = new Date("<?php echo date('c', strtotime($dispatch['resolved_at'])); ?>").getTime();
     </script>
 
-<?php else: ?>
-    <div class="done-msg">✅ You've arrived on site. Awaiting resolution from the command center.</div>
+<?php else: /* on_site */ ?>
+    <div class="done-msg" style="margin-bottom:16px;">✅ You've arrived on site. Add your report below.</div>
+    <form method="POST" enctype="multipart/form-data" style="text-align:left; max-width:420px; margin:0 auto;">
+        <input type="hidden" name="action" value="save_site_report">
+        <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
+        <label for="incident_details">Incident Details</label>
+        <textarea name="incident_details" id="incident_details" placeholder="Condition on arrival, actions taken, outcome"><?php echo htmlspecialchars($dispatch['incident_details'] ?? ''); ?></textarea>
+        <label for="incident_photo" style="margin-top:14px;">Incident Photo</label>
+        <input type="file" name="incident_photo" id="incident_photo" accept="image/*" capture="environment">
+        <?php if (!empty($dispatch['incident_photo'])): ?>
+            <img src="<?php echo BASE_URL . '/' . htmlspecialchars($dispatch['incident_photo']); ?>" style="max-width:140px;border-radius:8px;margin-top:8px;">
+        <?php endif; ?>
+        <button type="submit" class="btn-action" style="width:100%;justify-content:center;margin-top:18px;">Save Site Report</button>
+    </form>
 <?php endif; ?>
 </div>
 
@@ -341,14 +355,6 @@ $unreadAlerts = 0;
                 </div>
                 <?php endif; ?>
             </div>
-
-            
-                <?php
-                if ($dispatch['status'] === 'assigned') echo 'Go to Depart / Arrive Log →';
-                elseif ($dispatch['status'] === 'en_route') echo 'Mark Arrived at Site →';
-                else echo 'View Dispatch Status →';
-                ?>
-            </a>
         </div>
     <?php endif; ?>
 </main>
