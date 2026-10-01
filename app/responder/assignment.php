@@ -414,13 +414,13 @@ $unreadAlerts = 0;
 
     // closest point on the route to `p`: distance off-route + distance travelled along it
     function nearest(p, coords, cum) {
-        var best = { dist: Infinity, along: 0 };
+        var best = { dist: Infinity, along: 0, idx: 0 };
         for (var i = 0; i < coords.length - 1; i++) {
             var A = xy(coords[i], p), B = xy(coords[i + 1], p);
             var dx = B[0] - A[0], dy = B[1] - A[1], len2 = dx * dx + dy * dy;
             var t = len2 ? Math.max(0, Math.min(1, -(A[0] * dx + A[1] * dy) / len2)) : 0;
             var cx = A[0] + t * dx, cy = A[1] + t * dy, d = Math.sqrt(cx * cx + cy * cy);
-            if (d < best.dist) best = { dist: d, along: cum[i] + t * Math.sqrt(len2) };
+            if (d < best.dist) best = { dist: d, along: cum[i] + t * Math.sqrt(len2), idx: i };
         }
         return best;
     }
@@ -488,6 +488,7 @@ $unreadAlerts = 0;
             liveMode = live;
             if (!myPos || !follow) map.fitBounds(line.getBounds(), { padding: [40, 40] });
             updateProgress();
+            if (!live && myPos) fetchRoute(myPos, true);   // swap the command-center preview for a route from where you are
         }).catch(function () {
             fetching = false;
             setBanner('!', 'Route unavailable', 'Check your internet connection — retrying');
@@ -503,6 +504,11 @@ $unreadAlerts = 0;
             return;
         }
         var n = nearest(myPos, route.coords, route.cum);
+        if (n.dist <= 60) {   // on the route: draw only what's ahead
+    var rest = [[myPos.lat, myPos.lng]].concat(route.coords.slice(n.idx + 1));
+    casing.setLatLngs(rest);
+    line.setLatLngs(rest);
+}
         var remaining = Math.max(0, route.total - n.along);
         setStats(remaining, route.duration * (remaining / route.total));
 
@@ -540,7 +546,7 @@ $unreadAlerts = 0;
             if (firstFix) { map.setView([f.lat, f.lng], 17); firstFix = false; }
             else map.panTo([f.lat, f.lng], { animate: true });
         }
-        if (ROUTING_ENABLED && !liveMode && !fetching && Date.now() - lastFetch > 3000) fetchRoute(myPos, true);
+       if (ROUTING_ENABLED && !liveMode && !fetching && (route || Date.now() - lastFetch > 3000)) fetchRoute(myPos, true);
         updateProgress();
     }
     window.addEventListener('hopegps:position', function (e) { onPosition(e.detail); });
