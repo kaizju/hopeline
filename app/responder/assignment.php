@@ -315,7 +315,7 @@ $unreadAlerts = 0;
                     </div>
                 </div>
                 <div class="info-block">
-                    <div class="label">Sitio / Purok</div>
+                    <div class="label">Purok</div>
                     <div class="value"><?php echo htmlspecialchars($dispatch['sitio_purok'] ?: '—'); ?></div>
                 </div>
                 <div class="info-block">
