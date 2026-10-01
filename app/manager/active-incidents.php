@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Is this exact unit already on this incident?
             $dup = $pdo->prepare("SELECT COUNT(*) FROM dispatch
                                   WHERE clip_report_id = ? AND unit_id = ?
-                                    AND status IN ('assigned','en_route','on_site','returning')
+                                    AND status = 'on_site'
                                   FOR UPDATE");
             $dup->execute([$clipId, $unitId]);
 
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!$active) {
                 $pdo->rollBack();
-                $msg = 'No active dispatch found for this incident.';
+                $msg = 'Can\'t resolve yet — the PTV hasn\'t arrived on site.';
             } else {
                 $pdo->prepare("UPDATE clip_reports SET status='resolved' WHERE id=?")->execute([$clipId]);
                 foreach ($active as $d) {
@@ -175,19 +175,15 @@ try {
                 </div>
 
                 <div class="incident-actions">
-                    <?php if ($inc['dispatch_id']): ?>
-                        <div class="assigned-unit-tag">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-2"/><circle cx="6.5" cy="18.5" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/></svg>
-                            <?php echo htmlspecialchars($inc['unit_name']); ?> assigned
-                        </div>
-                        <form method="POST" style="margin-left:auto;">
-                            <input type="hidden" name="action" value="resolve">
-                            <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
-                            <input type="hidden" name="dispatch_id" value="<?php echo $inc['dispatch_id']; ?>">
-                            <input type="hidden" name="unit_id" value="<?php echo $inc['unit_id']; ?>">
-                            <button type="submit" class="btn btn-resolve">Mark Resolved</button>
-                        </form>
-                    <?php else: ?>
+                    <?php if ($inc['dispatch_status'] === 'on_site'): ?>
+<form method="POST" style="margin-left:auto;">
+    <input type="hidden" name="action" value="resolve">
+    <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
+    <button type="submit" class="btn btn-resolve">Mark Resolved</button>
+</form>
+<?php else: ?>
+<button type="button" class="btn btn-resolve" disabled style="margin-left:auto;opacity:.4;cursor:not-allowed;" title="Unlocks when the PTV arrives on site">🔒 Awaiting arrival</button>
+
                         <form method="POST" class="dispatch-form">
                             <input type="hidden" name="action" value="dispatch">
                             <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
