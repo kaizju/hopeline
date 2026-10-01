@@ -3,7 +3,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-
+date_default_timezone_set('Asia/Manila');
 define('BASE_URL', 'https://localhost/hopeline/');
 $host = 'localhost';
 $dbname = 'hopeline';

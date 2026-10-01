@@ -19,7 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $incidentType  = trim($_POST['incident_type'] ?? '');
    $severityMap = ['Fire'=>'Critical','Medical Emergency'=>'High','Vehicular Accident'=>'High',
                 'Flood / Landslide'=>'High','Violence / Assault'=>'High','Other'=>'Moderate'];
-$severity = $severityMap[$incidentType] ?? 'Moderate';
+$validSev = ['Critical','High','Moderate','Low'];
+$severity = in_array($_POST['severity'] ?? '', $validSev, true) ? $_POST['severity'] : ($severityMap[$incidentType] ?? 'Moderate');
     $resourcesRaw  = $_POST['resources'] ?? []; // ['Ambulance' => '1', 'Fire Truck' => '0', ...]
     $problemNotes  = trim($_POST['problem_notes'] ?? '');
 
@@ -272,7 +273,16 @@ $stmt->execute([
                     <div class="card-title"><div class="step-num">I</div><h2>Incident</h2></div>
                     <div class="card-sub">What kind of incident is being reported?</div>
 
-                    <div class="incident-grid" id="incidentGrid">
+                    <
+                    <div class="severity-wrap show">
+    <label>Severity Level <span class="optional">(auto-suggested from incident type, adjustable)</span></label>
+    <div class="severity-grid">
+        <div class="sev-option sev-critical"><input type="radio" name="severity" id="sev_critical" value="Critical" required><label for="sev_critical">Critical</label></div>
+        <div class="sev-option sev-high"><input type="radio" name="severity" id="sev_high" value="High"><label for="sev_high">High</label></div>
+        <div class="sev-option sev-moderate"><input type="radio" name="severity" id="sev_moderate" value="Moderate"><label for="sev_moderate">Moderate</label></div>
+        <div class="sev-option sev-low"><input type="radio" name="severity" id="sev_low" value="Low"><label for="sev_low">Low</label></div>
+    </div>
+</div>
                         <div class="incident-option">
                             <input type="radio" name="incident_type" id="inc_medical" value="Medical Emergency" required>
                             <label for="inc_medical">
@@ -695,6 +705,9 @@ function findNearestBarangay(lat, lng) {
 
     document.querySelectorAll('input[name="incident_type"]').forEach(radio => {
         radio.addEventListener('change', () => {
+            const sevDefault = {'Fire':'Critical','Medical Emergency':'High','Vehicular Accident':'High','Flood / Landslide':'High','Violence / Assault':'High','Other':'Moderate'};
+const sv = document.getElementById('sev_' + (sevDefault[radio.value] || 'Moderate').toLowerCase());
+if (sv) sv.checked = true;
             document.querySelectorAll('.resource-option').forEach(opt => {
                 opt.classList.remove('suggested');
                 const tag = opt.querySelector('.suggest-tag');

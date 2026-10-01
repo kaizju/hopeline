@@ -140,7 +140,7 @@ $unreadAlerts = 0;
             <h1>Incident Records</h1>
             <p>Full log of every CLIP report system-wide — <?php echo $totalRows; ?> <?php echo $view; ?>.</p>
         </div>
-        <a href="<?php echo BASE_URL; ?>/app/admin/reports.php" class="btn-primary">Export Case Report →</a>
+       <a href="<?php echo BASE_URL; ?>/app/admin/export-cases.php?<?php echo htmlspecialchars(http_build_query($_GET)); ?>" class="btn-primary">Export Case Report (.csv) →</a>
     </div>
 
     <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
