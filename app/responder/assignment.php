@@ -75,12 +75,18 @@ if ($action === 'arrive') {
 }
 
 if ($action === 'return_to_base') {
-    $pdo->prepare("UPDATE dispatch SET status='resolved', returned_at=NOW() WHERE id=? AND unit_id=? AND status='returning'")
-        ->execute([$dispatchId, $unit['id']]);
-    $pdo->prepare("UPDATE ptv_units SET status='Available', current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id=?")
-        ->execute([$unit['id']]);
-    if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'returned_to_command_center', 'success');
-    $flash = 'Welcome back! Unit marked Available.';
+    $st = $pdo->prepare("UPDATE dispatch SET status='resolved', returned_at=NOW()
+                         WHERE id=? AND unit_id=? AND status='returning'");
+    $st->execute([$dispatchId, $unit['id']]);
+
+    if ($st->rowCount()) {
+        $pdo->prepare("UPDATE ptv_units SET status='Available', current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id=?")
+            ->execute([$unit['id']]);
+        if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'returned_to_command_center', 'success');
+        $flash = 'Welcome back! Unit marked Available.';
+    } else {
+        $flash = 'This dispatch has changed. Your screen was refreshed.';
+    }
 }
     } catch (PDOException $e) {
         $flash = 'Action failed: ' . $e->getMessage();
@@ -198,10 +204,13 @@ $unreadAlerts = 0;
 <?php if ($step === 'assigned'): ?>
     <div class="elapsed-label">Ready to head out?</div>
     <form method="POST">
-    <input type="hidden" name="action" value="return_to_base">
-    <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
-    <button type="submit" class="btn-action">Back to Command Center</button>
-</form>
+        <input type="hidden" name="action" value="depart">
+        <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
+        <button type="submit" class="btn-action">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            Depart Now
+        </button>
+    </form>
 
 <?php elseif ($step === 'en_route'): ?>
     <div class="elapsed-timer" id="elapsedTimer">00:00:00</div>
@@ -567,4 +576,3 @@ $unreadAlerts = 0;
 <?php endif; ?>
 
 </body>
-</html>
