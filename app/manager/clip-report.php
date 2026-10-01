@@ -176,7 +176,7 @@ $stmt->execute([
 
     <form method="POST" id="clipForm">
         <div class="layout">
-            <div>
+            <div class="col-main">
                 <!-- C: Caller -->
                 <div class="card">
                     <div class="card-title"><div class="step-num">C</div><h2>Caller</h2></div>
@@ -271,118 +271,122 @@ $stmt->execute([
                 <!-- I: Incident -->
                 <div class="card">
                     <div class="card-title"><div class="step-num">I</div><h2>Incident</h2></div>
-                    <div class="card-sub">What kind of incident is being reported?</div>
+                  <div class="card-sub">What kind of incident is being reported?</div>
 
-                    <
-                    <div class="severity-wrap show">
+<div class="incident-grid">
+    <div class="incident-option">
+        <input type="radio" name="incident_type" id="inc_medical" value="Medical Emergency" required>
+        <label for="inc_medical">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>
+            Medical Emergency
+        </label>
+    </div>
+    <div class="incident-option">
+        <input type="radio" name="incident_type" id="inc_fire" value="Fire">
+        <label for="inc_fire">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s5 5.5 5 10a5 5 0 0 1-10 0c0-1.5 1-2.5 1-2.5s.5 1.5 1.5 1.5c1.5 0 1-2 0-4C8.5 5 12 2 12 2z"/></svg>
+            Fire
+        </label>
+    </div>
+    <div class="incident-option">
+        <input type="radio" name="incident_type" id="inc_vehicular" value="Vehicular Accident">
+        <label for="inc_vehicular">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 17V9l2-5h14l2 5v8"/></svg>
+            Vehicular Accident
+        </label>
+    </div>
+    <div class="incident-option">
+        <input type="radio" name="incident_type" id="inc_flood" value="Flood / Landslide">
+        <label for="inc_flood">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s2-3 5-3 4 2 7 2 5-3 5-3M2 18s2-3 5-3 4 2 7 2 5-3 5-3"/></svg>
+            Flood / Landslide
+        </label>
+    </div>
+    <div class="incident-option">
+        <input type="radio" name="incident_type" id="inc_assault" value="Violence / Assault">
+        <label for="inc_assault">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            Violence / Assault
+        </label>
+    </div>
+    <div class="incident-option">
+        <input type="radio" name="incident_type" id="inc_other" value="Other">
+        <label for="inc_other">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+            Other
+        </label>
+    </div>
+</div><!-- /.incident-grid -->
+
+<div class="severity-wrap show">
     <label>Severity Level <span class="optional">(auto-suggested from incident type, adjustable)</span></label>
     <div class="severity-grid">
         <div class="sev-option sev-critical"><input type="radio" name="severity" id="sev_critical" value="Critical" required><label for="sev_critical">Critical</label></div>
         <div class="sev-option sev-high"><input type="radio" name="severity" id="sev_high" value="High"><label for="sev_high">High</label></div>
         <div class="sev-option sev-moderate"><input type="radio" name="severity" id="sev_moderate" value="Moderate"><label for="sev_moderate">Moderate</label></div>
-        <div class="sev-option sev-low"><input type="radio" name="severity" id="sev_low" value="Low"><label for="sev_low">Low</label></div>
+                <div class="sev-option sev-low"><input type="radio" name="severity" id="sev_low" value="Low"><label for="sev_low">Low</label></div>
+    </div><!-- /.severity-grid -->
+</div><!-- /.severity-wrap -->
+</div><!-- /Incident .card -->
+</div><!-- /.col-main -->
+
+<div class="col-side">
+
+
+<!-- P: Problem -->
+<div class="card">
+    <div class="card-title"><div class="step-num">P</div><h2>Problem</h2></div>
+    <div class="card-sub">What does the caller need from LDRRMO? (auto-suggested from incident type — adjust as needed)</div>
+
+    <div class="resource-grid" id="resourceGrid"></div>
+
+    <div class="field">
+        <label for="problem_notes">Additional Notes <span class="optional">(optional)</span></label>
+        <textarea id="problem_notes" name="problem_notes" placeholder="Any other details the responding team should know"></textarea>
     </div>
 </div>
-                        <div class="incident-option">
-                            <input type="radio" name="incident_type" id="inc_medical" value="Medical Emergency" required>
-                            <label for="inc_medical">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>
-                                Medical Emergency
-                            </label>
-                        </div>
-                        <div class="incident-option">
-                            <input type="radio" name="incident_type" id="inc_fire" value="Fire">
-                            <label for="inc_fire">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s5 5.5 5 10a5 5 0 0 1-10 0c0-1.5 1-2.5 1-2.5s.5 1.5 1.5 1.5c1.5 0 1-2 0-4C8.5 5 12 2 12 2z"/></svg>
-                                Fire
-                            </label>
-                        </div>
-                        <div class="incident-option">
-                            <input type="radio" name="incident_type" id="inc_vehicular" value="Vehicular Accident">
-                            <label for="inc_vehicular">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 17V9l2-5h14l2 5v8"/></svg>
-                                Vehicular Accident
-                            </label>
-                        </div>
-                        <div class="incident-option">
-                            <input type="radio" name="incident_type" id="inc_flood" value="Flood / Landslide">
-                            <label for="inc_flood">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s2-3 5-3 4 2 7 2 5-3 5-3M2 18s2-3 5-3 4 2 7 2 5-3 5-3"/></svg>
-                                Flood / Landslide
-                            </label>
-                        </div>
-                        <div class="incident-option">
-                            <input type="radio" name="incident_type" id="inc_assault" value="Violence / Assault">
-                            <label for="inc_assault">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-                                Violence / Assault
-                            </label>
-                        </div>
-                        <div class="incident-option">
-                            <input type="radio" name="incident_type" id="inc_other" value="Other">
-                            <label for="inc_other">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
-                                Other
-                            </label>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- P: Problem -->
-                <div class="card">
-                    <div class="card-title"><div class="step-num">P</div><h2>Problem</h2></div>
-                    <div class="card-sub">What does the caller need from LDRRMO? (auto-suggested from incident type — adjust as needed)</div>
+<!-- Live summary -->
+ <div class="side-sticky">
+<div class="summary-card">
+    <h3>Report Summary</h3>
 
-                    <div class="resource-grid" id="resourceGrid">
-                        <!-- Each block is populated/generated for every vehicle in VEHICLE_FLEET (see script below).
-                             Structure kept here as a static reference for styling / no-JS fallback. -->
-                    </div>
+    <div class="summary-row">
+        <div class="label">Caller</div>
+        <div class="value empty" id="sumCaller">Not filled yet</div>
+    </div>
+    <div class="summary-row">
+        <div class="label">Location</div>
+        <div class="value empty" id="sumLocation">Not filled yet</div>
+    </div>
+    <div class="summary-row">
+        <div class="label">PTV ETA</div>
+        <div class="value empty" id="sumEta">Not calculated yet</div>
+    </div>
+    <div class="summary-row">
+        <div class="label">Incident</div>
+        <div class="value empty" id="sumIncident">Not filled yet</div>
+    </div>
+    <div class="summary-row">
+        <div class="label">Resources Needed</div>
+        <div class="value empty" id="sumResources">Not filled yet</div>
+    </div>
 
-                    <div class="field">
-                        <label for="problem_notes">Additional Notes <span class="optional">(optional)</span></label>
-                        <textarea id="problem_notes" name="problem_notes" placeholder="Any other details the responding team should know"></textarea>
-                    </div>
-                </div>
+    <ul class="checklist" id="checklist">
+        <li id="chkCaller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Caller name</li>
+        <li id="chkLocation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Barangay selected</li>
+        <li id="chkPin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Map pin dropped</li>
+        <li id="chkIncident"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Incident type</li>
+        <li id="chkResources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Resource(s) selected</li>
+    </ul>
+</div>
 
-                <div class="submit-row">
-                    <button type="submit" id="submitBtn">Log CLIP Report</button>
-                </div>
-            </div>
-
-            <!-- Live summary -->
-            <div class="summary-card">
-                <h3>Report Summary</h3>
-
-                <div class="summary-row">
-                    <div class="label">Caller</div>
-                    <div class="value empty" id="sumCaller">Not filled yet</div>
-                </div>
-                <div class="summary-row">
-                    <div class="label">Location</div>
-                    <div class="value empty" id="sumLocation">Not filled yet</div>
-                </div>
-                <div class="summary-row">
-                    <div class="label">PTV ETA</div>
-                    <div class="value empty" id="sumEta">Not calculated yet</div>
-                </div>
-                <div class="summary-row">
-                    <div class="label">Incident</div>
-                    <div class="value empty" id="sumIncident">Not filled yet</div>
-                </div>
-                <div class="summary-row">
-                    <div class="label">Resources Needed</div>
-                    <div class="value empty" id="sumResources">Not filled yet</div>
-                </div>
-
-                <ul class="checklist" id="checklist">
-                    <li id="chkCaller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Caller name</li>
-                    <li id="chkLocation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Barangay selected</li>
-                    <li id="chkPin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Map pin dropped</li>
-                    <li id="chkIncident"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Incident type</li>
-                    <li id="chkResources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Resource(s) selected</li>
-                </ul>
-            </div>
-        </div>
+<div class="submit-row">
+    <button type="submit" id="submitBtn">Log CLIP Report</button>
+</div>
+</div><!-- /.side-sticky -->
+            </div><!-- /.col-side -->
+        </div><!-- /.layout -->
     </form>
 </main>
 

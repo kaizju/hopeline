@@ -97,7 +97,9 @@ $unitStatus = $unit['status'] ?? 'Available';
 $dispatch = null;
 if ($unit) {
     $dStmt = $pdo->prepare("
-        SELECT d.*, c.clip_ref, c.caller_name, c.caller_contact, c.barangay, c.sitio_purok,
+        SELECT d.*,
+       TIMESTAMPDIFF(SECOND, d.departed_at, NOW()) AS en_route_secs,
+       TIMESTAMPDIFF(SECOND, d.resolved_at, NOW()) AS returning_secs, c.clip_ref, c.caller_name, c.caller_contact, c.barangay, c.sitio_purok,
                c.landmark, c.latitude, c.longitude, c.incident_type, c.severity, c.problem_resources, c.problem_notes
         FROM dispatch d
         JOIN clip_reports c ON c.id = d.clip_report_id
@@ -213,28 +215,22 @@ $unreadAlerts = 0;
         </button>
     </form>
     <a href="<?php echo BASE_URL; ?>/app/responder/report-delay.php" class="btn-secondary">Running late? Report a delay →</a>
-    <script>
-        const startedAt = new Date("<?php echo date('c', strtotime($dispatch['departed_at'])); ?>").getTime();
-    </script>
+   <script>const elapsedStart = <?php echo max(0, (int)$dispatch['en_route_secs']); ?>;</script>
 
 <?php elseif ($step === 'returning'): ?>
     <div class="elapsed-timer" id="elapsedTimer">00:00:00</div>
     <div class="elapsed-label">Time returning to command center</div>
-    <form method="POST" enctype="multipart/form-data" style="text-align:left; max-width:420px; margin:0 auto 20px;">
-        <input type="hidden" name="action" value="return_to_base">
-        <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
-        <label for="incident_details">Incident Details <span style="color:var(--light-grayish); font-weight:400;">(optional)</span></label>
-        <textarea name="incident_details" id="incident_details" placeholder="What happened on-site — condition on arrival, actions taken, outcome"></textarea>
-        <label for="incident_photo" style="margin-top:14px;">Incident Photo <span style="color:var(--light-grayish); font-weight:400;">(optional)</span></label>
-        <input type="file" name="incident_photo" id="incident_photo" accept="image/*" capture="environment">
-        <button type="submit" class="btn-action" style="width:100%; justify-content:center; margin-top:18px;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            Back to Command Center
-        </button>
-    </form>
-    <script>
-        const startedAt = new Date("<?php echo date('c', strtotime($dispatch['resolved_at'])); ?>").getTime();
-    </script>
+    <form method="POST">
+    <input type="hidden" name="action" value="return_to_base">
+    <input type="hidden" name="dispatch_id" value="<?php echo $dispatch['id']; ?>">
+    <button type="submit" class="btn-action">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back to Command Center
+    </button>
+</form>
+    
+        <script>const elapsedStart = <?php echo max(0, (int)$dispatch['returning_secs']); ?>;</script>
+    
 
 <?php else: /* on_site */ ?>
     <div class="done-msg" style="margin-bottom:16px;">✅ You've arrived on site. Add your report below.</div>
@@ -268,10 +264,11 @@ $unreadAlerts = 0;
         if (document.visibilityState === 'visible') check();
     });
 })();
-   (function tick() {
+  (function tick() {
     const el = document.getElementById('elapsedTimer');
-    if (!el || typeof startedAt === 'undefined') return;
-    const diff = Math.max(0, Date.now() - startedAt);
+    if (!el || typeof elapsedStart === 'undefined') return;
+    window._t0 = window._t0 || Date.now();
+    const diff = Math.max(0, elapsedStart * 1000 + (Date.now() - window._t0));
     const p = n => String(n).padStart(2, '0');
     el.textContent = p(Math.floor(diff / 3600000)) + ':' + p(Math.floor((diff % 3600000) / 60000)) + ':' + p(Math.floor((diff % 60000) / 1000));
     setTimeout(tick, 1000);
