@@ -759,7 +759,7 @@ tbody tr:hover { background: rgba(var(--surface-rgb), 0.03); }
 
     .nav { padding: 4px 8px; }
     .nav-section-label { height: 1px; margin: 8px 10px; padding: 0; font-size: 0; overflow: hidden; opacity: 1; background: rgba(var(--border-rgb), 0.18); }
-    .nav-item { position: relative; justify-content: center; gap: 0; padding: 12px 0; margin-bottom: 4px; }
+   .nav-item { position: relative; justify-content: center; gap: 0; padding: 12px 0; margin-bottom: 4px; font-size: 0; }
     .nav-item svg { width: 20px; height: 20px; }
     .nav-item .nav-label { display: none; }
     .nav-item .badge { position: absolute; top: 3px; right: 3px; margin: 0; min-width: 16px; padding: 0 4px; font-size: 9px; line-height: 16px; text-align: center; }
