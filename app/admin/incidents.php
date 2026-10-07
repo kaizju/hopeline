@@ -196,17 +196,28 @@ $unreadAlerts = 0;
                 <td><?php echo htmlspecialchars($inc['unit_name'] ?? '—'); ?></td>
                 <td><?php echo date('M j, g:i A', strtotime($inc['created_at'])); ?></td>
                 <td><span class="status-badge status-<?php echo $inc['status']; ?>"><?php echo ucfirst($inc['status']); ?></span></td>
-                <td><?php if (!empty($inc['incident_photo'])): ?>
-    <a href="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" target="_blank">
-    <img src="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" style="width:44px;height:44px;object-fit:cover;border-radius:6px;"></a>
-<?php else: ?>—<?php endif; ?></td>
+
+                <!-- Photo -->
+                <td>
+                    <?php if (!empty($inc['incident_photo'])): ?>
+                        <a href="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" target="_blank">
+                            <img src="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" style="width:44px;height:44px;object-fit:cover;border-radius:6px;">
+                        </a>
+                    <?php else: ?>—<?php endif; ?>
+                </td>
+
+                <!-- Case Details (this cell was missing) -->
+                <td>
                     <?php if ($inc['dispatch_id'] && $inc['status'] === 'resolved'): ?>
-                        <button type="button" class="btn-mini <?php echo $inc['patient_name'] ? 'btn-activate' : 'btn-deactivate'; ?>"
-                                onclick="document.getElementById('closeout-<?php echo $inc['dispatch_id']; ?>').classList.add('show')">
+                        <button type="button"
+                                class="btn-mini <?php echo $inc['patient_name'] ? 'btn-activate' : 'btn-deactivate'; ?>"
+                                onclick="document.getElementById('closeout-<?php echo (int)$inc['dispatch_id']; ?>').classList.add('show')">
                             <?php echo $inc['patient_name'] ? 'Edit' : 'Add Details'; ?>
                         </button>
-                    <?php else: echo '—'; endif; ?>
+                    <?php else: ?>—<?php endif; ?>
                 </td>
+
+                <!-- Actions -->
                 <td class="row-actions">
                     <?php if ($view === 'active'): ?>
                         <?php if (!in_array($inc['status'], ['resolved','cancelled'])): ?>
@@ -216,7 +227,7 @@ $unreadAlerts = 0;
                             <button type="submit" class="btn-cancel-inc">Cancel</button>
                         </form>
                         <?php else: ?>
-                        <form method="POST" onsubmit="return confirm('Archive this incident? It stays in your database but leaves the default view.');" style="display:inline;">
+                        <form method="POST" onsubmit="return confirm('Archive this incident?');" style="display:inline;">
                             <input type="hidden" name="action" value="archive_incident">
                             <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
                             <button type="submit" class="btn-mini btn-deactivate">Archive</button>
@@ -231,16 +242,30 @@ $unreadAlerts = 0;
                     <?php endif; ?>
                 </td>
             </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+    </div>
 
-            <?php if ($inc['dispatch_id'] && $inc['status'] === 'resolved'): ?>
-            <div class="modal-overlay" id="closeout-<?php echo $inc['dispatch_id']; ?>">
-                <div class="modal">
-                    <h3>Case Details — <?php echo htmlspecialchars($inc['clip_ref']); ?></h3>
-                    <form method="POST" enctype="multipart/form-data">
-                        <input type="hidden" name="action" value="save_closeout">
-                        <input type="hidden" name="dispatch_id" value="<?php echo $inc['dispatch_id']; ?>">
+    <div class="pagination">
+        <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+            <a href="?view=<?php echo $view; ?>&status=<?php echo urlencode($statusFilter); ?>&severity=<?php echo urlencode($severityFilter); ?>&barangay=<?php echo urlencode($barangayFilter); ?>&q=<?php echo urlencode($search); ?>&page=<?php echo $p; ?>"
+               class="<?php echo $p===$page?'active':''; ?>"><?php echo $p; ?></a>
+        <?php endfor; ?>
+    </div>
 
-                        <div class="field">
+    <!-- ===== Case Details modals: OUTSIDE the table ===== -->
+    <?php foreach ($incidents as $inc): ?>
+        <?php if ($inc['dispatch_id'] && $inc['status'] === 'resolved'): ?>
+        <div class="modal-overlay" id="closeout-<?php echo (int)$inc['dispatch_id']; ?>"
+             onclick="if(event.target===this)this.classList.remove('show')">
+            <div class="modal">
+                <h3>Case Details — <?php echo htmlspecialchars($inc['clip_ref']); ?></h3>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="save_closeout">
+                    <input type="hidden" name="dispatch_id" value="<?php echo (int)$inc['dispatch_id']; ?>">
+
+                    <div class="field">
                             <label>Name of Patient</label>
                             <input type="text" name="patient_name" value="<?php echo htmlspecialchars($inc['patient_name'] ?? ''); ?>" placeholder="Defaults to caller name if left blank">
                         </div>
@@ -304,25 +329,16 @@ $unreadAlerts = 0;
     <?php endif; ?>
 </div>
 
-                        <div class="modal-actions">
-                            <button type="button" class="btn-cancel" onclick="document.getElementById('closeout-<?php echo $inc['dispatch_id']; ?>').classList.remove('show')">Cancel</button>
-                            <button type="submit" class="btn-primary">Save</button>
-                        </div>
-                    </form>
-                </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-cancel"
+                                onclick="document.getElementById('closeout-<?php echo (int)$inc['dispatch_id']; ?>').classList.remove('show')">Cancel</button>
+                        <button type="submit" class="btn-primary">Save</button>
+                    </div>
+                </form>
             </div>
-            <?php endif; ?>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-    </div>
-
-    <div class="pagination">
-        <?php for ($p = 1; $p <= $totalPages; $p++): ?>
-            <a href="?view=<?php echo $view; ?>&status=<?php echo urlencode($statusFilter); ?>&severity=<?php echo urlencode($severityFilter); ?>&barangay=<?php echo urlencode($barangayFilter); ?>&q=<?php echo urlencode($search); ?>&page=<?php echo $p; ?>"
-               class="<?php echo $p===$page?'active':''; ?>"><?php echo $p; ?></a>
-        <?php endfor; ?>
-    </div>
+        </div>
+        <?php endif; ?>
+    <?php endforeach; ?>
     <?php endif; ?>
 </main>
 

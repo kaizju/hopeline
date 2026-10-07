@@ -1,10 +1,9 @@
 <?php
-session_set_cookie_params(['samesite' => 'Strict', 'httponly' => true, 'secure' => true]);
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 date_default_timezone_set('Asia/Manila');
-define('BASE_URL', 'https://localhost/hopeline/');
+define('BASE_URL', 'https://localhost/hopeline');
 $host = 'localhost';
 $dbname = 'hopeline';
 $username = 'root';

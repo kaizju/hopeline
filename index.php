@@ -1,5 +1,5 @@
 <?php
-require_once 'config/config.php';   // session_start() happens here now
+require_once 'config/config.php';   // session_start() happens here
 require_once 'config/functions.php';
 require_once 'includes/activity-logger.php';
 
@@ -11,35 +11,44 @@ if (isLoggedIn()) {
     }
 }
 
-$n = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE action='login' AND status='failed' AND (email=? OR ip_address=?) AND created_at > NOW() - INTERVAL 15 MINUTE");
-$n->execute([$email, $_SERVER['REMOTE_ADDR']]);
-if ($n->fetchColumn() >= 5) { $error = 'Too many attempts. Try again in 15 minutes.'; }
-elseif ($user && password_verify(...)) { session_regenerate_id(true); /* existing success code */ }
-
 $error = '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'] ?? '';
+    $email    = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
-   $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND is_verified = 1 AND archived_at IS NULL");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    // Rate limit: 5 failed attempts per email/IP within 15 minutes
+    $n = $pdo->prepare("SELECT COUNT(*) FROM activity_log
+                        WHERE action = 'login' AND status = 'failed'
+                          AND (email = ? OR ip_address = ?)
+                          AND created_at > NOW() - INTERVAL 15 MINUTE");
+    $n->execute([$email, $_SERVER['REMOTE_ADDR']]);
 
-    if ($user && password_verify($password, $user['password'])) {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['email']   = $user['email'];
-        $_SESSION['role']    = $user['role'];
-
-        logActivity($pdo, $user['id'], $user['email'], 'login', 'success');
-
-        switch ($user['role']) {
-            case 'admin':   redirect('/app/admin/dashboard.php'); break;
-            case 'manager': redirect('/app/manager/dashboard.php'); break;
-            case 'user':    redirect('/app/responder/dashboard.php'); break;
-        }
+    if ($n->fetchColumn() >= 5) {
+        $error = 'Too many attempts. Try again in 15 minutes.';
     } else {
-        $error = "Invalid credentials or email not verified";
-        logActivity($pdo, null, $email, 'login', 'failed');
+        $stmt = $pdo->prepare("SELECT * FROM users
+                               WHERE email = ? AND is_verified = 1 AND archived_at IS NULL");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user && password_verify($password, $user['password'])) {
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['email']   = $user['email'];
+            $_SESSION['role']    = $user['role'];
+
+            logActivity($pdo, $user['id'], $user['email'], 'login', 'success');
+
+            switch ($user['role']) {
+                case 'admin':   redirect('/app/admin/dashboard.php'); break;
+                case 'manager': redirect('/app/manager/dashboard.php'); break;
+                case 'user':    redirect('/app/responder/dashboard.php'); break;
+            }
+        } else {
+            $error = 'Invalid credentials or email not verified';
+            logActivity($pdo, null, $email, 'login', 'failed');
+        }
     }
 }
 
