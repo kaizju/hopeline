@@ -65,7 +65,7 @@ html { overflow: hidden; overflow: clip; }
 body {
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--bg-page);
-    display: flex;
+  
     min-height: 100vh;
     height: 100vh;
     overflow: hidden;
@@ -149,6 +149,8 @@ select option { background: var(--cool-blue); color: var(--macadamia); }
    4. PAGE SHELL
    --------------------------------------------------------------------- */
 .main {
+    width: auto;          /* instead of relying on flex:1 */
+    min-width: 0;
     --content-max: 1280px;
     flex: 1; min-width: 0;
     margin-left: var(--sidebar-w);
