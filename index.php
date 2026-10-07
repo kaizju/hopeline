@@ -53,138 +53,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 renderHeader('Login');
-// ...rest of your HTML unchanged...
 ?>
 
+<!-- Same stylesheet as the rest of the app: theme vars, .card, .field, buttons, .alert-error -->
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 <style>
-    :root {
-        --burnt-umber: #6d120b;
-        --redwood: #b02029;
-        --macadamia: #fbf0d8;
-        --cool-blue: #113047;
-        --light-grayish: #739ab9;
-    }
-
-    body {
-        background: var(--cool-blue);
-        font-family: 'Segoe UI', Arial, sans-serif;
-    }
-
-    .login-wrapper {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 90vh;
-        padding: 20px;
-    }
-
-    .login-card {
-        background: var(--macadamia);
-        color: var(--cool-blue);
-        width: 100%;
-        max-width: 380px;
-        padding: 30px 28px;
-        border-radius: 6px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-    }
-
-    .login-card h1 {
-        color: var(--burnt-umber);
-        font-size: 22px;
-        margin: 0 0 20px;
-        text-align: center;
-    }
-
-    .login-card .form-group {
-        margin-bottom: 16px;
-    }
-
-    .login-card label {
-        display: block;
-        margin-bottom: 6px;
-        font-weight: 600;
-        color: var(--cool-blue);
-    }
-
-    .login-card input[type="email"],
-    .login-card input[type="password"] {
-        width: 100%;
-        box-sizing: border-box;
-        padding: 10px 12px;
-        border: 1px solid var(--light-grayish);
-        border-radius: 4px;
-        font-size: 14px;
-    }
-
-    .login-card input:focus {
-        outline: none;
-        border-color: var(--redwood);
-        box-shadow: 0 0 0 3px rgba(176, 32, 41, 0.2);
-    }
-
-    .login-card button {
-        width: 100%;
-        padding: 11px;
-        margin-top: 8px;
-        border: 0;
-        border-radius: 50px;
-        background: var(--burnt-umber);
-        color: var(--macadamia);
-        font-weight: 600;
-        font-size: 15px;
-        cursor: pointer;
-        transition: background 0.2s ease-in-out;
-    }
-
-    .login-card button:hover {
-        background: var(--redwood);
-    }
-
-    .login-card .error {
-        background: var(--redwood);
-        color: var(--macadamia);
-        padding: 10px 12px;
-        border-radius: 4px;
-        margin-bottom: 16px;
-        font-size: 14px;
-        text-align: center;
-    }
-
-    .login-card .info-box {
-        margin-top: 20px;
-        padding: 12px;
-        background: var(--light-grayish);
-        color: var(--cool-blue);
-        border-radius: 4px;
-        font-size: 12px;
-        text-align: center;
-        line-height: 1.5;
-    }
+    .login-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+    .login-card { width: 100%; max-width: 380px; padding: 28px; margin: auto; background: var(--cool-blue); }
+    .login-card .brand { justify-content: center; margin-bottom: 6px; }
+    .login-card .brand-mark { width: 34px; height: 34px; border-radius: 8px; }
+    .login-card .brand-mark svg { width: 19px; height: 19px; }
+    .login-card .brand-name { font-size: 20px; }
+    .login-card .tagline { text-align: center; color: var(--light-grayish); font-size: 12.5px; margin-bottom: 22px; }
+    .login-card input { width: 100%; }
+    .login-card button[type="submit"] { width: 100%; justify-content: center; padding: 12px; margin-top: 6px; font-size: 14px; }
 </style>
 
 <div class="login-wrapper">
-    <div class="login-card">
-        <h1>HopeLine Login</h1>
+    <div class="card login-card">
+        <div class="brand">
+            <div class="brand-mark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            </div>
+            <span class="brand-name">HopeLine</span>
+        </div>
+        <p class="tagline">Sign in to your account</p>
 
         <?php if ($error): ?>
-            <div class="error"><?php echo htmlspecialchars($error); ?></div>
+            <div class="alert-banner alert-error" role="alert"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
 
         <form method="POST">
-            <div class="form-group">
-                <label for="email">Email:</label>
-                <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>" required>
+            <div class="field">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>" autocomplete="username" required autofocus>
             </div>
 
-            <div class="form-group">
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" required>
+            <div class="field">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" autocomplete="current-password" required>
             </div>
 
-            <button type="submit">Login</button>
+            <button type="submit">Log in</button>
         </form>
-
-      
     </div>
 </div>
 
