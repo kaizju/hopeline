@@ -11,6 +11,11 @@ if (isLoggedIn()) {
     }
 }
 
+$n = $pdo->prepare("SELECT COUNT(*) FROM activity_log WHERE action='login' AND status='failed' AND (email=? OR ip_address=?) AND created_at > NOW() - INTERVAL 15 MINUTE");
+$n->execute([$email, $_SERVER['REMOTE_ADDR']]);
+if ($n->fetchColumn() >= 5) { $error = 'Too many attempts. Try again in 15 minutes.'; }
+elseif ($user && password_verify(...)) { session_regenerate_id(true); /* existing success code */ }
+
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'] ?? '';
