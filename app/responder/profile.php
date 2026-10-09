@@ -30,9 +30,21 @@ $unitStatus = $unit['status'] ?? 'Available';
 
 $stats = ['total' => 0, 'resolved' => 0, 'avg_response' => null, 'avg_duration' => null];
 $recent = [];
-$tm = $pdo->prepare("SELECT t.name FROM teams t JOIN users u ON u.team_id = t.id WHERE u.id = ?");
+$tm = $pdo->prepare("
+    SELECT t.id, t.name, t.description
+    FROM teams t JOIN users u ON u.team_id = t.id
+    WHERE u.id = ? AND t.archived_at IS NULL
+");
 $tm->execute([$_SESSION['user_id']]);
-$teamName = $tm->fetchColumn() ?: '—';
+$team = $tm->fetch(PDO::FETCH_ASSOC);
+$teamName = $team['name'] ?? '—';
+
+$teamMembers = [];
+if ($team) {
+    $mm = $pdo->prepare("SELECT name FROM team_members WHERE team_id = ? ORDER BY name");
+    $mm->execute([$team['id']]);
+    $teamMembers = $mm->fetchAll(PDO::FETCH_COLUMN);
+}
 if ($unit) {
     $sStmt = $pdo->prepare("
         SELECT COUNT(*) AS total,
@@ -123,7 +135,7 @@ function mins($v) {
             <div class="tp-avatar" style="width:40px;height:40px;font-size:14px;border-radius:10px;"><?php echo hle(strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $unitName), 0, 3))); ?></div>
             <div>
                 <div class="title"><?php echo hle($unitName); ?></div>
-                <div class="sub">Current status: <strong><?php echo hle($unitStatus); ?></strong></div>
+               <div class="sub">Team: <strong><?php echo hle($teamName); ?></strong> · Status: <strong><?php echo hle($unitStatus); ?></strong></div>
             </div>
         </div>
         <a class="btn-inline" href="<?php echo BASE_URL; ?>/app/responder/assignment.php">View assignment</a>
@@ -155,7 +167,7 @@ function mins($v) {
             <div class="tp-row"><span class="k">Plate number</span><span class="v"><?php echo hle($plate); ?></span></div>
             <div class="tp-row"><span class="k">Vehicle type</span><span class="v"><?php echo hle($vehicle); ?></span></div>
             <div class="tp-row"><span class="k">Crew capacity</span><span class="v"><?php echo hle($capacity); ?></span></div>
-            <div class="tp-row"><span class="k">Home base</span><span class="v"><?php echo hle($station); ?></span></div>
+           <div class="tp-row"><span class="k">Barangay / base</span><span class="v"><?php echo hle($station); ?></span></div>
             <div class="tp-row"><span class="k">Last known position</span>
                 <span class="v"><?php echo $hasPos ? hle(round((float)$unit['current_lat'], 5) . ', ' . round((float)$unit['current_lng'], 5)) : '—'; ?></span>
             </div>
@@ -182,7 +194,24 @@ function mins($v) {
         <div class="card-header">
             <h2>Recent dispatches</h2>
             <a href="<?php echo BASE_URL; ?>/app/responder/my-history.php">View all</a>
+        </div><div class="card" style="margin-top:16px;">
+    <div class="card-header">
+        <h2>Team members — <?php echo hle($teamName); ?></h2>
+        <span class="status-badge status-active"><?php echo count($teamMembers) + 1; ?> total</span>
+    </div>
+    <div class="tp-row">
+        <span class="k">★ Team leader</span>
+        <span class="v"><?php echo hle($leadName); ?> (you)</span>
+    </div>
+    <?php if ($teamMembers): foreach ($teamMembers as $i => $m): ?>
+        <div class="tp-row">
+            <span class="k">Member <?php echo $i + 1; ?></span>
+            <span class="v"><?php echo hle($m); ?></span>
         </div>
+    <?php endforeach; else: ?>
+        <div class="empty-mini">No members added yet. Your admin adds them under Teams.</div>
+    <?php endif; ?>
+</div>
         <?php if (!$recent): ?>
             <div class="empty-mini">No dispatches yet.</div>
         <?php else: ?>
