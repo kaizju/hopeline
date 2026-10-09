@@ -6,6 +6,7 @@
  * unitsData, activeRoutes, routeLines, unitIcon, destIcon, setupUnitRoute,
  * renderList, elapsedSince.
  */
+   
 (function () {
     'use strict';
 
@@ -57,13 +58,6 @@
         if (markers[u.id]) markers[u.id].bindPopup(popupHtml(u));
 
         // Incident pins
-        if (u.dest_lat && u.dest_lng) {
-            var d = [parseFloat(u.dest_lat), parseFloat(u.dest_lng)];
-            if (destMarkers[u.id]) destMarkers[u.id].setLatLng(d);
-            else destMarkers[u.id] = L.marker(d, { icon: destIcon(u.severity) }).addTo(map);
-        } else if (destMarkers[u.id]) {
-            map.removeLayer(destMarkers[u.id]); delete destMarkers[u.id];
-        }
     }
 
     function poll() {
