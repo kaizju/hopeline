@@ -4,7 +4,24 @@ function redirect($path) {
     header("Location: " . BASE_URL . $path);
     exit;
 }
+function csrfToken(): string {
+    if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+    if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32));
+    return $_SESSION['csrf'];
+}
 
+function csrfField(): string {
+    return '<input type="hidden" name="csrf" value="' . htmlspecialchars(csrfToken()) . '">';
+}
+
+function verifyCsrf(): void {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
+    $t = $_POST['csrf'] ?? '';
+    if (!is_string($t) || !hash_equals($_SESSION['csrf'] ?? '', $t)) {
+        http_response_code(403);
+        exit('Invalid or expired form token. Go back, refresh the page, and try again.');
+    }
+}
 function isLoggedIn() {
     return isset($_SESSION['user_id']);
 }
