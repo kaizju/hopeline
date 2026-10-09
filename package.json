@@ -14,5 +14,15 @@
   },
   "dependencies": {
     "leaflet-routing-machine": "^3.2.12"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaizju/hopeline.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/kaizju/hopeline/issues"
+  },
+  "homepage": "https://github.com/kaizju/hopeline#readme"
 }

@@ -35,7 +35,6 @@ try {
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 </head>
 <body>
-
 <?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
 
 <div class="main main-fullscreen">
@@ -78,7 +77,7 @@ try {
         </div>
     </div>
 </div>
-
+    
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
     // Units data rendered server-side (PHP -> JSON). In production, replace the
@@ -167,15 +166,7 @@ try {
             `;
             markers[u.id].bindPopup(popupHtml);
 
-            if (u.dest_lat && u.dest_lng) {
-                const destLatLng = [parseFloat(u.dest_lat), parseFloat(u.dest_lng)];
-                if (destMarkers[u.id]) {
-                    destMarkers[u.id].setLatLng(destLatLng);
-                } else {
-                    destMarkers[u.id] = L.marker(destLatLng, { icon: destIcon(u.severity) }).addTo(map);
-                }
-                destMarkers[u.id].bindPopup(`<div class="popup-title">Incident Site</div><div class="popup-row">${u.barangay || ''} — ${u.severity || ''}</div>`);
-            }
+            
         });
 
         const allLatLngs = Object.values(markers).map(m => m.getLatLng());
@@ -348,6 +339,8 @@ try {
         document.getElementById('lastUpdated').textContent = 'Updated just now';
     }, 5000);
 </script>
+      <script>window.LIVEMAP_INCIDENT_API = '<?php echo BASE_URL; ?>/api/incident-pins.php';</script>
+     <script src="<?php echo BASE_URL; ?>/assets/js/live-map-incidents.js"></script>
      <script>window.LIVEMAP_GPS_API = '<?php echo BASE_URL; ?>/api/unit-locations.php';</script>
      <script src="<?php echo BASE_URL; ?>/assets/js/live-map-gps.js"></script>
 </body>

@@ -48,6 +48,10 @@ ob_start();
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-2"/><circle cx="6.5" cy="18.5" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/></svg>
     PTV / Unit Management
 </a>
+<a class="nav-item <?php echo navActive('teams', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/admin/teams.php">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Teams
+</a>
 
 <div class="nav-section-label">System</div>
 <a class="nav-item <?php echo navActive('audit-trail', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/admin/audit-trail.php">

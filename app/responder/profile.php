@@ -30,7 +30,9 @@ $unitStatus = $unit['status'] ?? 'Available';
 
 $stats = ['total' => 0, 'resolved' => 0, 'avg_response' => null, 'avg_duration' => null];
 $recent = [];
-
+$tm = $pdo->prepare("SELECT t.name FROM teams t JOIN users u ON u.team_id = t.id WHERE u.id = ?");
+$tm->execute([$_SESSION['user_id']]);
+$teamName = $tm->fetchColumn() ?: '—';
 if ($unit) {
     $sStmt = $pdo->prepare("
         SELECT COUNT(*) AS total,
@@ -161,6 +163,7 @@ function mins($v) {
 
         <div class="card">
             <div class="card-header"><h2>Team lead</h2></div>
+            
             <div class="tp-hero" style="margin-bottom:10px;">
                 <div class="tp-avatar"><?php echo hle($initials); ?></div>
                 <div>
@@ -168,6 +171,7 @@ function mins($v) {
                     <p>Responder · <?php echo hle($unitName); ?></p>
                 </div>
             </div>
+            <div class="tp-row"><span class="k">Team</span><span class="v"><?php echo hle($teamName); ?></span></div>
             <div class="tp-row"><span class="k">Email</span><span class="v"><?php echo hle($leadEmail); ?></span></div>
             <div class="tp-row"><span class="k">Contact</span><span class="v"><?php echo hle($leadPhone); ?></span></div>
             <div class="tp-row"><span class="k">Role</span><span class="v">Field responder</span></div>
