@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    var API = window.LIVEMAP_INCIDENT_API, scope = 'active', pins = {};
+    var API = window.LIVEMAP_INCIDENT_API, scope = 'all', pins = {};
     var layer = L.layerGroup().addTo(map);   // `map` comes from live-map.php
     var ICONS = { 'Fire': '🔥', 'Medical Emergency': '🚑', 'Vehicular Accident': '🚗',
                   'Flood / Landslide': '🌊', 'Violence / Assault': '⚠️', 'Other': '❓' };
@@ -26,9 +26,14 @@
             iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -15]
         });
     }
+    function img(i) {
+    if (!i.photo_path) return '';
+    var p = /^(https?:)?\//.test(i.photo_path) ? i.photo_path : (window.LIVEMAP_IMG_BASE || '') + i.photo_path;
+    return '<img src="' + esc(p) + '" alt="Incident photo" style="width:100%;max-height:140px;object-fit:cover;border-radius:6px;margin-bottom:6px" onerror="this.remove()">';
+}
     function popup(i) {
         var st = (i.dispatch_status || i.status).replace('_', ' ');
-        return '<div class="popup-title">' + esc(i.incident_type) + ' <span style="color:' + (SEV[i.severity] || '#888') + '">● ' + esc(i.severity) + '</span></div>' +
+        return img(i) +'<div class="popup-title">' + esc(i.incident_type) + ' <span style="color:' + (SEV[i.severity] || '#888') + '">● ' + esc(i.severity) + '</span></div>' +
             row('Ref', i.clip_ref) + row('Status', st) +
             row('Caller', i.caller_name + (i.caller_contact ? ' (' + i.caller_contact + ')' : '')) +
             row('Location', [i.sitio_purok, i.barangay].filter(Boolean).join(', ')) +
@@ -60,17 +65,7 @@
             .catch(function () {});
     }
 
-    // scope toggle (top-right of the map)
-    var ctl = L.control({ position: 'topright' });
-    ctl.onAdd = function () {
-        var d = L.DomUtil.create('div');
-        d.innerHTML = '<select style="background:var(--cool-blue);color:var(--macadamia);border:1px solid rgba(var(--border-rgb),.4);border-radius:6px;padding:6px 8px;font-size:12px">' +
-                      '<option value="active">Active incidents</option><option value="all">Last 30 days</option></select>';
-        L.DomEvent.disableClickPropagation(d);
-        d.firstChild.addEventListener('change', function () { scope = this.value; poll(); });
-        return d;
-    };
-    ctl.addTo(map);
+    
 
     poll();
     setInterval(poll, 10000);
