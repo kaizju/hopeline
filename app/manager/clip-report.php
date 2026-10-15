@@ -43,7 +43,7 @@ $severity = in_array($_POST['severity'] ?? '', $validSev, true) ? $_POST['severi
     }
 
     if ($callerName === '')    $errors[] = 'Caller name is required.';
-    if ($barangay === '')      $errors[] = 'Barangay is required.';
+    if ($barangay === '')      $errors[] = 'Purok is required.';
     if ($incidentType === '')  $errors[] = 'Incident type is required.';
     if (empty($resources))     $errors[] = 'At least one vehicle must be selected (quantity > 0).';
 
@@ -220,7 +220,7 @@ $stmt->execute([
                         </div>
                         <div class="eta-main">
                             <div class="eta-label">PTV Estimated Time of Arrival</div>
-                            <div class="eta-value" id="etaValue">Select a barangay or drop a pin</div>
+                            <div class="eta-value" id="etaValue">Select a Purok or drop a pin</div>
                         </div>
                         <div class="eta-breakdown" id="etaBreakdown"></div>
                     </div>
@@ -231,34 +231,23 @@ $stmt->execute([
 
                     <div class="field-row">
                         <div class="field">
-                            <label for="barangay">Barangay <span class="optional" id="barangayAutoTag" style="display:none;">(auto-detected from pin)</span></label>
-                            <select id="barangay" name="barangay" required>
-                                <option value="">Select barangay…</option>
-                                <option>Agusan Canyon</option>
-                                <option>Alae</option>
-                                <option>Dahilayan</option>
-                                <option>Damilag</option>
-                                <option>Dalirig</option>
-                                <option>Diclum</option>
-                                <option>Guilang-guilang</option>
-                                <option>Kalugmanan</option>
-                                <option>Lindaban</option>
-                                <option>Lingion</option>
-                                <option>Lunocan</option>
-                                <option>Maluko</option>
-                                <option>Mambatangan</option>
-                                <option>Mampayag</option>
-                                <option>Minsuro</option>
-                                <option>San Miguel</option>
-                                <option>Sankanan</option>
-                                <option>Santiago</option>
-                                <option>Tankulan (Poblacion)</option>
-                                <option>Ticala</option>
-                            </select>
-                        </div>
+    <label for="barangay">Purok <span class="optional" id="barangayAutoTag" style="display:none;">(auto-detected from pin)</span></label>
+    <select id="barangay" name="barangay" required>
+        <option value="">Select purok…</option>
+        <option>Kihare</option>
+        <option>Lower Kalanawan</option>
+        <option>Lower Pol-ton</option>
+        <option>Lower Sosohon</option>
+        <option>Mangima</option>
+        <option>Saint Joseph</option>
+        <option>Upper Kalanawan</option>
+        <option>Upper Pol-ton</option>
+        <option>Upper Sosohon</option>
+    </select>
+</div>
                         <div class="field">
-                            <label for="sitio_purok">Sitio / Purok <span class="optional">(optional)</span></label>
-                            <input type="text" id="sitio_purok" name="sitio_purok" placeholder="e.g. Purok 3">
+                          <label for="sitio_purok">Street / Sitio <span class="optional">(optional)</span></label>
+<input type="text" id="sitio_purok" name="sitio_purok" placeholder="e.g. Rizal St.">
                         </div>
                     </div>
 
@@ -374,7 +363,7 @@ $stmt->execute([
 
     <ul class="checklist" id="checklist">
         <li id="chkCaller"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Caller name</li>
-        <li id="chkLocation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Barangay selected</li>
+       <li id="chkLocation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Purok selected</li>
         <li id="chkPin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Map pin dropped</li>
         <li id="chkIncident"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Incident type</li>
         <li id="chkResources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg> Resource(s) selected</li>
@@ -441,27 +430,16 @@ function findNearestBarangay(lat, lng) {
     // ⚠️ PLACEHOLDER COORDINATES — verify against LGU/LDRRMO GIS data
     // before using this for real dispatch.
     const barangayCoords = {
-        'Agusan Canyon':        { lat: 8.3220, lng: 124.8080 },
-        'Alae':                 { lat: 8.3450, lng: 124.8390 },
-        'Dahilayan':             { lat: 8.2810, lng: 124.8480 },
-        'Damilag':               { lat: 8.3616, lng: 124.8088 },
-        'Dalirig':               { lat: 8.3050, lng: 124.7950 },
-        'Diclum':                { lat: 8.3900, lng: 124.9050 },
-        'Guilang-guilang':       { lat: 8.3800, lng: 124.8600 },
-        'Kalugmanan':            { lat: 8.3550, lng: 124.9150 },
-        'Lindaban':              { lat: 8.4100, lng: 124.8300 },
-        'Lingion':               { lat: 8.4250, lng: 124.8700 },
-        'Lunocan':               { lat: 8.3980, lng: 124.8250 },
-        'Maluko':                { lat: 8.3500, lng: 124.8900 },
-        'Mambatangan':           { lat: 8.3600, lng: 124.9200 },
-        'Mampayag':              { lat: 8.4050, lng: 124.9000 },
-        'Minsuro':               { lat: 8.3300, lng: 124.8900 },
-        'San Miguel':            { lat: 8.3850, lng: 124.8500 },
-        'Sankanan':              { lat: 8.4150, lng: 124.9100 },
-        'Santiago':              { lat: 8.3400, lng: 124.8700 },
-        'Tankulan (Poblacion)':  { lat: 8.3736, lng: 124.8694 },
-        'Ticala':                { lat: 8.3950, lng: 124.7900 }
-    };
+    'Kihare':           { lat: 8.3750, lng: 124.8710 },
+    'Lower Kalanawan':  { lat: 8.3720, lng: 124.8680 },
+    'Lower Pol-ton':    { lat: 8.3710, lng: 124.8700 },
+    'Lower Sosohon':    { lat: 8.3740, lng: 124.8660 },
+    'Mangima':          { lat: 8.3760, lng: 124.8690 },
+    'Saint Joseph':     { lat: 8.3730, lng: 124.8720 },
+    'Upper Kalanawan':  { lat: 8.3770, lng: 124.8670 },
+    'Upper Pol-ton':    { lat: 8.3700, lng: 124.8730 },
+    'Upper Sosohon':    { lat: 8.3780, lng: 124.8650 }
+};
 
     let routingControl = null;
     let lastRouteDestination = null;

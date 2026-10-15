@@ -16,14 +16,14 @@ $avgTravel = $pdo->query("
     SELECT AVG(TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at))
     FROM dispatch d WHERE d.departed_at IS NOT NULL AND d.arrived_at IS NOT NULL
 ")->fetchColumn();
-
+$in = "'" . implode("','", purokList()) . "'";
 // Response time by barangay (avg total response, worst first)
 $byBarangay = $pdo->query("
     SELECT c.barangay,
            AVG(TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at)) AS avg_response,
            COUNT(*) AS incident_count
     FROM clip_reports c JOIN dispatch d ON d.clip_report_id = c.id
-    WHERE d.arrived_at IS NOT NULL
+    WHERE d.arrived_at IS NOT NULL AND c.barangay IN ($in)
     GROUP BY c.barangay
     ORDER BY avg_response DESC
     LIMIT 8
@@ -122,7 +122,7 @@ function fmtHours($seconds) {
     <div class="layout">
         <div>
             <div class="card">
-                <h2>Response Time by Barangay (slowest first)</h2>
+                <h2>Response Time by Purok (slowest first)</h2>
                 <?php if (empty($byBarangay)): ?>
                     <div class="empty-mini">Not enough resolved data yet.</div>
                 <?php else:

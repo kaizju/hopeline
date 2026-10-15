@@ -93,7 +93,8 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 15;
 $offset = ($page - 1) * $perPage;
 
-$where = $view === 'archived' ? "WHERE c.archived_at IS NOT NULL" : "WHERE c.archived_at IS NULL";
+$in = "'" . implode("','", purokList()) . "'";
+$where = ($view === 'archived' ? "WHERE c.archived_at IS NOT NULL" : "WHERE c.archived_at IS NULL") . " AND c.barangay IN ($in)";
 $params = [];
 if ($statusFilter !== '') { $where .= " AND c.status = ?"; $params[] = $statusFilter; }
 if ($severityFilter !== '') { $where .= " AND c.severity = ?"; $params[] = $severityFilter; }
@@ -118,7 +119,7 @@ $stmt->execute($params);
 $incidents = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $archivedCount = $pdo->query("SELECT COUNT(*) FROM clip_reports WHERE archived_at IS NOT NULL")->fetchColumn();
-$barangays = $pdo->query("SELECT DISTINCT barangay FROM clip_reports ORDER BY barangay")->fetchAll(PDO::FETCH_COLUMN);
+$barangays = purokList();
 $totalPages = max(1, ceil($totalRows / $perPage));
 $unreadAlerts = 0;
 ?>
@@ -168,7 +169,7 @@ $unreadAlerts = 0;
             <option value="Low" <?php echo $severityFilter==='Low'?'selected':''; ?>>Low</option>
         </select>
         <select name="barangay">
-            <option value="">All Barangays</option>
+            <option value="">All Puroks</option>
             <?php foreach ($barangays as $b): ?>
                 <option value="<?php echo htmlspecialchars($b); ?>" <?php echo $barangayFilter===$b?'selected':''; ?>><?php echo htmlspecialchars($b); ?></option>
             <?php endforeach; ?>
@@ -182,7 +183,7 @@ $unreadAlerts = 0;
     <div style="overflow-x:auto;">
     <table>
         <thead><tr>
-            <th>CLIP Ref</th><th>Caller</th><th>Barangay</th><th>Incident</th><th>Severity</th>
+            <th>CLIP Ref</th><th>Caller</th><th>Purok</th><th>Incident</th><th>Severity</th>
             <th>Unit</th><th>Reported</th><th>Status</th><th>Photo</th><th>Case Details</th><th>Actions</th>
         </tr></thead>
         <tbody>

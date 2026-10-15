@@ -13,7 +13,8 @@ $perPage = 15;
 $offset = ($page - 1) * $perPage;
 
 try {
-    $where = "WHERE c.created_at BETWEEN ? AND ?";
+   $in = "'" . implode("','", purokList()) . "'";
+$where = "WHERE c.created_at BETWEEN ? AND ? AND c.barangay IN ($in)";
     $params = [$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59'];
     if ($barangayFilter !== '') {
         $where .= " AND c.barangay = ?";
@@ -41,7 +42,7 @@ try {
     $stmt->execute($params);
     $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $barangays = $pdo->query("SELECT DISTINCT barangay FROM clip_reports ORDER BY barangay")->fetchAll(PDO::FETCH_COLUMN);
+   $barangays = purokList();
 } catch (PDOException $e) {
    
     $totalRows = count($history);
@@ -60,7 +61,7 @@ function fmtDuration($seconds) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title="<?php echo htmlspecialchars($h['incident_details'] ?? ''); ?>">Incident History — HopeLine</title>
+<title>Incident History — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 </head>
@@ -84,9 +85,9 @@ function fmtDuration($seconds) {
             <input type="date" name="to" id="to" value="<?php echo htmlspecialchars($dateTo); ?>">
         </div>
         <div class="filter-field">
-            <label for="barangay">Barangay</label>
+            <label for="barangay">Purok</label>
             <select name="barangay" id="barangay">
-                <option value="">All Barangays</option>
+                <option value="">All Puroks</option>
                 <?php foreach ($barangays as $b): ?>
                     <option value="<?php echo htmlspecialchars($b); ?>" <?php echo $barangayFilter === $b ? 'selected' : ''; ?>><?php echo htmlspecialchars($b); ?></option>
                 <?php endforeach; ?>
@@ -114,7 +115,8 @@ function fmtDuration($seconds) {
                 <th>Travel Time</th>
                 <th>Total Response</th>
                 <th>Delays</th>
-                <th>Status</th>
+<th>Photo</th>
+<th>Status</th>
             </tr>
         </thead>
         <tbody>
@@ -132,7 +134,13 @@ function fmtDuration($seconds) {
                 <td><?php echo fmtDuration($h['travel_seconds']); ?></td>
                 <td><?php echo fmtDuration($h['total_response_seconds']); ?></td>
                 <td class="<?php echo $h['delay_count'] > 0 ? 'delay-flag' : 'no-delay'; ?>"><?php echo $h['delay_count']; ?></td>
-                <th>Photo</th>
+               <td>
+    <?php if (!empty($h['incident_photo'])): ?>
+        <a href="<?php echo BASE_URL . '/' . htmlspecialchars($h['incident_photo']); ?>" target="_blank">
+            <img src="<?php echo BASE_URL . '/' . htmlspecialchars($h['incident_photo']); ?>" style="width:44px;height:44px;object-fit:cover;border-radius:6px;">
+        </a>
+    <?php else: ?>—<?php endif; ?>
+</td>
                 <td><span class="status-badge <?php echo $h['status'] === 'resolved' ? 'status-resolved' : ''; ?>"><?php echo ucfirst($h['status']); ?></span></td>
             </tr>
             <?php endforeach; ?>

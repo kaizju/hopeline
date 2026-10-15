@@ -50,7 +50,10 @@ function requireRole($role) {
         die("Access denied. Required role: $role");
     }
 }
-
+function purokList() {
+    return ['Kihare','Lower Kalanawan','Lower Pol-ton','Lower Sosohon','Mangima',
+            'Saint Joseph','Upper Kalanawan','Upper Pol-ton','Upper Sosohon'];
+}
 function renderHeader($title) {
     $currentRole = $_SESSION['role'] ?? 'guest';
     $currentEmail = $_SESSION['email'] ?? '';
