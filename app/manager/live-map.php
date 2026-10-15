@@ -40,7 +40,7 @@ try {
 <div class="main main-fullscreen">
     <div class="topbar">
         <div>
-            <h1>Live Unit Map</h1>
+            <h1>Live Map</h1>
             <div class="live-indicator"><span class="live-dot"></span> Live tracking active</div>
         </div>
         <div class="topbar-right">
