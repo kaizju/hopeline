@@ -36,10 +36,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $busy = $pdo->prepare("SELECT COUNT(*) FROM dispatch WHERE team_id = ? AND status IN ('assigned','en_route','on_site','returning') FOR UPDATE");
     $busy->execute([$teamId]);
-
+    $already = $pdo->prepare("SELECT COUNT(*) FROM dispatch WHERE clip_report_id = ? AND status IN ('assigned','en_route','on_site','returning') FOR UPDATE");
+    $already->execute([$clipId]);
     if (!$teamName) {
         $pdo->rollBack();
         $msg = 'Team not found.';
+        } elseif ($already->fetchColumn() > 0) {
+        $pdo->rollBack();
+        $msg = 'This incident is already assigned to a team.';
     } elseif ($busy->fetchColumn() > 0) {
         $pdo->rollBack();
         $msg = $teamName . ' is already on another dispatch.';
@@ -114,8 +118,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $teams = []; $busyTeams = [];
 // ---- Fetch data ----
 try {
-    $incidents = $pdo->query("
-    SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.unit_id, u.unit_name
+        $incidents = $pdo->query("
+    SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.unit_id, u.unit_name,
+           t.name AS team_name,
+           (SELECT GROUP_CONCAT(u3.unit_name ORDER BY u3.unit_name SEPARATOR ', ')
+              FROM dispatch d3 JOIN ptv_units u3 ON u3.id = d3.unit_id
+              WHERE d3.clip_report_id = c.id AND d3.status IN ('assigned','en_route','on_site')) AS vehicles
     FROM clip_reports c
     LEFT JOIN dispatch d ON d.id = (
         SELECT MAX(d2.id) FROM dispatch d2
@@ -123,6 +131,7 @@ try {
           AND d2.status IN ('assigned','en_route','on_site')
     )
     LEFT JOIN ptv_units u ON u.id = d.unit_id
+    LEFT JOIN teams t ON t.id = d.team_id
     WHERE c.status NOT IN ('resolved','cancelled')
     ORDER BY FIELD(c.severity,'Critical','High','Moderate','Low'), c.created_at ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
@@ -203,34 +212,42 @@ try {
                 </div>
 
                 <div class="incident-actions">
-                    <?php if ($inc['dispatch_status'] === 'on_site'): ?>
-<form method="POST" style="margin-left:auto;">
-    <input type="hidden" name="action" value="resolve">
-    <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
-    <button type="submit" class="btn btn-resolve">Mark Resolved</button>
-</form>
-<?php else: ?>
-<button type="button" class="btn btn-resolve" disabled style="margin-left:auto;opacity:.4;cursor:not-allowed;" title="Unlocks when the PTV arrives on site">🔒 Awaiting arrival</button>
+    <?php if ($inc['team_name']): ?>
+        <div class="responder-tag" style="font-weight:600;">
+            ★ Assigned to <?php echo htmlspecialchars($inc['team_name']); ?><?php echo $inc['vehicles'] ? ' · ' . htmlspecialchars($inc['vehicles']) : ''; ?>
+        </div>
+    <?php endif; ?>
 
-                        <form method="POST" class="dispatch-form">
-                            <input type="hidden" name="action" value="dispatch">
-                            <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
-                            <select name="team_id" required>
-    <option value="">Assign a team…</option>
-    <?php foreach ($teams as $t): $isBusy = in_array((int)$t['id'], $busyTeams, true); ?>
-        <option value="<?php echo $t['id']; ?>" <?php echo $isBusy ? 'disabled' : ''; ?>>
-            <?php echo htmlspecialchars($t['name']); ?><?php echo $isBusy ? ' (on dispatch)' : ''; ?>
-        </option>
-    <?php endforeach; ?>
-</select>
-                            <button type="submit" class="btn btn-dispatch">Dispatch</button>
-                        </form>
-                    <?php endif; ?>
-                </div>
-            </div>
+    <?php if ($inc['dispatch_status'] === 'on_site'): ?>
+        <form method="POST" style="margin-left:auto;">
+            <input type="hidden" name="action" value="resolve">
+            <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
+            <button type="submit" class="btn btn-resolve">Mark Resolved</button>
+        </form>
+    <?php else: ?>
+        <button type="button" class="btn btn-resolve" disabled style="margin-left:auto;opacity:.4;cursor:not-allowed;" title="Unlocks when the team arrives on site">🔒 Awaiting arrival</button>
+
+        <?php if (!$inc['dispatch_id']): ?>
+        <form method="POST" class="dispatch-form">
+            <input type="hidden" name="action" value="dispatch">
+            <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
+            <select name="team_id" required>
+                <option value="">Assign a team…</option>
+                <?php foreach ($teams as $t): $isBusy = in_array((int)$t['id'], $busyTeams, true); ?>
+                    <option value="<?php echo $t['id']; ?>" <?php echo $isBusy ? 'disabled' : ''; ?>>
+                        <?php echo htmlspecialchars($t['name']); ?><?php echo $isBusy ? ' (on dispatch)' : ''; ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" class="btn btn-dispatch">Dispatch</button>
+        </form>
+                <?php endif; ?>
+    <?php endif; ?>
+</div><!-- /.incident-actions -->
+            </div><!-- /.incident-card -->
             <?php endforeach; ?>
         <?php endif; ?>
-    </div>
+    </div><!-- /#incidentList -->
 </main>
 
 <script>
