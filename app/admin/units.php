@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../config/functions.php';
 requireRole('admin');
 
 $flash = '';
-
+$vehicleTypes = ['Ambulance','Patient Transport Vehicle (PTV)','Water Tanker','Fire Truck','Pick Up'];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     try {
@@ -14,20 +14,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $unitName = trim($_POST['unit_name'] ?? '');
             $plateNo = trim($_POST['plate_no'] ?? '');
             $responderId = $_POST['responder_id'] !== '' ? (int)$_POST['responder_id'] : null;
+            $vehicleType = $_POST['vehicle_type'] ?? '';
+            if (!in_array($vehicleType, $vehicleTypes, true)) $vehicleType = $vehicleTypes[1];
 
             if ($unitName === '') {
                 $flash = 'Unit name is required.';
             } else {
-                $stmt = $pdo->prepare("INSERT INTO ptv_units (unit_name, plate_no, responder_id, status, current_lat, current_lng) VALUES (?, ?, ?, 'Available', ?, ?)");
-                $stmt->execute([$unitName, $plateNo, $responderId, 8.371714652741774, 124.85717564826615]);
+                $stmt = $pdo->prepare("INSERT INTO ptv_units (unit_name, plate_no, vehicle_type, responder_id, status, current_lat, current_lng) VALUES (?, ?, ?, ?, 'Available', ?, ?)");
+                $stmt->execute([$unitName, $plateNo, $vehicleType, $responderId, 8.371714652741774, 124.85717564826615]);
                 $flash = "Unit \"$unitName\" added.";
             }
         }
 
         if ($action === 'assign_responder') {
-            $unitId = (int)($_POST['unit_id'] ?? 0);
-            $responderId = $_POST['responder_id'] !== '' ? (int)$_POST['responder_id'] : null;
-            $pdo->prepare("UPDATE ptv_units SET responder_id = ? WHERE id = ?")->execute([$responderId, $unitId]);
+                $unitId = (int)($_POST['unit_id'] ?? 0);
+                $responderId = $_POST['responder_id'] !== '' ? (int)$_POST['responder_id'] : null;
+                $pdo->prepare("UPDATE ptv_units SET responder_id = ? WHERE id = ?")->execute([$responderId, $unitId]);
             $flash = 'Responder assignment updated.';
         }
 
@@ -98,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $flash = 'Unit restored. Its status is set to Available — reassign a responder as needed.';
         }
-    } catch (PDOException $e) {
+       } catch (PDOException $e) {
         $flash = 'Action failed: ' . $e->getMessage();
     }
 }
@@ -135,8 +137,8 @@ $unreadAlerts = 0;
 <?php require_once __DIR__ . '/../../assets/layouts/admin/admin_sidebar.php'; ?>
 
 <main class="main">
-    <div class="page-head">
-        <div><h1>PTV / Unit Management</h1><p><?php echo count($units); ?> unit(s)</p></div>
+    <div class="page-head page-head--flex">
+    <div><h1>Unit Management</h1><p><?php echo count($units); ?> unit(s)</p></div>
         <?php if ($view === 'active'): ?>
         <button class="btn-primary" onclick="document.getElementById('addUnitModal').classList.add('show')">+ Add Unit</button>
         <?php endif; ?>
@@ -158,7 +160,7 @@ $unreadAlerts = 0;
             <div class="ptv-unit-top">
                 <div>
                     <div class="ptv-unit-name"><?php echo htmlspecialchars($u['unit_name']); ?></div>
-                    <div class="unit-plate"><?php echo htmlspecialchars($u['plate_no'] ?: 'No plate on file'); ?></div>
+                  <div class="unit-plate"><?php echo htmlspecialchars(($u['vehicle_type'] ?? '') . ' · ' . ($u['plate_no'] ?: 'No plate on file')); ?></div>
                 </div>
                 <?php if ($view === 'active'): ?>
                 <form method="POST">
@@ -186,7 +188,6 @@ $unreadAlerts = 0;
                     <select name="responder_id" onchange="this.form.submit()">
                         <option value="">— Unassigned —</option>
                         <?php foreach ($allResponders as $r):
-                            if (in_array($r['id'], $assignedIds) && $r['id'] != $u['responder_id']) continue;
                         ?>
                             <option value="<?php echo $r['id']; ?>" <?php echo $u['responder_id'] == $r['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($r['name']); ?>
@@ -233,10 +234,16 @@ $unreadAlerts = 0;
             <div class="field"><label>Unit Name</label><input type="text" name="unit_name" placeholder="e.g. PTV Foxtrot" required></div>
             <div class="field"><label>Plate Number</label><input type="text" name="plate_no" placeholder="e.g. LGU-106"></div>
             <div class="field">
+    <label>Vehicle Type</label>
+    <select name="vehicle_type">
+        <?php foreach ($vehicleTypes as $vt): ?><option><?php echo htmlspecialchars($vt); ?></option><?php endforeach; ?>
+    </select>
+</div>
+            <div class="field">
                 <label>Assign Responder (optional)</label>
                 <select name="responder_id">
                     <option value="">— Unassigned —</option>
-                    <?php foreach ($allResponders as $r): if (in_array($r['id'], $assignedIds)) continue; ?>
+                    <?php foreach ($allResponders as $r): ?>
                         <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['name']); ?></option>
                     <?php endforeach; ?>
                 </select>

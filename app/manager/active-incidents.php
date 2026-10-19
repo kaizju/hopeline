@@ -100,7 +100,7 @@ try {
     ORDER BY FIELD(c.severity,'Critical','High','Moderate','Low'), c.created_at ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-    $availableUnits = $pdo->query("SELECT id, unit_name, plate_no FROM ptv_units WHERE status='Available' ORDER BY unit_name")->fetchAll(PDO::FETCH_ASSOC);
+  $availableUnits = $pdo->query("SELECT id, unit_name, plate_no, vehicle_type FROM ptv_units WHERE status='Available' AND archived_at IS NULL ORDER BY vehicle_type, unit_name")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
 
 }
@@ -188,9 +188,9 @@ try {
                             <input type="hidden" name="action" value="dispatch">
                             <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
                             <select name="unit_id" required>
-                                <option value="">Assign a unit…</option>
+                                <option value="">Assign a team…</option>
                                 <?php foreach ($availableUnits as $u): ?>
-                                    <option value="<?php echo $u['id']; ?>"><?php echo htmlspecialchars($u['unit_name']); ?> (<?php echo htmlspecialchars($u['plate_no']); ?>)</option>
+                                    <option value="<?php echo $u['id']; ?>"><?php echo htmlspecialchars($u['unit_name']); ?> · <?php echo htmlspecialchars($u['vehicle_type']); ?> (<?php echo htmlspecialchars($u['plate_no']); ?>)</option>
                                 <?php endforeach; ?>
                             </select>
                             <button type="submit" class="btn btn-dispatch">Dispatch</button>
