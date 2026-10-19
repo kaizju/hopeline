@@ -423,21 +423,20 @@ tbody tr:hover { background: rgba(var(--surface-rgb), 0.03); }
 .sev-low label { background: rgba(63,122,92,0.18); color: var(--low); }
 
 /* Resource picker ("Problem" card) */
-.resource-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
-.resource-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid rgba(var(--border-rgb), 0.28); border-radius: 8px; padding: 10px 14px; color: var(--macadamia); transition: border-color .15s, background-color .15s; }
-.resource-option.suggested { border-color: var(--redwood); background: rgba(224, 99, 46, 0.18); }
-.resource-info { display: flex; flex-direction: column; gap: 2px; }
-.resource-name { font-weight: 600; font-size: 12.5px; }
-.resource-available { font-size: 11.5px; color: var(--light-grayish); }
-.resource-option.unavailable .resource-available { color: #b02029; }
-.qty-control { display: flex; align-items: center; gap: 8px; }
+.resource-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.resource-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid rgba(var(--border-rgb), 0.28); border-radius: 8px; padding: 10px 12px; color: var(--macadamia); transition: border-color .15s, background-color .15s; }
+.resource-option.suggested { border-color: var(--redwood); background: rgba(224, 99, 46, 0.12); }
+.resource-option.has-qty { border-color: #3f7a5c; }
+.resource-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.resource-name { font-weight: 600; font-size: 13px; line-height: 1.25; }
+.resource-available { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--light-grayish); }
+.resource-available::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #3f7a5c; flex-shrink: 0; }
+.resource-option.unavailable .resource-available { color: #e0705a; }
+.resource-option.unavailable .resource-available::before { background: var(--critical); }
+.suggest-tag { font-size: 9.5px; font-weight: 700; color: var(--redwood); text-transform: uppercase; letter-spacing: 0.4px; }
+.qty-control { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .qty-btn { width: 30px; height: 30px; border: 1px solid rgba(var(--border-rgb), 0.3); border-radius: 6px; background: #fff; color: #111827; font-size: 16px; line-height: 1; cursor: pointer; }
 .qty-input { width: 34px; height: 30px; text-align: center; font-weight: 700; padding: 0; -moz-appearance: textfield; }
-.resource-option .avail-count { color: var(--light-grayish); font-weight: 400; }
-.resource-option.has-qty { border-color: #3f7a5c; }
-.resource-option.suggested .avail-count { color: var(--macadamia); opacity: 0.75; }
-.resource-option input { accent-color: var(--burnt-umber); width: 15px; height: 15px; }
-.suggest-tag { font-size: 9.5px; font-weight: 700; color: var(--redwood); margin-left: auto; text-transform: uppercase; letter-spacing: 0.4px; }
 
 .submit-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
 

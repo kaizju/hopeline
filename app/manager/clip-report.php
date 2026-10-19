@@ -94,32 +94,7 @@ $stmt->execute([
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/leaflet-routing-machine/leaflet-routing-machine.css" />
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
     <style>
-        /* Vehicle quantity stepper — add these to manager.css if you'd
-           rather keep styling centralized; kept inline here so the grid
-           works even before you move it over. */
-        .resource-option {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            border: 1px solid #dfe3e8;
-            border-radius: 10px;
-            padding: 10px 14px;
-            margin-bottom: 8px;
-            transition: border-color .15s, background-color .15s;
-        }
-        .resource-option.suggested { border-color: #d9752b; background: #fff6ef; }
-        .resource-option.has-qty { border-color: #2f8f4e; }
-        .resource-info { display: flex; flex-direction: column; gap: 2px; }
-        .resource-name { font-weight: 600; }
-        .resource-available { font-size: 12px; color: #6b7280; }
-        .suggest-tag {
-            display: inline-block;
-            margin-top: 2px;
-            font-size: 11px;
-            font-weight: 600;
-            color: #d9752b;
-        }
+      
         .qty-control { display: flex; align-items: center; gap: 8px; }
         .qty-btn {
             width: 30px; height: 30px;
@@ -467,7 +442,7 @@ const avail = VEHICLE_STOCK[vehicleName].available;
         option.innerHTML =
             '<div class="resource-info">' +
                 '<span class="resource-name">' + vehicleName + '</span>' +
-                '<span class="resource-available">Available: <strong>' + avail + '</strong> of ' + max + (avail === 0 ? ' · none free right now' : '') + '</span>' +
+               '<span class="resource-available"><span><strong>' + avail + '</strong> of ' + max + ' available' + (avail === 0 ? ' · none free' : '') + '</span></span>' +
             '</div>' +
             '<div class="qty-control">' +
                 '<button type="button" class="qty-btn qty-minus" aria-label="Decrease">−</button>' +
