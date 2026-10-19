@@ -194,12 +194,11 @@ $unreadAlerts = 0;
                     <input type="hidden" name="unit_id" value="<?php echo $u['id']; ?>">
                     <select name="responder_id" onchange="this.form.submit()">
                         <option value="">— Unassigned —</option>
-                        <?php foreach ($allResponders as $r):
-                        ?>
-                            <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['team_name'] ?: ($r['name'] . ' (no team)')); ?></option>
-                               <?php echo htmlspecialchars($r['team_name'] ?: ($r['name'] . ' (no team)')); ?>
-                            </option>
-                        <?php endforeach; ?>
+                        <?php foreach ($allResponders as $r): ?>
+    <option value="<?php echo $r['id']; ?>" <?php echo $u['responder_id'] == $r['id'] ? 'selected' : ''; ?>>
+        <?php echo htmlspecialchars($r['team_name'] ?: ($r['name'] . ' (no team)')); ?>
+    </option>
+<?php endforeach; ?>
                     </select>
                 </form>
             </div>
@@ -251,7 +250,7 @@ $unreadAlerts = 0;
                 <select name="responder_id">
                     <option value="">— Unassigned —</option>
                     <?php foreach ($allResponders as $r): ?>
-                        <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['name']); ?></option>
+<option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['team_name'] ?: ($r['name'] . ' (no team)')); ?></option>     
                     <?php endforeach; ?>
                 </select>
             </div>
