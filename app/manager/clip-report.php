@@ -8,6 +8,15 @@ requireRole('manager');
 
 $errors  = [];
 $success = false;
+$vehicleTypes = ['Ambulance','Patient Transport Vehicle (PTV)','Water Tanker','Fire Truck','Pick Up'];
+$vehicleStock = array_fill_keys($vehicleTypes, ['total' => 0, 'available' => 0]);
+foreach ($pdo->query("SELECT vehicle_type, COUNT(*) AS total, SUM(status = 'Available') AS available
+                      FROM ptv_units WHERE archived_at IS NULL GROUP BY vehicle_type") as $r) {
+    if (isset($vehicleStock[$r['vehicle_type']])) {
+        $vehicleStock[$r['vehicle_type']] = ['total' => (int)$r['total'], 'available' => (int)$r['available']];
+    }
+}
+$vehicleFleet = array_map(function ($s) { return $s['total']; }, $vehicleStock);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $callerName    = trim($_POST['caller_name'] ?? '');
     $callerContact = trim($_POST['caller_contact'] ?? '');
@@ -25,13 +34,7 @@ $severity = in_array($_POST['severity'] ?? '', $validSev, true) ? $_POST['severi
     $problemNotes  = trim($_POST['problem_notes'] ?? '');
 
     // Fleet caps — must match VEHICLE_FLEET in the JS below.
-    $vehicleFleet = [
-        'Ambulance'                       => 2,
-        'Patient Transport Vehicle (PTV)' => 2,
-        'Water Tanker'                    => 1,
-        'Fire Truck'                      => 1,
-        'Pick Up'                         => 1,
-    ];
+    
 
     // Keep only known vehicles, clamp qty to [0, available], drop zeros.
     $resources = [];
@@ -447,28 +450,24 @@ function findNearestBarangay(lat, lng) {
     // ---------- Vehicle fleet + Problem resource grid ----------
     // Total units LDRRMO has on hand for each vehicle type. Keep this in
     // sync with $vehicleFleet in the PHP block above.
-    const VEHICLE_FLEET = {
-        'Ambulance':                       2,
-        'Patient Transport Vehicle (PTV)': 2,
-        'Water Tanker':                    1,
-        'Fire Truck':                      1,
-        'Pick Up':                         1
-    };
+    const VEHICLE_STOCK = <?php echo json_encode($vehicleStock, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+const VEHICLE_FLEET = {};
+Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].total);
 
     const resourceGrid = document.getElementById('resourceGrid');
 
     Object.keys(VEHICLE_FLEET).forEach(vehicleName => {
         const max = VEHICLE_FLEET[vehicleName];
-
+const avail = VEHICLE_STOCK[vehicleName].available;
         const option = document.createElement('div');
-        option.className = 'resource-option';
+        option.className = 'resource-option' + (avail === 0 ? ' unavailable' : '');
         option.dataset.value = vehicleName;
         option.dataset.max = max;
 
         option.innerHTML =
             '<div class="resource-info">' +
                 '<span class="resource-name">' + vehicleName + '</span>' +
-                '<span class="resource-available">Available: ' + max + '</span>' +
+                '<span class="resource-available">Available: <strong>' + avail + '</strong> of ' + max + (avail === 0 ? ' · none free right now' : '') + '</span>' +
             '</div>' +
             '<div class="qty-control">' +
                 '<button type="button" class="qty-btn qty-minus" aria-label="Decrease">−</button>' +
