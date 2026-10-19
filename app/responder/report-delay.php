@@ -5,9 +5,18 @@ require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('user');
 
-$unitStmt = $pdo->prepare("SELECT * FROM ptv_units WHERE responder_id = ? LIMIT 1");
-$unitStmt->execute([$_SESSION['user_id']]);
+$me = $pdo->prepare("SELECT team_id FROM users WHERE id = ?");
+$me->execute([$_SESSION['user_id']]);
+$myTeamId = (int)$me->fetchColumn();
+$unit = $myTeamId ? ['id' => 0, 'status' => 'Available'] : null;
+
+$unitStmt = $pdo->prepare("
+    SELECT u.* FROM ptv_units u
+    JOIN dispatch d ON d.unit_id = u.id AND d.team_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
+    ORDER BY d.dispatched_at DESC, d.id DESC LIMIT 1");
+$unitStmt->execute([$myTeamId]);
 $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
+if (!$unit) $unit = ['id' => 0, 'unit_name' => 'No vehicle assigned', 'plate_no' => '', 'status' => 'Available'];
 
 $flash = '';
 
@@ -15,21 +24,27 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     try {
         if ($action === 'report_delay') {
-            $dispatchId = (int)($_POST['dispatch_id'] ?? 0);
-            $reason = trim($_POST['reason'] ?? '');
-            $notes = trim($_POST['notes'] ?? '');
+    $dispatchId = (int)($_POST['dispatch_id'] ?? 0);
+    $reason = trim($_POST['reason'] ?? '');
+    $notes = trim($_POST['notes'] ?? '');
 
-            $stmt = $pdo->prepare("INSERT INTO delay_logs (dispatch_id, unit_id, reason, notes, logged_by, is_manual) VALUES (?, ?, ?, ?, ?, 0)");
-            $stmt->execute([$dispatchId, $unit['id'], $reason, $notes, $_SESSION['user_id']]);
-            if (function_exists('logActivity')) {
-                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'delay_reported', 'success');
-            }
-            $flash = 'Delay reported. The command center has been notified.';
+    $u = $pdo->prepare("SELECT unit_id FROM dispatch WHERE id = ? AND team_id = ?");
+    $u->execute([$dispatchId, $myTeamId]);
+    $unitId = (int)$u->fetchColumn();
+
+    if ($unitId) {
+        $stmt = $pdo->prepare("INSERT INTO delay_logs (dispatch_id, unit_id, reason, notes, logged_by, is_manual) VALUES (?, ?, ?, ?, ?, 0)");
+        $stmt->execute([$dispatchId, $unitId, $reason, $notes, $_SESSION['user_id']]);
+        if (function_exists('logActivity')) {
+            logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'delay_reported', 'success');
         }
+        $flash = 'Delay reported. The command center has been notified.';
+    }
+}
 
         if ($action === 'resolve_delay') {
             $delayId = (int)($_POST['delay_id'] ?? 0);
-            $pdo->prepare("UPDATE delay_logs SET resolved_at = NOW() WHERE id = ? AND unit_id = ?")->execute([$delayId, $unit['id']]);
+         $pdo->prepare("UPDATE delay_logs SET resolved_at = NOW() WHERE id = ? AND dispatch_id IN (SELECT id FROM dispatch WHERE team_id = ?)")->execute([$delayId, $myTeamId]);
             $flash = "Delay cleared — you're moving again.";
         }
     } catch (PDOException $e) {

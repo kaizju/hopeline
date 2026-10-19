@@ -5,9 +5,26 @@ require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('user');
 
-$unitStmt = $pdo->prepare("SELECT * FROM ptv_units WHERE responder_id = ? LIMIT 1");
-$unitStmt->execute([$_SESSION['user_id']]);
+$me = $pdo->prepare("SELECT team_id FROM users WHERE id = ?");
+$me->execute([$_SESSION['user_id']]);
+$myTeamId = (int)$me->fetchColumn();
+
+$unitStmt = $pdo->prepare("
+    SELECT u.* FROM ptv_units u
+    JOIN dispatch d ON d.unit_id = u.id AND d.team_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
+    ORDER BY d.dispatched_at DESC, d.id DESC LIMIT 1");
+$unitStmt->execute([$myTeamId]);
 $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
+if (!$unit) $unit = ['id' => 0, 'unit_name' => 'No vehicle assigned', 'plate_no' => '', 'status' => 'Available'];
+$tn = $pdo->prepare("SELECT name FROM teams WHERE id = ?");
+$tn->execute([$myTeamId]);
+$teamName = $tn->fetchColumn() ?: '—';
+
+$vs = $pdo->prepare("SELECT GROUP_CONCAT(u.unit_name ORDER BY u.unit_name SEPARATOR ', ')
+    FROM dispatch d JOIN ptv_units u ON u.id = d.unit_id
+    WHERE d.team_id = ? AND d.status IN ('assigned','en_route','on_site','returning')");
+$vs->execute([$myTeamId]);
+$myVehicles = $vs->fetchColumn() ?: 'No vehicle assigned';
 $unitStatus = $unit['status'] ?? 'Available';
 
 $dispatch = null;
@@ -15,16 +32,16 @@ $activeDelay = null;
 $todayCount = 0;
 $recentHistory = [];
 
-if ($unit) {
+if ($myTeamId) {
     // Active dispatch
     $dStmt = $pdo->prepare("
         SELECT d.*, c.clip_ref, c.barangay, c.incident_type, c.severity
         FROM dispatch d
         JOIN clip_reports c ON c.id = d.clip_report_id
-        WHERE d.unit_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
+        WHERE d.team_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
         ORDER BY d.dispatched_at DESC, d.id DESC LIMIT 1
     ");
-    $dStmt->execute([$unit['id']]);
+    $dStmt->execute([$myTeamId]);
     $dispatch = $dStmt->fetch(PDO::FETCH_ASSOC);
 
     // Active delay tied to that dispatch
@@ -35,23 +52,23 @@ if ($unit) {
     }
 
     // Dispatches completed today
-    $todayStmt = $pdo->prepare("SELECT COUNT(*) FROM dispatch WHERE unit_id = ? AND status = 'resolved' AND DATE(resolved_at) = CURDATE()");
-    $todayStmt->execute([$unit['id']]);
+    $todayStmt = $pdo->prepare("SELECT COUNT(DISTINCT clip_report_id) FROM dispatch WHERE team_id = ? AND status = 'resolved' AND DATE(resolved_at) = CURDATE()");
+    $todayStmt->execute([$myTeamId]);
     $todayCount = $todayStmt->fetchColumn();
 
-    // Last 3 completed dispatches
+    // Last 3 completed dispatches (one row per incident)
     $histStmt = $pdo->prepare("
         SELECT d.*, c.clip_ref, c.barangay, c.incident_type, c.severity,
                TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) AS travel_seconds
         FROM dispatch d
         JOIN clip_reports c ON c.id = d.clip_report_id
-        WHERE d.unit_id = ? AND d.status = 'resolved'
+        WHERE d.team_id = ? AND d.status = 'resolved'
+          AND d.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = d.clip_report_id AND d2.team_id = d.team_id)
         ORDER BY d.resolved_at DESC LIMIT 3
     ");
-    $histStmt->execute([$unit['id']]);
+    $histStmt->execute([$myTeamId]);
     $recentHistory = $histStmt->fetchAll(PDO::FETCH_ASSOC);
 }
-
 $unreadAlerts = 0;
 
 function fmtDuration($seconds) {
@@ -80,8 +97,8 @@ function fmtDuration($seconds) {
         <p><?php echo date('l, F j, Y'); ?></p>
     </div>
 
-    <?php if (!$unit): ?>
-        <div class="empty-state">No PTV unit linked to your account yet. Contact your LDRRMO admin.</div>
+    <?php if (!$myTeamId): ?>
+    <div class="empty-state">No team linked to your account yet. Contact your LDRRMO admin.</div>
     <?php else: ?>
 
         <?php if ($dispatch): ?>
@@ -119,8 +136,8 @@ $statusText = ['assigned' => 'Awaiting departure', 'en_route' => 'En route', 'on
 
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value"><?php echo htmlspecialchars($unit['unit_name']); ?></div>
-                <div class="stat-label">Your Unit (<?php echo htmlspecialchars($unit['plate_no']); ?>)</div>
+    <div class="stat-value"><?php echo htmlspecialchars($teamName); ?></div>
+    <div class="stat-label">Your Team · <?php echo htmlspecialchars($myVehicles); ?></div>
             </div>
             <div class="stat-card">
                 <div class="stat-value"><?php echo $todayCount; ?></div>

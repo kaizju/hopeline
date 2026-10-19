@@ -17,10 +17,17 @@ function pick($row, array $keys, $default = '—') {
 }
 
 /* ---------------- Unit (the team's PTV) ---------------- */
-$unitStmt = $pdo->prepare("SELECT * FROM ptv_units WHERE responder_id = ? LIMIT 1");
-$unitStmt->execute([$_SESSION['user_id']]);
-$unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
+$me = $pdo->prepare("SELECT team_id FROM users WHERE id = ?");
+$me->execute([$_SESSION['user_id']]);
+$myTeamId = (int)$me->fetchColumn();
 
+$unitStmt = $pdo->prepare("
+    SELECT u.* FROM ptv_units u
+    JOIN dispatch d ON d.unit_id = u.id AND d.team_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
+    ORDER BY d.dispatched_at DESC, d.id DESC LIMIT 1");
+$unitStmt->execute([$myTeamId]);
+$unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
+if (!$unit) $unit = ['id' => 0, 'unit_name' => 'No vehicle assigned', 'status' => 'Available'];
 /* ---------------- Team lead / responder account ---------------- */
 $userStmt = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
 $userStmt->execute([$_SESSION['user_id']]);
@@ -45,26 +52,27 @@ if ($team) {
     $mm->execute([$team['id']]);
     $teamMembers = $mm->fetchAll(PDO::FETCH_COLUMN);
 }
-if ($unit) {
+if ($myTeamId) {
     $sStmt = $pdo->prepare("
-        SELECT COUNT(*) AS total,
-               SUM(status = 'resolved') AS resolved,
+        SELECT COUNT(DISTINCT clip_report_id) AS total,
+               COUNT(DISTINCT CASE WHEN status = 'resolved' THEN clip_report_id END) AS resolved,
                AVG(CASE WHEN arrived_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, dispatched_at, arrived_at) END) AS avg_response,
                AVG(CASE WHEN returned_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, dispatched_at, returned_at) END) AS avg_duration
-        FROM dispatch WHERE unit_id = ?
+        FROM dispatch WHERE team_id = ?
     ");
-    $sStmt->execute([$unit['id']]);
+    $sStmt->execute([$myTeamId]);
     $stats = $sStmt->fetch(PDO::FETCH_ASSOC) ?: $stats;
 
     $rStmt = $pdo->prepare("
         SELECT d.id, d.status, d.dispatched_at, d.arrived_at, c.clip_ref, c.incident_type, c.barangay, c.severity
         FROM dispatch d
         JOIN clip_reports c ON c.id = d.clip_report_id
-        WHERE d.unit_id = ?
+        WHERE d.team_id = ?
+          AND d.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = d.clip_report_id AND d2.team_id = d.team_id)
         ORDER BY d.dispatched_at DESC, d.id DESC
         LIMIT 5
     ");
-    $rStmt->execute([$unit['id']]);
+    $rStmt->execute([$myTeamId]);
     $recent = $rStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
