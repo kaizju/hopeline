@@ -109,9 +109,10 @@ $view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
 $where = $view === 'archived' ? "WHERE u.archived_at IS NOT NULL" : "WHERE u.archived_at IS NULL";
 
 $units = $pdo->query("
-    SELECT u.*, usr.name AS responder_name, usr.email AS responder_email
+    SELECT u.*, usr.name AS responder_name, usr.email AS responder_email, t.name AS team_name
     FROM ptv_units u
     LEFT JOIN users usr ON usr.id = u.responder_id
+    LEFT JOIN teams t ON t.id = usr.team_id AND t.archived_at IS NULL
     $where
     ORDER BY u.unit_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
@@ -119,7 +120,13 @@ $units = $pdo->query("
 $archivedCount = $pdo->query("SELECT COUNT(*) FROM ptv_units WHERE archived_at IS NOT NULL")->fetchColumn();
 
 // Responders not yet assigned to a unit (only relevant for the active view)
-$allResponders = $pdo->query("SELECT id, name, email FROM users WHERE role = 'user' AND is_verified = 1 AND archived_at IS NULL ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$allResponders = $pdo->query("
+    SELECT u.id, u.name, u.email, t.name AS team_name
+    FROM users u
+    LEFT JOIN teams t ON t.id = u.team_id AND t.archived_at IS NULL
+    WHERE u.role = 'user' AND u.is_verified = 1 AND u.archived_at IS NULL
+    ORDER BY t.name IS NULL, t.name, u.name
+")->fetchAll(PDO::FETCH_ASSOC);
 $assignedIds = array_filter(array_column($units, 'responder_id'));
 
 $unreadAlerts = 0;
@@ -189,8 +196,8 @@ $unreadAlerts = 0;
                         <option value="">— Unassigned —</option>
                         <?php foreach ($allResponders as $r):
                         ?>
-                            <option value="<?php echo $r['id']; ?>" <?php echo $u['responder_id'] == $r['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($r['name']); ?>
+                            <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['team_name'] ?: ($r['name'] . ' (no team)')); ?></option>
+                               <?php echo htmlspecialchars($r['team_name'] ?: ($r['name'] . ' (no team)')); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
