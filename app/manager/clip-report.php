@@ -8,13 +8,12 @@ requireRole('manager');
 
 $errors  = [];
 $success = false;
-$vehicleTypes = ['Ambulance','Patient Transport Vehicle (PTV)','Water Tanker','Fire Truck','Pick Up'];
-$vehicleStock = array_fill_keys($vehicleTypes, ['total' => 0, 'available' => 0]);
+$vehicleStock = [];
 foreach ($pdo->query("SELECT vehicle_type, COUNT(*) AS total, SUM(status = 'Available') AS available
-                      FROM ptv_units WHERE archived_at IS NULL GROUP BY vehicle_type") as $r) {
-    if (isset($vehicleStock[$r['vehicle_type']])) {
-        $vehicleStock[$r['vehicle_type']] = ['total' => (int)$r['total'], 'available' => (int)$r['available']];
-    }
+                      FROM ptv_units
+                      WHERE archived_at IS NULL AND vehicle_type IS NOT NULL AND vehicle_type <> ''
+                      GROUP BY vehicle_type ORDER BY vehicle_type") as $r) {
+    $vehicleStock[$r['vehicle_type']] = ['total' => (int)$r['total'], 'available' => (int)$r['available']];
 }
 $vehicleFleet = array_map(function ($s) { return $s['available']; }, $vehicleStock);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

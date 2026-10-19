@@ -6,23 +6,35 @@ require_once __DIR__ . '/../../config/functions.php';
 requireRole('admin');
 
 $flash = '';
-$vehicleTypes = ['Ambulance','Patient Transport Vehicle (PTV)','Water Tanker','Fire Truck','Pick Up'];
+$defaultTypes = ['Ambulance','Patient Transport Vehicle (PTV)','Water Tanker','Fire Truck','Pick Up'];
+$dbTypes = $pdo->query("SELECT DISTINCT vehicle_type FROM ptv_units WHERE vehicle_type IS NOT NULL AND vehicle_type <> ''")->fetchAll(PDO::FETCH_COLUMN);
+$vehicleTypes = array_values(array_unique(array_merge($defaultTypes, $dbTypes)));
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     try {
-        if ($action === 'create_unit') {
+                if ($action === 'create_unit') {
             $unitName = trim($_POST['unit_name'] ?? '');
             $plateNo = trim($_POST['plate_no'] ?? '');
             $responderId = $_POST['responder_id'] !== '' ? (int)$_POST['responder_id'] : null;
+
             $vehicleType = $_POST['vehicle_type'] ?? '';
-            if (!in_array($vehicleType, $vehicleTypes, true)) $vehicleType = $vehicleTypes[1];
+            if ($vehicleType === '__new__') {
+                $vehicleType = mb_substr(trim(preg_replace('/[,"\'<>\[\]\s]+/', ' ', $_POST['new_vehicle_type'] ?? '')), 0, 50);
+                foreach ($vehicleTypes as $vt) { // reuse the existing spelling if the type already exists
+                    if (mb_strtolower($vt) === mb_strtolower($vehicleType)) { $vehicleType = $vt; break; }
+                }
+            } elseif (!in_array($vehicleType, $vehicleTypes, true)) {
+                $vehicleType = '';
+            }
 
             if ($unitName === '') {
                 $flash = 'Unit name is required.';
+            } elseif ($vehicleType === '') {
+                $flash = 'Choose a vehicle type or enter a new one.';
             } else {
                 $stmt = $pdo->prepare("INSERT INTO ptv_units (unit_name, plate_no, vehicle_type, responder_id, status, current_lat, current_lng) VALUES (?, ?, ?, ?, 'Available', ?, ?)");
                 $stmt->execute([$unitName, $plateNo, $vehicleType, $responderId, 8.371714652741774, 124.85717564826615]);
-                $flash = "Unit \"$unitName\" added.";
+                $flash = "Unit \"$unitName\" added as $vehicleType.";
             }
         }
 
@@ -245,17 +257,19 @@ $unreadAlerts = 0;
 
 <div class="modal-overlay" id="addUnitModal">
     <div class="modal">
-        <h3>Add New PTV Unit</h3>
+        <h3>Add New Unit</h3>
         <form method="POST">
             <input type="hidden" name="action" value="create_unit">
             <div class="field"><label>Unit Name</label><input type="text" name="unit_name" placeholder="e.g. PTV Foxtrot" required></div>
             <div class="field"><label>Plate Number</label><input type="text" name="plate_no" placeholder="e.g. LGU-106"></div>
-            <div class="field">
-    <label>Vehicle Type</label>
-    <select name="vehicle_type">
-        <?php foreach ($vehicleTypes as $vt): ?><option><?php echo htmlspecialchars($vt); ?></option><?php endforeach; ?>
-    </select>
-</div>
+                      <div class="field">
+                <label>Vehicle Type</label>
+                <select name="vehicle_type" onchange="document.getElementById('newTypeInput').style.display = this.value === '__new__' ? 'block' : 'none';">
+                    <?php foreach ($vehicleTypes as $vt): ?><option><?php echo htmlspecialchars($vt); ?></option><?php endforeach; ?>
+                    <option value="__new__">＋ New vehicle type…</option>
+                </select>
+                <input type="text" name="new_vehicle_type" id="newTypeInput" placeholder="e.g. Rescue Boat" maxlength="50" style="display:none; margin-top:8px;">
+            </div>
             <div class="field">
                 <label>Assign Responder (optional)</label>
                 <select name="responder_id">
