@@ -1,4 +1,11 @@
 <?php
+function parseNeeds($s) {
+    $out = [];
+    foreach (explode(',', (string)$s) as $part) {
+        if (preg_match('/^\s*(.+?)\s+x(\d+)\s*$/i', $part, $m)) $out[$m[1]] = (int)$m[2];
+    }
+    return $out;
+}
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
@@ -11,45 +18,65 @@ unset($_SESSION['flash']);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $msg = '';
+  
     try {
-        if ($action === 'dispatch') {
-            $clipId = (int)($_POST['clip_report_id'] ?? 0);
-            $unitId = (int)($_POST['unit_id'] ?? 0);
+         if ($action === 'dispatch') {
+    $clipId = (int)($_POST['clip_report_id'] ?? 0);
+    $teamId = (int)($_POST['team_id'] ?? 0);
 
-            $pdo->beginTransaction();
+    $pdo->beginTransaction();
 
-            // Is this exact unit already on this incident?
-            $dup = $pdo->prepare("SELECT COUNT(*) FROM dispatch
-                                  WHERE clip_report_id = ? AND unit_id = ?
-                                    AND status = 'on_site'
-                                  FOR UPDATE");
-            $dup->execute([$clipId, $unitId]);
+    $t = $pdo->prepare("SELECT name FROM teams WHERE id = ? AND archived_at IS NULL");
+    $t->execute([$teamId]);
+    $teamName = $t->fetchColumn();
 
-            // Is the unit still free?
-            $u = $pdo->prepare("SELECT status FROM ptv_units WHERE id = ? FOR UPDATE");
-            $u->execute([$unitId]);
-            $unitStatus = $u->fetchColumn();
+    $c = $pdo->prepare("SELECT problem_resources FROM clip_reports WHERE id = ? AND status NOT IN ('resolved','cancelled') FOR UPDATE");
+    $c->execute([$clipId]);
+    $needs = parseNeeds($c->fetchColumn());
 
-            if ($dup->fetchColumn() > 0) {
-                $pdo->rollBack();
-                $msg = 'That unit is already assigned to this incident.';
-            } elseif ($unitStatus !== 'Available') {
-                $pdo->rollBack();
-                $msg = 'That unit is no longer available.';
-            } else {
-                $pdo->prepare("INSERT INTO dispatch (clip_report_id, unit_id, dispatched_by, status, predicted_eta_minutes)
-               SELECT ?, ?, ?, 'assigned', predicted_eta_minutes FROM clip_reports WHERE id = ?")
-    ->execute([$clipId, $unitId, currentUserId(), $clipId]);
-                $pdo->prepare("UPDATE clip_reports SET status='dispatched' WHERE id=?")->execute([$clipId]);
-                $pdo->prepare("UPDATE ptv_units SET status='Assigned' WHERE id=?")->execute([$unitId]);
-                $pdo->commit();
+    $busy = $pdo->prepare("SELECT COUNT(*) FROM dispatch WHERE team_id = ? AND status IN ('assigned','en_route','on_site','returning') FOR UPDATE");
+    $busy->execute([$teamId]);
 
-                if (function_exists('logActivity')) {
-                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'dispatch_assigned', 'success');
-                }
-                $msg = 'Unit dispatched successfully.';
-            }
+    if (!$teamName) {
+        $pdo->rollBack();
+        $msg = 'Team not found.';
+    } elseif ($busy->fetchColumn() > 0) {
+        $pdo->rollBack();
+        $msg = $teamName . ' is already on another dispatch.';
+    } else {
+        $picked = []; $missing = [];
+        foreach ($needs as $type => $qty) {
+            $q = $pdo->prepare("SELECT id FROM ptv_units
+                                WHERE vehicle_type = ? AND status = 'Available' AND archived_at IS NULL
+                                ORDER BY unit_name LIMIT " . (int)$qty . " FOR UPDATE");
+            $q->execute([$type]);
+            $ids = $q->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($ids as $id) $picked[] = (int)$id;
+            if (count($ids) < $qty) $missing[] = $type . ' x' . ($qty - count($ids));
         }
+
+        if (!$picked) {
+            $pdo->rollBack();
+            $msg = 'No available vehicle for the types this incident needs.';
+        } else {
+            $ins = $pdo->prepare("INSERT INTO dispatch (clip_report_id, unit_id, team_id, dispatched_by, status, predicted_eta_minutes)
+                                  SELECT ?, ?, ?, ?, 'assigned', predicted_eta_minutes FROM clip_reports WHERE id = ?");
+            $upd = $pdo->prepare("UPDATE ptv_units SET status='Assigned' WHERE id=?");
+            foreach ($picked as $uid) {
+                $ins->execute([$clipId, $uid, $teamId, currentUserId(), $clipId]);
+                $upd->execute([$uid]);
+            }
+            $pdo->prepare("UPDATE clip_reports SET status='dispatched' WHERE id=?")->execute([$clipId]);
+            $pdo->commit();
+
+            if (function_exists('logActivity')) {
+                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'dispatch_assigned', 'success');
+            }
+            $msg = $teamName . ' dispatched with ' . count($picked) . ' vehicle(s).'
+                 . ($missing ? ' Not available: ' . implode(', ', $missing) . '.' : '');
+        }
+    }
+}
 
         if ($action === 'resolve') {
             $clipId = (int)($_POST['clip_report_id'] ?? 0);
@@ -84,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Location: active-incidents.php');
     exit;
 }
-
+$teams = []; $busyTeams = [];
 // ---- Fetch data ----
 try {
     $incidents = $pdo->query("
@@ -100,7 +127,8 @@ try {
     ORDER BY FIELD(c.severity,'Critical','High','Moderate','Low'), c.created_at ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-  $availableUnits = $pdo->query("SELECT id, unit_name, plate_no, vehicle_type FROM ptv_units WHERE status='Available' AND archived_at IS NULL ORDER BY vehicle_type, unit_name")->fetchAll(PDO::FETCH_ASSOC);
+     $teams = $pdo->query("SELECT t.id, t.name FROM teams t WHERE t.archived_at IS NULL ORDER BY t.name")->fetchAll(PDO::FETCH_ASSOC);
+    $busyTeams = array_map('intval', $pdo->query("SELECT DISTINCT team_id FROM dispatch WHERE team_id IS NOT NULL AND status IN ('assigned','en_route','on_site','returning')")->fetchAll(PDO::FETCH_COLUMN));
 } catch (PDOException $e) {
 
 }
@@ -187,12 +215,14 @@ try {
                         <form method="POST" class="dispatch-form">
                             <input type="hidden" name="action" value="dispatch">
                             <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
-                            <select name="unit_id" required>
-                                <option value="">Assign a team…</option>
-                                <?php foreach ($availableUnits as $u): ?>
-                                    <option value="<?php echo $u['id']; ?>"><?php echo htmlspecialchars($u['unit_name']); ?> · <?php echo htmlspecialchars($u['vehicle_type']); ?> (<?php echo htmlspecialchars($u['plate_no']); ?>)</option>
-                                <?php endforeach; ?>
-                            </select>
+                            <select name="team_id" required>
+    <option value="">Assign a team…</option>
+    <?php foreach ($teams as $t): $isBusy = in_array((int)$t['id'], $busyTeams, true); ?>
+        <option value="<?php echo $t['id']; ?>" <?php echo $isBusy ? 'disabled' : ''; ?>>
+            <?php echo htmlspecialchars($t['name']); ?><?php echo $isBusy ? ' (on dispatch)' : ''; ?>
+        </option>
+    <?php endforeach; ?>
+</select>
                             <button type="submit" class="btn btn-dispatch">Dispatch</button>
                         </form>
                     <?php endif; ?>
@@ -220,7 +250,6 @@ try {
             card.style.display = (matchesSearch && matchesSev && matchesStatus) ? '' : 'none';
         });
     }
-
     searchBox.addEventListener('input', applyFilters);
     sevFilter.addEventListener('change', applyFilters);
     statusFilter.addEventListener('change', applyFilters);
