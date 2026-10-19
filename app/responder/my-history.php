@@ -5,9 +5,18 @@ require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('user');
 
-$unitStmt = $pdo->prepare("SELECT * FROM ptv_units WHERE responder_id = ? LIMIT 1");
-$unitStmt->execute([$_SESSION['user_id']]);
+$me = $pdo->prepare("SELECT team_id FROM users WHERE id = ?");
+$me->execute([$_SESSION['user_id']]);
+$myTeamId = (int)$me->fetchColumn();
+$unit = $myTeamId ? ['id' => 0, 'status' => 'Available'] : null;
+
+$unitStmt = $pdo->prepare("
+    SELECT u.* FROM ptv_units u
+    JOIN dispatch d ON d.unit_id = u.id AND d.team_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
+    ORDER BY d.dispatched_at DESC, d.id DESC LIMIT 1");
+$unitStmt->execute([$myTeamId]);
 $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
+if (!$unit) $unit = ['id' => 0, 'unit_name' => 'No vehicle assigned', 'plate_no' => '', 'status' => 'Available'];
 $unitStatus = $unit['status'] ?? 'Available';
 
 $page = max(1, (int)($_GET['page'] ?? 1));
@@ -17,9 +26,9 @@ $offset = ($page - 1) * $perPage;
 $history = [];
 $totalRows = 0;
 
-if ($unit) {
-    $totalStmt = $pdo->prepare("SELECT COUNT(*) FROM dispatch WHERE unit_id = ? AND status = 'resolved'");
-    $totalStmt->execute([$unit['id']]);
+if ($myTeamId) {
+    $totalStmt = $pdo->prepare("SELECT COUNT(DISTINCT clip_report_id) FROM dispatch WHERE team_id = ? AND status = 'resolved'");
+    $totalStmt->execute([$myTeamId]);
     $totalRows = $totalStmt->fetchColumn();
 
     $stmt = $pdo->prepare("
@@ -28,11 +37,12 @@ if ($unit) {
                (SELECT COUNT(*) FROM delay_logs dl WHERE dl.dispatch_id = d.id) AS delay_count
         FROM dispatch d
         JOIN clip_reports c ON c.id = d.clip_report_id
-        WHERE d.unit_id = ? AND d.status = 'resolved'
+        WHERE d.team_id = ? AND d.status = 'resolved'
+          AND d.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = d.clip_report_id AND d2.team_id = d.team_id)
         ORDER BY d.resolved_at DESC
         LIMIT $perPage OFFSET $offset
     ");
-    $stmt->execute([$unit['id']]);
+    $stmt->execute([$myTeamId]);
     $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 

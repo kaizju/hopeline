@@ -13,13 +13,16 @@ if (!isLoggedIn() || !hasRole('user')) {
 $uid = (int)$_SESSION['user_id'];
 session_write_close();
 
+$t = $pdo->prepare("SELECT team_id FROM users WHERE id = ?");
+$t->execute([$uid]);
+$teamId = (int)$t->fetchColumn();
+
 $s = $pdo->prepare("
     SELECT d.id, d.status FROM dispatch d
-    JOIN ptv_units u ON u.id = d.unit_id
-    WHERE u.responder_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
+    WHERE d.team_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
     ORDER BY d.dispatched_at DESC, d.id DESC LIMIT 1
 ");
-$s->execute([$uid]);
+$s->execute([$teamId]);
 $r = $s->fetch(PDO::FETCH_ASSOC);
 
 echo json_encode(['ok' => true, 'key' => $r ? $r['id'] . ':' . $r['status'] : 'none']);

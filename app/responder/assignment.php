@@ -5,9 +5,17 @@ require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('user');
 
-$unitStmt = $pdo->prepare("SELECT * FROM ptv_units WHERE responder_id = ? LIMIT 1");
-$unitStmt->execute([$_SESSION['user_id']]);
+$me = $pdo->prepare("SELECT team_id FROM users WHERE id = ?");
+$me->execute([$_SESSION['user_id']]);
+$myTeamId = (int)$me->fetchColumn();
+
+$unitStmt = $pdo->prepare("
+    SELECT u.* FROM ptv_units u
+    JOIN dispatch d ON d.unit_id = u.id AND d.team_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
+    ORDER BY d.dispatched_at DESC, d.id DESC LIMIT 1");
+$unitStmt->execute([$myTeamId]);
 $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
+if (!$unit) $unit = ['id' => 0, 'unit_name' => 'No vehicle assigned', 'plate_no' => '', 'status' => 'Available'];
 
 function stepClass($target, $current) {
     $order = ['assigned' => 0, 'en_route' => 1, 'on_site' => 2, 'returning' => 3];
@@ -25,34 +33,59 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     try {
         if ($action === 'depart') {
-            $st = $pdo->prepare("UPDATE dispatch SET status='en_route', departed_at=NOW()
-                                 WHERE id=? AND unit_id=? AND status='assigned'");
-            $st->execute([$dispatchId, $unit['id']]);
-            if ($st->rowCount()) {
-                $pdo->prepare("
-                    UPDATE ptv_units u
-                    JOIN dispatch d ON d.id = ?
-                    JOIN clip_reports c ON c.id = d.clip_report_id
-                    SET u.status='En Route', u.current_lat = c.latitude, u.current_lng = c.longitude
-                    WHERE u.id = ?
-                ")->execute([$dispatchId, $unit['id']]);
-                $flash = 'Departure logged. Drive safe.';
-            } else {
-                $flash = 'This dispatch has changed. Your screen was refreshed.';
-            }
-        }
+    $st = $pdo->prepare("UPDATE dispatch d
+        JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
+        SET d.status='en_route', d.departed_at=NOW()
+        WHERE d.team_id = ? AND d.status='assigned'");
+    $st->execute([$dispatchId, $myTeamId]);
+    if ($st->rowCount()) {
+        $pdo->prepare("UPDATE ptv_units u
+            JOIN dispatch d ON d.unit_id = u.id AND d.status='en_route' AND d.team_id = ?
+            JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
+            JOIN clip_reports c ON c.id = d.clip_report_id
+            SET u.status='En Route', u.current_lat = c.latitude, u.current_lng = c.longitude")
+            ->execute([$myTeamId, $dispatchId]);
+        $flash = 'Departure logged. Drive safe.';
+    } else {
+        $flash = 'This dispatch has changed. Your screen was refreshed.';
+    }
+}
 
-        if ($action === 'arrive') {
-            $st = $pdo->prepare("UPDATE dispatch SET status='on_site', arrived_at=NOW()
-                                 WHERE id=? AND unit_id=? AND status='en_route'");
-            $st->execute([$dispatchId, $unit['id']]);
-            if ($st->rowCount()) {
-                $pdo->prepare("UPDATE ptv_units SET status='On Site' WHERE id=?")->execute([$unit['id']]);
-                $flash = 'Arrival logged.';
-            } else {
-                $flash = 'This dispatch has changed. Your screen was refreshed.';
-            }
-        }
+if ($action === 'arrive') {
+    $st = $pdo->prepare("UPDATE dispatch d
+        JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
+        SET d.status='on_site', d.arrived_at=NOW()
+        WHERE d.team_id = ? AND d.status='en_route'");
+    $st->execute([$dispatchId, $myTeamId]);
+    if ($st->rowCount()) {
+        $pdo->prepare("UPDATE ptv_units u
+            JOIN dispatch d ON d.unit_id = u.id AND d.status='on_site' AND d.team_id = ?
+            JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
+            SET u.status='On Site'")->execute([$myTeamId, $dispatchId]);
+        $flash = 'Arrival logged.';
+    } else {
+        $flash = 'This dispatch has changed. Your screen was refreshed.';
+    }
+}
+
+if ($action === 'return_to_base') {
+    $pdo->prepare("UPDATE ptv_units u
+        JOIN dispatch d ON d.unit_id = u.id AND d.status='returning' AND d.team_id = ?
+        JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
+        SET u.status='Available', u.current_lat = 8.371714652741774, u.current_lng = 124.85717564826615")
+        ->execute([$myTeamId, $dispatchId]);
+    $st = $pdo->prepare("UPDATE dispatch d
+        JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
+        SET d.status='resolved', d.returned_at=NOW()
+        WHERE d.team_id = ? AND d.status='returning'");
+    $st->execute([$dispatchId, $myTeamId]);
+    if ($st->rowCount()) {
+        if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'returned_to_command_center', 'success');
+        $flash = 'Welcome back! Units marked Available.';
+    } else {
+$              $flash = 'This dispatch has changed. Your screen was refreshed.';
+    }
+}
 
         if ($action === 'save_site_report') {
             $details = trim($_POST['incident_details'] ?? '');
@@ -69,26 +102,12 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             $sql = "UPDATE dispatch SET incident_details=?" . ($photoPath ? ", incident_photo=?" : "")
-                 . " WHERE id=? AND unit_id=? AND status='on_site'";
+                 . " WHERE id=? AND team_id=? AND status='on_site'";
             $params = [$details];
             if ($photoPath) $params[] = $photoPath;
-            $params[] = $dispatchId; $params[] = $unit['id'];
+            $params[] = $dispatchId; $params[] = $myTeamId;
             $pdo->prepare($sql)->execute($params);
             $flash = 'Site report saved.';
-        }
-
-        if ($action === 'return_to_base') {
-            $st = $pdo->prepare("UPDATE dispatch SET status='resolved', returned_at=NOW()
-                                 WHERE id=? AND unit_id=? AND status='returning'");
-            $st->execute([$dispatchId, $unit['id']]);
-            if ($st->rowCount()) {
-                $pdo->prepare("UPDATE ptv_units SET status='Available', current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id=?")
-                    ->execute([$unit['id']]);
-                if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'returned_to_command_center', 'success');
-                $flash = 'Welcome back! Unit marked Available.';
-            } else {
-                $flash = 'This dispatch has changed. Your screen was refreshed.';
-            }
         }
     } catch (PDOException $e) {
         $flash = 'Action failed: ' . $e->getMessage();
@@ -100,7 +119,7 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
 $flash = $_SESSION['flash'] ?? '';
 unset($_SESSION['flash']);
 $unitStatus = $unit['status'] ?? 'Available';
-
+    
 /* ---------------------------------------------------------------
    Active dispatch for this unit
    --------------------------------------------------------------- */
@@ -115,11 +134,11 @@ if ($unit) {
                c.problem_resources, c.problem_notes, c.created_at AS reported_at
         FROM dispatch d
         JOIN clip_reports c ON c.id = d.clip_report_id
-        WHERE d.unit_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
+               WHERE d.team_id = ? AND d.status IN ('assigned','en_route','on_site','returning')
         ORDER BY d.dispatched_at DESC, d.id DESC
         LIMIT 1
     ");
-    $dStmt->execute([$unit['id']]);
+        $dStmt->execute([$myTeamId]);
     $dispatch = $dStmt->fetch(PDO::FETCH_ASSOC);
 }
 

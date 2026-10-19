@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../config/functions.php';
 requireRole('admin');
 
 $flash = '';
-
+$vehicleTypes = ['Ambulance','Patient Transport Vehicle (PTV)','Water Tanker','Fire Truck','Pick Up'];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     try {
@@ -14,20 +14,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $unitName = trim($_POST['unit_name'] ?? '');
             $plateNo = trim($_POST['plate_no'] ?? '');
             $responderId = $_POST['responder_id'] !== '' ? (int)$_POST['responder_id'] : null;
+            $vehicleType = $_POST['vehicle_type'] ?? '';
+            if (!in_array($vehicleType, $vehicleTypes, true)) $vehicleType = $vehicleTypes[1];
 
             if ($unitName === '') {
                 $flash = 'Unit name is required.';
             } else {
-                $stmt = $pdo->prepare("INSERT INTO ptv_units (unit_name, plate_no, responder_id, status, current_lat, current_lng) VALUES (?, ?, ?, 'Available', ?, ?)");
-                $stmt->execute([$unitName, $plateNo, $responderId, 8.371714652741774, 124.85717564826615]);
+                $stmt = $pdo->prepare("INSERT INTO ptv_units (unit_name, plate_no, vehicle_type, responder_id, status, current_lat, current_lng) VALUES (?, ?, ?, ?, 'Available', ?, ?)");
+                $stmt->execute([$unitName, $plateNo, $vehicleType, $responderId, 8.371714652741774, 124.85717564826615]);
                 $flash = "Unit \"$unitName\" added.";
             }
         }
 
         if ($action === 'assign_responder') {
-            $unitId = (int)($_POST['unit_id'] ?? 0);
-            $responderId = $_POST['responder_id'] !== '' ? (int)$_POST['responder_id'] : null;
-            $pdo->prepare("UPDATE ptv_units SET responder_id = ? WHERE id = ?")->execute([$responderId, $unitId]);
+                $unitId = (int)($_POST['unit_id'] ?? 0);
+                $responderId = $_POST['responder_id'] !== '' ? (int)$_POST['responder_id'] : null;
+                $pdo->prepare("UPDATE ptv_units SET responder_id = ? WHERE id = ?")->execute([$responderId, $unitId]);
             $flash = 'Responder assignment updated.';
         }
 
@@ -98,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $flash = 'Unit restored. Its status is set to Available — reassign a responder as needed.';
         }
-    } catch (PDOException $e) {
+       } catch (PDOException $e) {
         $flash = 'Action failed: ' . $e->getMessage();
     }
 }
@@ -107,9 +109,16 @@ $view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
 $where = $view === 'archived' ? "WHERE u.archived_at IS NOT NULL" : "WHERE u.archived_at IS NULL";
 
 $units = $pdo->query("
-    SELECT u.*, usr.name AS responder_name, usr.email AS responder_email
+    SELECT u.*, usr.name AS responder_name, usr.email AS responder_email, t.name AS team_name,
+           dt.name AS dispatched_team, dt.leader_id AS dispatched_leader
     FROM ptv_units u
     LEFT JOIN users usr ON usr.id = u.responder_id
+    LEFT JOIN teams t ON t.id = usr.team_id AND t.archived_at IS NULL
+    LEFT JOIN dispatch d ON d.id = (
+        SELECT MAX(d2.id) FROM dispatch d2
+        WHERE d2.unit_id = u.id AND d2.status IN ('assigned','en_route','on_site','returning')
+    )
+    LEFT JOIN teams dt ON dt.id = d.team_id
     $where
     ORDER BY u.unit_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
@@ -117,7 +126,13 @@ $units = $pdo->query("
 $archivedCount = $pdo->query("SELECT COUNT(*) FROM ptv_units WHERE archived_at IS NOT NULL")->fetchColumn();
 
 // Responders not yet assigned to a unit (only relevant for the active view)
-$allResponders = $pdo->query("SELECT id, name, email FROM users WHERE role = 'user' AND is_verified = 1 AND archived_at IS NULL ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$allResponders = $pdo->query("
+    SELECT u.id, u.name, u.email, t.name AS team_name
+    FROM users u
+    LEFT JOIN teams t ON t.id = u.team_id AND t.archived_at IS NULL
+    WHERE u.role = 'user' AND u.is_verified = 1 AND u.archived_at IS NULL
+    ORDER BY t.name IS NULL, t.name, u.name
+")->fetchAll(PDO::FETCH_ASSOC);
 $assignedIds = array_filter(array_column($units, 'responder_id'));
 
 $unreadAlerts = 0;
@@ -135,8 +150,8 @@ $unreadAlerts = 0;
 <?php require_once __DIR__ . '/../../assets/layouts/admin/admin_sidebar.php'; ?>
 
 <main class="main">
-    <div class="page-head">
-        <div><h1>PTV / Unit Management</h1><p><?php echo count($units); ?> unit(s)</p></div>
+    <div class="page-head page-head--flex">
+    <div><h1>Unit Management</h1><p><?php echo count($units); ?> unit(s)</p></div>
         <?php if ($view === 'active'): ?>
         <button class="btn-primary" onclick="document.getElementById('addUnitModal').classList.add('show')">+ Add Unit</button>
         <?php endif; ?>
@@ -158,13 +173,14 @@ $unreadAlerts = 0;
             <div class="ptv-unit-top">
                 <div>
                     <div class="ptv-unit-name"><?php echo htmlspecialchars($u['unit_name']); ?></div>
-                    <div class="unit-plate"><?php echo htmlspecialchars($u['plate_no'] ?: 'No plate on file'); ?></div>
+                  <div class="unit-plate"><?php echo htmlspecialchars(($u['vehicle_type'] ?? '') . ' · ' . ($u['plate_no'] ?: 'No plate on file')); ?></div>
                 </div>
                 <?php if ($view === 'active'): ?>
                 <form method="POST">
                     <input type="hidden" name="action" value="set_status">
                     <input type="hidden" name="unit_id" value="<?php echo $u['id']; ?>">
                     <select name="status" class="status-select <?php echo $statusClass; ?>" onchange="this.form.submit()">
+                        <option value="Assigned" <?php echo $u['status']==='Assigned'?'selected':''; ?>>Assigned</option>
                         <option value="Available" <?php echo $u['status']==='Available'?'selected':''; ?>>Available</option>
                         <option value="En Route" <?php echo $u['status']==='En Route'?'selected':''; ?>>En Route</option>
                         <option value="On Site" <?php echo $u['status']==='On Site'?'selected':''; ?>>On Site</option>
@@ -179,28 +195,30 @@ $unreadAlerts = 0;
 
             <?php if ($view === 'active'): ?>
             <div class="unit-field">
-                <div class="label">Assigned Responder</div>
-                <form method="POST">
-                    <input type="hidden" name="action" value="assign_responder">
-                    <input type="hidden" name="unit_id" value="<?php echo $u['id']; ?>">
-                    <select name="responder_id" onchange="this.form.submit()">
-                        <option value="">— Unassigned —</option>
-                        <?php foreach ($allResponders as $r):
-                            if (in_array($r['id'], $assignedIds) && $r['id'] != $u['responder_id']) continue;
-                        ?>
-                            <option value="<?php echo $r['id']; ?>" <?php echo $u['responder_id'] == $r['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($r['name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </form>
-            </div>
+    <div class="label">Assigned Team</div>
+    <form method="POST">
+        <input type="hidden" name="action" value="assign_responder">
+        <input type="hidden" name="unit_id" value="<?php echo $u['id']; ?>">
+        <select name="responder_id" onchange="this.form.submit()" <?php echo $u['dispatched_team'] ? 'disabled' : ''; ?>>
+            <option value="">— Unassigned —</option>
+            <?php $selectedId = $u['dispatched_leader'] ?: $u['responder_id'];
+            foreach ($allResponders as $r): ?>
+                <option value="<?php echo $r['id']; ?>" <?php echo $selectedId == $r['id'] ? 'selected' : ''; ?>>
+                    <?php echo htmlspecialchars($r['team_name'] ?: ($r['name'] . ' (no team)')); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </form>
+</div>
 
-            <?php if ($u['responder_email']): ?>
-                <div class="responder-tag"><?php echo htmlspecialchars($u['responder_email']); ?></div>
-            <?php else: ?>
-                <div class="no-responder">No responder linked yet</div>
-            <?php endif; ?>
+
+            <?php if ($u['dispatched_team']): ?>
+    <div class="responder-tag">★ Dispatched to <?php echo htmlspecialchars($u['dispatched_team']); ?></div>
+<?php elseif ($u['responder_id']): ?>
+    <div class="responder-tag">★ Leader: <?php echo htmlspecialchars($u['responder_name']); ?></div>
+<?php else: ?>
+    <div class="no-responder">No team linked yet</div>
+<?php endif; ?>
 
             <div style="margin-top:14px; padding-top:12px; border-top:1px dashed rgba(var(--border-rgb),0.2);">
                 <form method="POST" onsubmit="return confirm('Archive this unit? It will be unassigned and hidden from active dispatch.');">
@@ -233,11 +251,17 @@ $unreadAlerts = 0;
             <div class="field"><label>Unit Name</label><input type="text" name="unit_name" placeholder="e.g. PTV Foxtrot" required></div>
             <div class="field"><label>Plate Number</label><input type="text" name="plate_no" placeholder="e.g. LGU-106"></div>
             <div class="field">
+    <label>Vehicle Type</label>
+    <select name="vehicle_type">
+        <?php foreach ($vehicleTypes as $vt): ?><option><?php echo htmlspecialchars($vt); ?></option><?php endforeach; ?>
+    </select>
+</div>
+            <div class="field">
                 <label>Assign Responder (optional)</label>
                 <select name="responder_id">
                     <option value="">— Unassigned —</option>
-                    <?php foreach ($allResponders as $r): if (in_array($r['id'], $assignedIds)) continue; ?>
-                        <option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['name']); ?></option>
+                    <?php foreach ($allResponders as $r): ?>
+<option value="<?php echo $r['id']; ?>"><?php echo htmlspecialchars($r['team_name'] ?: ($r['name'] . ' (no team)')); ?></option>     
                     <?php endforeach; ?>
                 </select>
             </div>
