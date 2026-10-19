@@ -211,6 +211,7 @@ $unreadAlerts = 0;
     </form>
 </div>
 
+
             <?php if ($u['dispatched_team']): ?>
     <div class="responder-tag">★ Dispatched to <?php echo htmlspecialchars($u['dispatched_team']); ?></div>
 <?php elseif ($u['responder_id']): ?>
