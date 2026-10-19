@@ -1,252 +1,263 @@
--- ============================================================
---  HOPELINE — full MySQL schema (structure + demo ACCOUNTS only)
---  Engine: InnoDB | Charset: utf8mb4 | Target: MySQL 5.7+ / 8.x / MariaDB 10.4+
+-- =====================================================================
+-- HopeLine — full schema + demo data
+-- Target: MySQL 8 / MariaDB 10.4+ (XAMPP), InnoDB, utf8mb4
+-- Import into an empty database:  mysql -u root < hopeline_schema.sql
 --
---  Demo logins (password for all: password123)
---    admin@hopeline.local
---    manager@hopeline.local
---    user@hopeline.local   (Responder; has no PTV unit until an admin creates one)
---
---  No incidents, units, delays, settings or logs are seeded.
---  (settings.php seeds its own defaults on first visit.)
---
---  WARNING: this script DROPs and recreates every table.
--- ============================================================
+-- DEMO LOGINS (passwords are bcrypt-hashed below)
+--   admin@hopeline.local     Admin@123       (role: admin)
+--   manager@hopeline.local   Manager@123     (role: manager)
+--   user@hopeline.local      Responder@123   (role: user, leads Team 1)
+--   user2@hopeline.local     Responder@123   (role: user, leads Team 2)
+-- Change these passwords before any real deployment.
+-- =====================================================================
 
-CREATE DATABASE IF NOT EXISTS `hopeline`
-  DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `hopeline`;
+CREATE DATABASE IF NOT EXISTS hopeline
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE hopeline;
 
 SET NAMES utf8mb4;
-SET FOREIGN_KEY_CHECKS = 0;
 
-DROP VIEW  IF EXISTS `activity_logs`;
-DROP TABLE IF EXISTS `delay_logs`;
-DROP TABLE IF EXISTS `dispatch`;
-DROP TABLE IF EXISTS `ptv_units`;
-DROP TABLE IF EXISTS `clip_reports`;
-DROP TABLE IF EXISTS `activity_log`;
-DROP TABLE IF EXISTS `settings`;
-DROP TABLE IF EXISTS `users`;
+-- ---------------------------------------------------------------------
+-- 1. users
+--    team_id has no FK (matches the live schema): teams.leader_id already
+--    points back at users, so a second FK would be circular.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users (
+  id          INT(11)      NOT NULL AUTO_INCREMENT,
+  name        VARCHAR(150) NOT NULL,
+  email       VARCHAR(150) NOT NULL,
+  password    VARCHAR(255) NOT NULL,
+  role        ENUM('admin','manager','user') NOT NULL DEFAULT 'user',
+  contact_no  VARCHAR(20)  DEFAULT NULL,
+  is_verified TINYINT(1)   NOT NULL DEFAULT 0,
+  archived_at DATETIME     DEFAULT NULL,
+  created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  team_id     INT(11)      DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_users_email (email),
+  KEY idx_users_team (team_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- 1. users  (roles: admin | manager | user = Barangay Responder)
---    is_verified = 1 means "active" (login requires it)
---    archived_at IS NOT NULL means archived (login blocked)
--- ------------------------------------------------------------
-CREATE TABLE `users` (
-  `id`          INT          NOT NULL AUTO_INCREMENT,
-  `name`        VARCHAR(150) NOT NULL,
-  `email`       VARCHAR(150) NOT NULL,
-  `password`    VARCHAR(255) NOT NULL,
-  `role`        ENUM('admin','manager','user') NOT NULL DEFAULT 'user',
-  `contact_no`  VARCHAR(20)  DEFAULT NULL,
-  `is_verified` TINYINT(1)   NOT NULL DEFAULT 0,
-  `archived_at` DATETIME     DEFAULT NULL,
-  `created_at`  DATETIME     DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_users_email` (`email`),
-  KEY `idx_users_role` (`role`),
-  KEY `idx_users_archived_at` (`archived_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ---------------------------------------------------------------------
+-- 2. teams / team_members
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS teams (
+  id          INT(11)      NOT NULL AUTO_INCREMENT,
+  name        VARCHAR(100) NOT NULL,
+  description VARCHAR(255) DEFAULT NULL,
+  archived_at DATETIME     DEFAULT NULL,
+  created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  leader_id   INT(11)      DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY idx_teams_leader (leader_id),
+  CONSTRAINT fk_teams_leader FOREIGN KEY (leader_id)
+    REFERENCES users (id) ON DELETE SET NULL ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- 2. settings  (key/value config used by admin/settings.php)
--- ------------------------------------------------------------
-CREATE TABLE `settings` (
-  `setting_key`   VARCHAR(100) NOT NULL,
-  `setting_value` VARCHAR(255) NOT NULL,
-  `updated_at`    DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`setting_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS team_members (
+  id      INT(11)      NOT NULL AUTO_INCREMENT,
+  team_id INT(11)      NOT NULL,
+  name    VARCHAR(100) NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_team_members_team (team_id),
+  CONSTRAINT fk_team_members_team FOREIGN KEY (team_id)
+    REFERENCES teams (id) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- 3. activity_log  (audit trail; read by admin dashboard + audit-trail.php)
--- ------------------------------------------------------------
-CREATE TABLE `activity_log` (
-  `id`         INT          NOT NULL AUTO_INCREMENT,
-  `user_id`    INT          DEFAULT NULL,
-  `email`      VARCHAR(150) DEFAULT NULL,
-  `action`     VARCHAR(100) NOT NULL,
-  `status`     VARCHAR(20)  NOT NULL,
-  `ip_address` VARCHAR(45)  DEFAULT NULL,
-  `user_agent` VARCHAR(255) DEFAULT NULL,
-  `created_at` DATETIME     DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_activity_user` (`user_id`),
-  KEY `idx_activity_created_at` (`created_at`),
-  KEY `idx_activity_action` (`action`),
-  KEY `idx_activity_email` (`email`),
-  CONSTRAINT `fk_activity_user`
-    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-    ON UPDATE RESTRICT ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ---------------------------------------------------------------------
+-- 3. ptv_units  (every vehicle: Ambulance, PTV, Water Tanker, ...)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ptv_units (
+  id               INT(11)      NOT NULL AUTO_INCREMENT,
+  unit_name        VARCHAR(100) NOT NULL,
+  plate_no         VARCHAR(20)  DEFAULT NULL,
+  vehicle_type     VARCHAR(50)  NOT NULL DEFAULT 'Patient Transport Vehicle (PTV)',
+  driver_name      VARCHAR(150) DEFAULT NULL,
+  responder_id     INT(11)      DEFAULT NULL,
+  status           ENUM('Available','Assigned','En Route','On Site','Returning','Offline') NOT NULL DEFAULT 'Available',
+  archived_at      DATETIME     DEFAULT NULL,
+  current_lat      DECIMAL(10,7) DEFAULT NULL,
+  current_lng      DECIMAL(10,7) DEFAULT NULL,
+  last_location_at DATETIME     DEFAULT NULL,
+  gps_accuracy     FLOAT        DEFAULT NULL,
+  gps_heading      FLOAT        DEFAULT NULL,
+  gps_speed        FLOAT        DEFAULT NULL,
+  created_at       DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_at       DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_units_responder (responder_id),
+  KEY idx_units_type_status (vehicle_type, status),
+  CONSTRAINT fk_units_responder FOREIGN KEY (responder_id)
+    REFERENCES users (id) ON DELETE SET NULL ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- includes/activity-logger.php writes to `activity_logs` (plural) while the
--- admin pages read `activity_log` (singular). This simple, insertable view
--- makes both names work without touching the PHP.
-CREATE VIEW `activity_logs` AS SELECT * FROM `activity_log`;
+-- ---------------------------------------------------------------------
+-- 4. clip_reports
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS clip_reports (
+  id                    INT(11)      NOT NULL AUTO_INCREMENT,
+  clip_ref              VARCHAR(30)  NOT NULL,
+  caller_name           VARCHAR(150) NOT NULL,
+  caller_contact        VARCHAR(20)  DEFAULT NULL,
+  barangay              VARCHAR(100) NOT NULL,
+  sitio_purok           VARCHAR(150) DEFAULT NULL,
+  landmark              VARCHAR(255) DEFAULT NULL,
+  latitude              DECIMAL(10,7) DEFAULT NULL,
+  longitude             DECIMAL(10,7) DEFAULT NULL,
+  incident_type         VARCHAR(50)  NOT NULL,
+  severity              ENUM('Critical','High','Moderate','Low') DEFAULT NULL,
+  problem_resources     VARCHAR(255) NOT NULL,
+  problem_notes         TEXT         DEFAULT NULL,
+  predicted_eta_minutes DECIMAL(6,2) DEFAULT NULL,
+  status                ENUM('pending','dispatched','resolved','cancelled') NOT NULL DEFAULT 'pending',
+  archived_at           DATETIME     DEFAULT NULL,
+  reported_by           INT(11)      NOT NULL,
+  created_at            DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  updated_at            DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_clip_ref (clip_ref),
+  KEY idx_clip_status (status),
+  KEY idx_clip_reported_by (reported_by),
+  CONSTRAINT fk_clip_reported_by FOREIGN KEY (reported_by)
+    REFERENCES users (id) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- 4. clip_reports  (Caller · Location · Incident · Problem)
--- ------------------------------------------------------------
-CREATE TABLE `clip_reports` (
-  `id`                    INT           NOT NULL AUTO_INCREMENT,
-  `clip_ref`              VARCHAR(30)   NOT NULL,
-  `caller_name`           VARCHAR(150)  NOT NULL,
-  `caller_contact`        VARCHAR(20)   DEFAULT NULL,
-  `barangay`              VARCHAR(100)  NOT NULL,
-  `sitio_purok`           VARCHAR(150)  DEFAULT NULL,
-  `landmark`              VARCHAR(255)  DEFAULT NULL,
-  `latitude`              DECIMAL(10,7) DEFAULT NULL,
-  `longitude`             DECIMAL(10,7) DEFAULT NULL,
-  `incident_type`         VARCHAR(50)   NOT NULL,
-  `severity`              ENUM('Critical','High','Moderate','Low') DEFAULT NULL,
-  `problem_resources`     VARCHAR(255)  NOT NULL,
-  `problem_notes`         TEXT          DEFAULT NULL,
-  `predicted_eta_minutes` DECIMAL(6,2)  DEFAULT NULL,
-  `status`                ENUM('pending','dispatched','resolved','cancelled') NOT NULL DEFAULT 'pending',
-  `archived_at`           DATETIME      DEFAULT NULL,
-  `reported_by`           INT           NOT NULL,
-  `created_at`            DATETIME      DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`            DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_clip_ref` (`clip_ref`),
-  KEY `idx_clip_reported_by` (`reported_by`),
-  KEY `idx_clip_status` (`status`),
-  KEY `idx_clip_barangay` (`barangay`),
-  KEY `idx_clip_created_at` (`created_at`),
-  KEY `idx_clip_archived_at` (`archived_at`),
-  KEY `idx_clip_severity` (`severity`),
-  CONSTRAINT `fk_clip_reported_by`
-    FOREIGN KEY (`reported_by`) REFERENCES `users` (`id`)
-    ON UPDATE RESTRICT ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ---------------------------------------------------------------------
+-- 5. dispatch  (one row per vehicle sent; team_id = the crew)
+--    active_unit_key is a generated column. The live expression is not
+--    shown in the data dictionary, so this assumes: a unit may be on at
+--    most one open dispatch (assigned / en_route / on_site / returning).
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dispatch (
+  id                    INT(11)      NOT NULL AUTO_INCREMENT,
+  clip_report_id        INT(11)      NOT NULL,
+  unit_id               INT(11)      NOT NULL,
+  team_id               INT(11)      DEFAULT NULL,
+  dispatched_by         INT(11)      NOT NULL,
+  status                ENUM('assigned','en_route','on_site','returning','resolved','cancelled') NOT NULL DEFAULT 'assigned',
+  predicted_eta_minutes DECIMAL(6,2) DEFAULT NULL,
+  dispatched_at         DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  departed_at           DATETIME     DEFAULT NULL,
+  arrived_at            DATETIME     DEFAULT NULL,
+  returned_at           DATETIME     DEFAULT NULL,
+  resolved_at           DATETIME     DEFAULT NULL,
+  patient_name          VARCHAR(150) DEFAULT NULL,
+  patient_age_group     ENUM('Minor','Matured','Senior') DEFAULT NULL,
+  patient_sex           ENUM('Male','Female') DEFAULT NULL,
+  victim_count          INT(11)      DEFAULT NULL,
+  vital_signs           ENUM('Positive','Negative') DEFAULT NULL,
+  alcohol_breath        ENUM('Positive','Negative','Not Tested') DEFAULT NULL,
+  closeout_remarks      VARCHAR(255) DEFAULT NULL,
+  incident_details      TEXT         DEFAULT NULL,
+  incident_photo        VARCHAR(255) DEFAULT NULL,
+  active_unit_key       INT(11) GENERATED ALWAYS AS
+    (CASE WHEN status IN ('assigned','en_route','on_site','returning') THEN unit_id ELSE NULL END) STORED,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_active_unit (active_unit_key),
+  KEY idx_dispatch_clip (clip_report_id),
+  KEY idx_dispatch_unit (unit_id),
+  KEY idx_dispatch_team (team_id),
+  KEY idx_dispatch_by (dispatched_by),
+  CONSTRAINT fk_dispatch_clip FOREIGN KEY (clip_report_id)
+    REFERENCES clip_reports (id) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT fk_dispatch_unit FOREIGN KEY (unit_id)
+    REFERENCES ptv_units (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT fk_dispatch_by FOREIGN KEY (dispatched_by)
+    REFERENCES users (id) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- 5. ptv_units
---    'Assigned' is included because active-incidents.php sets it on dispatch.
--- ------------------------------------------------------------
-CREATE TABLE `ptv_units` (
-  `id`               INT           NOT NULL AUTO_INCREMENT,
-  `unit_name`        VARCHAR(100)  NOT NULL,
-  `plate_no`         VARCHAR(20)   DEFAULT NULL,
-  `driver_name`      VARCHAR(150)  DEFAULT NULL,
-  `responder_id`     INT           DEFAULT NULL,
-  `status`           ENUM('Available','Assigned','En Route','On Site','Returning','Offline') NOT NULL DEFAULT 'Available',
-  `archived_at`      DATETIME      DEFAULT NULL,
-  `current_lat`      DECIMAL(10,7) DEFAULT NULL,
-  `current_lng`      DECIMAL(10,7) DEFAULT NULL,
-  `last_location_at` DATETIME      DEFAULT NULL,
-  `gps_accuracy`     FLOAT         DEFAULT NULL,
-  `gps_heading`      FLOAT         DEFAULT NULL,
-  `gps_speed`        FLOAT         DEFAULT NULL,
-  `created_at`       DATETIME      DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`       DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_units_responder` (`responder_id`),
-  KEY `idx_units_status` (`status`),
-  KEY `idx_units_archived_at` (`archived_at`),
-  CONSTRAINT `fk_units_responder`
-    FOREIGN KEY (`responder_id`) REFERENCES `users` (`id`)
-    ON UPDATE RESTRICT ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ---------------------------------------------------------------------
+-- 6. delay_logs
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS delay_logs (
+  id          INT(11) NOT NULL AUTO_INCREMENT,
+  dispatch_id INT(11) NOT NULL,
+  unit_id     INT(11) NOT NULL,
+  reason      ENUM('Road obstruction/traffic','Vehicle breakdown/mechanical issue','Weather/flooding',
+                   'Wrong/unclear location','Fuel issue','Waiting for backup unit','Unit unreachable','Other') NOT NULL,
+  notes       VARCHAR(255) DEFAULT NULL,
+  logged_by   INT(11)      DEFAULT NULL,
+  is_manual   TINYINT(1)   NOT NULL DEFAULT 0,
+  started_at  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  resolved_at DATETIME     DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY idx_delay_dispatch (dispatch_id),
+  KEY idx_delay_unit (unit_id),
+  KEY idx_delay_logged_by (logged_by),
+  CONSTRAINT fk_delay_dispatch FOREIGN KEY (dispatch_id)
+    REFERENCES dispatch (id) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT fk_delay_unit FOREIGN KEY (unit_id)
+    REFERENCES ptv_units (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT fk_delay_logged_by FOREIGN KEY (logged_by)
+    REFERENCES users (id) ON DELETE SET NULL ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- 6. dispatch
---    active_unit_key = unit_id while the dispatch is active, NULL once
---    resolved/cancelled. The UNIQUE index means a unit can never have two
---    active dispatches (blocks reload-duplicate dispatches at DB level).
--- ------------------------------------------------------------
-CREATE TABLE `dispatch` (
-  `id`                    INT          NOT NULL AUTO_INCREMENT,
-  `clip_report_id`        INT          NOT NULL,
-  `unit_id`               INT          NOT NULL,
-  `dispatched_by`         INT          NOT NULL,
-  `status`                ENUM('assigned','en_route','on_site','returning','resolved','cancelled') NOT NULL DEFAULT 'assigned',
-  `predicted_eta_minutes` DECIMAL(6,2) DEFAULT NULL,
-  `dispatched_at`         DATETIME     DEFAULT CURRENT_TIMESTAMP,
-  `departed_at`           DATETIME     DEFAULT NULL,
-  `arrived_at`            DATETIME     DEFAULT NULL,
-  `returned_at`           DATETIME     DEFAULT NULL,
-  `resolved_at`           DATETIME     DEFAULT NULL,
-  `patient_name`          VARCHAR(150) DEFAULT NULL,
-  `patient_age_group`     ENUM('Minor','Matured','Senior') DEFAULT NULL,
-  `patient_sex`           ENUM('Male','Female') DEFAULT NULL,
-  `victim_count`          INT          DEFAULT NULL,
-  `vital_signs`           ENUM('Positive','Negative') DEFAULT NULL,
-  `alcohol_breath`        ENUM('Positive','Negative','Not Tested') DEFAULT NULL,
-  `closeout_remarks`      VARCHAR(255) DEFAULT NULL,
-  `incident_details`      TEXT         DEFAULT NULL,
-  `incident_photo`        VARCHAR(255) DEFAULT NULL,
-  `active_unit_key`       INT
-      AS (IF(`status` IN ('assigned','en_route','on_site','returning'), `unit_id`, NULL)) STORED,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_dispatch_active_unit` (`active_unit_key`),
-  KEY `idx_dispatch_unit_status` (`unit_id`, `status`),
-  KEY `idx_dispatch_clip_status` (`clip_report_id`, `status`),
-  KEY `idx_dispatch_by` (`dispatched_by`),
-  KEY `idx_dispatch_status` (`status`),
-  KEY `idx_dispatch_dispatched_at` (`dispatched_at`),
-  CONSTRAINT `fk_dispatch_clip_report`
-    FOREIGN KEY (`clip_report_id`) REFERENCES `clip_reports` (`id`)
-    ON UPDATE RESTRICT ON DELETE CASCADE,
-  CONSTRAINT `fk_dispatch_unit`
-    FOREIGN KEY (`unit_id`) REFERENCES `ptv_units` (`id`)
-    ON UPDATE RESTRICT ON DELETE RESTRICT,
-  CONSTRAINT `fk_dispatch_user`
-    FOREIGN KEY (`dispatched_by`) REFERENCES `users` (`id`)
-    ON UPDATE RESTRICT ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- ---------------------------------------------------------------------
+-- 7. activity_log (+ activity_logs view)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS activity_log (
+  id         INT(11)      NOT NULL AUTO_INCREMENT,
+  user_id    INT(11)      DEFAULT NULL,
+  email      VARCHAR(150) DEFAULT NULL,
+  action     VARCHAR(100) NOT NULL,
+  status     VARCHAR(20)  NOT NULL,
+  ip_address VARCHAR(45)  DEFAULT NULL,
+  user_agent VARCHAR(255) DEFAULT NULL,
+  created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_activity_user (user_id),
+  CONSTRAINT fk_activity_user FOREIGN KEY (user_id)
+    REFERENCES users (id) ON DELETE SET NULL ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ------------------------------------------------------------
--- 7. delay_logs
--- ------------------------------------------------------------
-CREATE TABLE `delay_logs` (
-  `id`          INT          NOT NULL AUTO_INCREMENT,
-  `dispatch_id` INT          NOT NULL,
-  `unit_id`     INT          NOT NULL,
-  `reason`      ENUM(
-                  'Road obstruction/traffic',
-                  'Vehicle breakdown/mechanical issue',
-                  'Weather/flooding',
-                  'Wrong/unclear location',
-                  'Fuel issue',
-                  'Waiting for backup unit',
-                  'Unit unreachable',
-                  'Other'
-                ) NOT NULL,
-  `notes`       VARCHAR(255) DEFAULT NULL,
-  `logged_by`   INT          DEFAULT NULL,
-  `is_manual`   TINYINT(1)   NOT NULL DEFAULT 0,
-  `started_at`  DATETIME     DEFAULT CURRENT_TIMESTAMP,
-  `resolved_at` DATETIME     DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_delay_dispatch_resolved` (`dispatch_id`, `resolved_at`),
-  KEY `idx_delay_unit` (`unit_id`),
-  KEY `idx_delay_logged_by` (`logged_by`),
-  KEY `idx_delay_started_at` (`started_at`),
-  CONSTRAINT `fk_delay_dispatch`
-    FOREIGN KEY (`dispatch_id`) REFERENCES `dispatch` (`id`)
-    ON UPDATE RESTRICT ON DELETE CASCADE,
-  CONSTRAINT `fk_delay_unit`
-    FOREIGN KEY (`unit_id`) REFERENCES `ptv_units` (`id`)
-    ON UPDATE RESTRICT ON DELETE RESTRICT,
-  CONSTRAINT `fk_delay_logged_by`
-    FOREIGN KEY (`logged_by`) REFERENCES `users` (`id`)
-    ON UPDATE RESTRICT ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE OR REPLACE VIEW activity_logs AS
+  SELECT id, user_id, email, action, status, ip_address, user_agent, created_at
+  FROM activity_log;
 
-SET FOREIGN_KEY_CHECKS = 1;
+-- ---------------------------------------------------------------------
+-- 8. settings
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS settings (
+  setting_key   VARCHAR(100) NOT NULL,
+  setting_value VARCHAR(255) NOT NULL,
+  updated_at    DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (setting_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ============================================================
---  SEED: demo accounts ONLY (password: password123)
--- ============================================================
-INSERT INTO `users` (`name`, `email`, `password`, `role`, `contact_no`, `is_verified`) VALUES
-  ('System Administrator', 'admin@hopeline.local',
-   '$2y$10$i/gPUBdIyWYHOw1CHaS.3.bMDfg7N4zjQ2qCQmdbQHHy5ytXTyPsG', 'admin',   '09170000001', 1),
-  ('Dispatch Manager',     'manager@hopeline.local',
-   '$2y$10$O/YbHs.v/iEzxCQHv/KMnuVEcoxXL/UdrS4Ka24gVTgUGIxNyKLHa', 'manager', '09170000002', 1),
-  ('Responder One',        'user@hopeline.local',
-   '$2y$10$TOA3EkeQZzdLt2mVJGLqEOS03MitUPr9.T.wdUObMGCE3SPDi0Dla', 'user',    '09170000003', 1);
+
+-- =====================================================================
+-- DEMO DATA
+-- =====================================================================
+
+-- Accounts (all verified) ------------------------------------------------
+INSERT INTO users (name, email, password, role, contact_no, is_verified) VALUES
+('LDRRMO Admin',   'admin@hopeline.local',   '$2y$10$I/0Db0zNmO3TfLi7JZarsuD6ryXAdv01.h2c37xUhUC47bYZWgPKe', 'admin',   '09170000001', 1),
+('Command Center', 'manager@hopeline.local', '$2y$10$80oPTDxXp7F10NvA9pkHJOE/NxWsu0ICcBJSkHBhdt8UlqHBM7hs6', 'manager', '09170000002', 1),
+('Responder One',  'user@hopeline.local',    '$2y$10$uca3eTKxVlrRFn92ghyXmuktNMZE0qqfhs8mqEKRFM704CM2XoyM2', 'user',    '09170000003', 1),
+('Responder Two',  'user2@hopeline.local',   '$2y$10$uca3eTKxVlrRFn92ghyXmuktNMZE0qqfhs8mqEKRFM704CM2XoyM2', 'user',    '09170000004', 1);
+
+-- Teams: led by the two responder accounts -------------------------------
+INSERT INTO teams (name, description, leader_id) VALUES
+('Team 1', 'Primary response crew',   (SELECT id FROM users WHERE email = 'user@hopeline.local')),
+('Team 2', 'Secondary response crew', (SELECT id FROM users WHERE email = 'user2@hopeline.local'));
+
+UPDATE users SET team_id = (SELECT id FROM teams WHERE name = 'Team 1') WHERE email = 'user@hopeline.local';
+UPDATE users SET team_id = (SELECT id FROM teams WHERE name = 'Team 2') WHERE email = 'user2@hopeline.local';
+
+INSERT INTO team_members (team_id, name) VALUES
+((SELECT id FROM teams WHERE name = 'Team 1'), 'Clyde'),
+((SELECT id FROM teams WHERE name = 'Team 1'), 'Jamir'),
+((SELECT id FROM teams WHERE name = 'Team 2'), 'Juan Dela Cruz'),
+((SELECT id FROM teams WHERE name = 'Team 2'), 'Maria Santos');
+
+-- Fleet: 2 Ambulance, 2 PTV, 1 Water Tanker, 1 Fire Truck, 1 Pick Up -----
+-- All start at the LDRRMO base and are a shared pool (responder_id NULL).
+INSERT INTO ptv_units (unit_name, plate_no, vehicle_type, status, current_lat, current_lng) VALUES
+('Ambulance 1',    NULL,        'Ambulance',                       'Available', 8.3717147, 124.8571756),
+('Ambulance 2',    NULL,        'Ambulance',                       'Available', 8.3717147, 124.8571756),
+('PTV 1',          'LGU-PTV 1', 'Patient Transport Vehicle (PTV)', 'Available', 8.3717147, 124.8571756),
+('PTV 2',          'LGU-PTV 2', 'Patient Transport Vehicle (PTV)', 'Available', 8.3717147, 124.8571756),
+('Water Tanker 1', NULL,        'Water Tanker',                    'Available', 8.3717147, 124.8571756),
+('Fire Truck 1',   NULL,        'Fire Truck',                      'Available', 8.3717147, 124.8571756),
+('Pick Up 1',      NULL,        'Pick Up',                         'Available', 8.3717147, 124.8571756);
