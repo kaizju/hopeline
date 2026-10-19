@@ -109,10 +109,16 @@ $view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
 $where = $view === 'archived' ? "WHERE u.archived_at IS NOT NULL" : "WHERE u.archived_at IS NULL";
 
 $units = $pdo->query("
-    SELECT u.*, usr.name AS responder_name, usr.email AS responder_email, t.name AS team_name
+    SELECT u.*, usr.name AS responder_name, usr.email AS responder_email, t.name AS team_name,
+           dt.name AS dispatched_team, dt.leader_id AS dispatched_leader
     FROM ptv_units u
     LEFT JOIN users usr ON usr.id = u.responder_id
     LEFT JOIN teams t ON t.id = usr.team_id AND t.archived_at IS NULL
+    LEFT JOIN dispatch d ON d.id = (
+        SELECT MAX(d2.id) FROM dispatch d2
+        WHERE d2.unit_id = u.id AND d2.status IN ('assigned','en_route','on_site','returning')
+    )
+    LEFT JOIN teams dt ON dt.id = d.team_id
     $where
     ORDER BY u.unit_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
@@ -174,6 +180,7 @@ $unreadAlerts = 0;
                     <input type="hidden" name="action" value="set_status">
                     <input type="hidden" name="unit_id" value="<?php echo $u['id']; ?>">
                     <select name="status" class="status-select <?php echo $statusClass; ?>" onchange="this.form.submit()">
+                        <option value="Assigned" <?php echo $u['status']==='Assigned'?'selected':''; ?>>Assigned</option>
                         <option value="Available" <?php echo $u['status']==='Available'?'selected':''; ?>>Available</option>
                         <option value="En Route" <?php echo $u['status']==='En Route'?'selected':''; ?>>En Route</option>
                         <option value="On Site" <?php echo $u['status']==='On Site'?'selected':''; ?>>On Site</option>
@@ -188,26 +195,29 @@ $unreadAlerts = 0;
 
             <?php if ($view === 'active'): ?>
             <div class="unit-field">
-                <div class="label">Assigned Responder</div>
-                <form method="POST">
-                    <input type="hidden" name="action" value="assign_responder">
-                    <input type="hidden" name="unit_id" value="<?php echo $u['id']; ?>">
-                    <select name="responder_id" onchange="this.form.submit()">
-                        <option value="">— Unassigned —</option>
-                        <?php foreach ($allResponders as $r): ?>
-    <option value="<?php echo $r['id']; ?>" <?php echo $u['responder_id'] == $r['id'] ? 'selected' : ''; ?>>
-        <?php echo htmlspecialchars($r['team_name'] ?: ($r['name'] . ' (no team)')); ?>
-    </option>
-<?php endforeach; ?>
-                    </select>
-                </form>
-            </div>
+    <div class="label">Assigned Team</div>
+    <form method="POST">
+        <input type="hidden" name="action" value="assign_responder">
+        <input type="hidden" name="unit_id" value="<?php echo $u['id']; ?>">
+        <select name="responder_id" onchange="this.form.submit()" <?php echo $u['dispatched_team'] ? 'disabled' : ''; ?>>
+            <option value="">— Unassigned —</option>
+            <?php $selectedId = $u['dispatched_leader'] ?: $u['responder_id'];
+            foreach ($allResponders as $r): ?>
+                <option value="<?php echo $r['id']; ?>" <?php echo $selectedId == $r['id'] ? 'selected' : ''; ?>>
+                    <?php echo htmlspecialchars($r['team_name'] ?: ($r['name'] . ' (no team)')); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </form>
+</div>
 
-            <?php if ($u['responder_email']): ?>
-                <div class="responder-tag"><?php echo htmlspecialchars($u['responder_email']); ?></div>
-            <?php else: ?>
-                <div class="no-responder">No responder linked yet</div>
-            <?php endif; ?>
+            <?php if ($u['dispatched_team']): ?>
+    <div class="responder-tag">★ Dispatched to <?php echo htmlspecialchars($u['dispatched_team']); ?></div>
+<?php elseif ($u['responder_id']): ?>
+    <div class="responder-tag">★ Leader: <?php echo htmlspecialchars($u['responder_name']); ?></div>
+<?php else: ?>
+    <div class="no-responder">No team linked yet</div>
+<?php endif; ?>
 
             <div style="margin-top:14px; padding-top:12px; border-top:1px dashed rgba(var(--border-rgb),0.2);">
                 <form method="POST" onsubmit="return confirm('Archive this unit? It will be unassigned and hidden from active dispatch.');">
