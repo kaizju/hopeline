@@ -11,7 +11,7 @@ $barangayFilter = $_GET['barangay'] ?? '';
 $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 15;
 $offset = ($page - 1) * $perPage;
-
+$history = []; $totalRows = 0; $barangays = purokList();
 try {
    $in = "'" . implode("','", purokList()) . "'";
 $where = "WHERE c.created_at BETWEEN ? AND ? AND c.barangay IN ($in)";
@@ -26,18 +26,19 @@ $where = "WHERE c.created_at BETWEEN ? AND ? AND c.barangay IN ($in)";
     $totalRows = $totalRows->fetchColumn();
 
     $stmt = $pdo->prepare("
-        SELECT c.clip_ref, c.caller_name, c.barangay, c.incident_type, c.severity, c.status,
-               c.created_at AS report_received_at,
-               d.departed_at, d.arrived_at, u.unit_name, d.incident_photo, d.incident_details,
-               TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) AS travel_seconds,
-               TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at) AS total_response_seconds,
-               (SELECT COUNT(*) FROM delay_logs dl WHERE dl.dispatch_id = d.id) AS delay_count
-        FROM clip_reports c
-        LEFT JOIN dispatch d ON d.clip_report_id = c.id
-        LEFT JOIN ptv_units u ON u.id = d.unit_id
-        $where
-        ORDER BY c.created_at DESC
-        LIMIT $perPage OFFSET $offset
+       SELECT c.clip_ref, c.caller_name, c.barangay, c.incident_type, c.severity, c.status,
+       c.created_at AS report_received_at,
+       d.departed_at, d.arrived_at, d.incident_photo, d.incident_details,
+       (SELECT GROUP_CONCAT(u2.unit_name ORDER BY u2.unit_name SEPARATOR ', ')
+          FROM dispatch dx JOIN ptv_units u2 ON u2.id = dx.unit_id
+          WHERE dx.clip_report_id = c.id AND dx.status <> 'cancelled') AS unit_name,
+       TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) AS travel_seconds,
+       TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at) AS total_response_seconds,
+       (SELECT COUNT(*) FROM delay_logs dl JOIN dispatch dd ON dd.id = dl.dispatch_id
+         WHERE dd.clip_report_id = c.id) AS delay_count
+FROM clip_reports c
+LEFT JOIN dispatch d ON d.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id)
+$where
     ");
     $stmt->execute($params);
     $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -45,7 +46,7 @@ $where = "WHERE c.created_at BETWEEN ? AND ? AND c.barangay IN ($in)";
    $barangays = purokList();
 } catch (PDOException $e) {
    
-    $totalRows = count($history);
+    error_log($e->getMessage());
 }
 
 $totalPages = max(1, ceil($totalRows / $perPage));

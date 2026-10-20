@@ -15,18 +15,22 @@ if (($_GET['to'] ?? '') !== '')   { $where .= " AND c.created_at <= ?"; $params[
 
 $stmt = $pdo->prepare("
     SELECT c.clip_ref, c.created_at, c.caller_name, c.caller_contact, c.barangay, c.sitio_purok, c.landmark,
-           c.incident_type, c.severity, c.status, c.problem_resources,
-           u.unit_name, u.plate_no,
-           d.dispatched_at, d.departed_at, d.arrived_at, d.returned_at,
-           TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) AS travel_s,
-           TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at)  AS response_s,
-           d.patient_name, d.patient_age_group, d.patient_sex, d.victim_count, d.vital_signs, d.alcohol_breath,
-           d.closeout_remarks, d.incident_details, d.incident_photo
-    FROM clip_reports c
-    LEFT JOIN dispatch d ON d.clip_report_id = c.id
-    LEFT JOIN ptv_units u ON u.id = d.unit_id
-    $where
-    ORDER BY c.created_at DESC
+       c.incident_type, c.severity, c.status, c.problem_resources,
+       (SELECT GROUP_CONCAT(u2.unit_name ORDER BY u2.unit_name SEPARATOR ', ')
+          FROM dispatch dx JOIN ptv_units u2 ON u2.id = dx.unit_id
+          WHERE dx.clip_report_id = c.id AND dx.status <> 'cancelled') AS unit_name,
+       (SELECT GROUP_CONCAT(u2.plate_no ORDER BY u2.unit_name SEPARATOR ', ')
+          FROM dispatch dx JOIN ptv_units u2 ON u2.id = dx.unit_id
+          WHERE dx.clip_report_id = c.id AND dx.status <> 'cancelled') AS plate_no,
+       d.dispatched_at, d.departed_at, d.arrived_at, d.returned_at,
+       TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) AS travel_s,
+       TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at)  AS response_s,
+       d.patient_name, d.patient_age_group, d.patient_sex, d.victim_count, d.vital_signs, d.alcohol_breath,
+       d.closeout_remarks, d.incident_details, d.incident_photo
+FROM clip_reports c
+LEFT JOIN dispatch d ON d.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id)
+$where
+ORDER BY c.created_at DESC
 ");
 $stmt->execute($params);
 

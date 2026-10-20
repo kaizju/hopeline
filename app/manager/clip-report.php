@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('manager');
-
+$validTypes = ['Medical Emergency','Fire','Vehicular Accident','Flood / Landslide','Violence / Assault','Other'];
 $errors  = [];
 $success = false;
 $vehicleStock = [];
@@ -17,20 +17,19 @@ foreach ($pdo->query("SELECT vehicle_type, COUNT(*) AS total, SUM(status = 'Avai
 }
 $vehicleFleet = array_map(function ($s) { return $s['available']; }, $vehicleStock);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $callerName    = trim($_POST['caller_name'] ?? '');
-    $callerContact = trim($_POST['caller_contact'] ?? '');
-    $barangay      = trim($_POST['barangay'] ?? '');
-    $sitioPurok    = trim($_POST['sitio_purok'] ?? '');
-    $landmark      = trim($_POST['landmark'] ?? '');
-    $latitude      = trim($_POST['latitude'] ?? '');
-    $longitude     = trim($_POST['longitude'] ?? '');
-    $incidentType  = trim($_POST['incident_type'] ?? '');
-   $severityMap = ['Fire'=>'Critical','Medical Emergency'=>'High','Vehicular Accident'=>'High',
-                'Flood / Landslide'=>'High','Violence / Assault'=>'High','Other'=>'Moderate'];
-$validSev = ['Critical','High','Moderate','Low'];
-$severity = in_array($_POST['severity'] ?? '', $validSev, true) ? $_POST['severity'] : ($severityMap[$incidentType] ?? 'Moderate');
-    $resourcesRaw  = $_POST['resources'] ?? []; // ['Ambulance' => '1', 'Fire Truck' => '0', ...]
-    $problemNotes  = trim($_POST['problem_notes'] ?? '');
+    $callerName    = postStr('caller_name', 150);
+$callerContact = postStr('caller_contact', 20);
+$barangay      = postStr('barangay', 100);
+$sitioPurok    = postStr('sitio_purok', 150);
+$landmark      = postStr('landmark', 255);
+$latitude      = postStr('latitude', 20);
+$longitude     = postStr('longitude', 20);
+$incidentType  = postStr('incident_type', 50);
+$problemNotes  = postStr('problem_notes', 2000);
+$resourcesRaw  = is_array($_POST['resources'] ?? null) ? $_POST['resources'] : [];
+$severity = postStr('severity', 20);
+if (!is_numeric($latitude)  || abs((float)$latitude)  > 90)  $latitude  = '';
+if (!is_numeric($longitude) || abs((float)$longitude) > 180) $longitude = '';
 
     // Fleet caps — must match VEHICLE_FLEET in the JS below.
     
@@ -52,7 +51,10 @@ $severity = in_array($_POST['severity'] ?? '', $validSev, true) ? $_POST['severi
 
     if ($callerName === '')    $errors[] = 'Caller name is required.';
     if ($barangay === '')      $errors[] = 'Purok is required.';
-    if ($incidentType === '')  $errors[] = 'Incident type is required.';
+    if ($barangay !== ''     && !in_array($barangay, purokList(), true))     $errors[] = 'Invalid purok.';
+if ($incidentType !== '' && !in_array($incidentType, $validTypes, true)) $errors[] = 'Invalid incident type.';
+if (!in_array($severity, ['Critical','High','Moderate','Low'], true))    $errors[] = 'Severity is required.';
+    
         if (empty($resources) && !$vehicleRejected) {
         $errors[] = array_sum($vehicleFleet) > 0
             ? 'Please select at least one available vehicle for this incident.'
@@ -430,7 +432,8 @@ function findNearestBarangay(lat, lng) {
 
     let routingControl = null;
     let lastRouteDestination = null;
-
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// in option.innerHTML:  esc(vehicleName) in resource-name, and name="resources[' + esc(vehicleName) + ']"
     // ---------- Vehicle fleet + Problem resource grid ----------
     // Total units LDRRMO has on hand for each vehicle type. Keep this in
     // sync with $vehicleFleet in the PHP block above.

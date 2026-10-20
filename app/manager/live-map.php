@@ -83,7 +83,7 @@ try {
     // Units data rendered server-side (PHP -> JSON). In production, replace the
     // setInterval() simulation below with a Supabase Realtime subscription that
     // pushes actual GPS updates instead of polling.
-    const unitsData = <?php echo json_encode($units); ?>;
+    const unitsData = <?php echo json_encode($units, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
     const statusColors = {
         'Available': '#3f7a5c',
@@ -157,10 +157,11 @@ try {
             }
 
             const popupHtml = `
-                <div class="popup-title">${u.unit_name} <span style="color:${statusColors[u.status]}">● ${u.status}</span></div>
-                <div class="popup-row">Driver: ${u.driver_name || '—'}</div>
-                <div class="popup-row">Plate: ${u.plate_no || '—'}</div>
-                ${u.clip_ref ? `<div class="popup-row">Incident: ${u.clip_ref} (${u.barangay || ''})</div>` : ''}
+                <div class="popup-title">${esc(u.unit_name)} <span style="color:${statusColors[u.status]}">● ${esc(u.status)}</span></div>
+<div class="popup-row">Driver: ${esc(u.driver_name) || '—'}</div>
+<div class="popup-row">Plate: ${esc(u.plate_no) || '—'}</div>
+${u.clip_ref ? `<div class="popup-row">Incident: ${esc(u.clip_ref)} (${esc(u.barangay)})</div>` : ''}
+// renderList: ${esc(u.unit_name)}, ${esc(u.status)}, ${esc(u.driver_name || '—')} · ${esc(u.plate_no || '—')}, ${esc(u.barangay)}
                 ${u.departed_at ? `<div class="popup-row">En route: ${elapsedSince(u.departed_at)}</div>` : ''}
                 <a class="popup-btn" href="javascript:void(0)">View Incident</a>
             `;

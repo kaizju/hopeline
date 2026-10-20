@@ -1,4 +1,5 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) session_start();
 function parseNeeds($s) {
     $out = [];
     foreach (explode(',', (string)$s) as $part) {
@@ -87,8 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->beginTransaction();
 
             $find = $pdo->prepare("SELECT id, unit_id FROM dispatch
-                                   WHERE clip_report_id = ? AND status IN ('assigned','en_route','on_site')
-                                   FOR UPDATE");
+                       WHERE clip_report_id = ? AND status = 'on_site'
+                       FOR UPDATE");
             $find->execute([$clipId]);
             $active = $find->fetchAll(PDO::FETCH_ASSOC);
 

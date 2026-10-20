@@ -4,30 +4,39 @@ require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('admin');
-
+$purokNames = purokList();
+$in = $purokNames
+    ? implode(',', array_map([$pdo, 'quote'], $purokNames))
+    : "''";   // keeps the SQL valid if the list is ever empty
 // Overall response time
+$lastArrived = "(SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id AND d2.arrived_at IS NOT NULL)";
+
 $avgResponse = $pdo->query("
     SELECT AVG(TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at))
-    FROM clip_reports c JOIN dispatch d ON d.clip_report_id = c.id
-    WHERE d.arrived_at IS NOT NULL
+    FROM clip_reports c JOIN dispatch d ON d.id = $lastArrived
 ")->fetchColumn();
 
+$perIncident = "SELECT MAX(id) FROM dispatch WHERE departed_at IS NOT NULL AND arrived_at IS NOT NULL GROUP BY clip_report_id";
 $avgTravel = $pdo->query("
-    SELECT AVG(TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at))
-    FROM dispatch d WHERE d.departed_at IS NOT NULL AND d.arrived_at IS NOT NULL
+    SELECT AVG(TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at)) FROM dispatch d WHERE d.id IN ($perIncident)
 ")->fetchColumn();
-$in = "'" . implode("','", purokList()) . "'";
-// Response time by barangay (avg total response, worst first)
+
 $byBarangay = $pdo->query("
     SELECT c.barangay,
            AVG(TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at)) AS avg_response,
            COUNT(*) AS incident_count
-    FROM clip_reports c JOIN dispatch d ON d.clip_report_id = c.id
-    WHERE d.arrived_at IS NOT NULL AND c.barangay IN ($in)
-    GROUP BY c.barangay
-    ORDER BY avg_response DESC
-    LIMIT 8
+    FROM clip_reports c JOIN dispatch d ON d.id = $lastArrived
+    WHERE c.barangay IN ($in)
+    GROUP BY c.barangay ORDER BY avg_response DESC LIMIT 8
 ")->fetchAll(PDO::FETCH_ASSOC);
+
+$etaAccuracy = $pdo->query("
+    SELECT AVG(ABS(d.predicted_eta_minutes - (TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) / 60))) AS avg_variance,
+           COUNT(*) AS sample_size
+    FROM dispatch d
+    WHERE d.predicted_eta_minutes IS NOT NULL
+      AND d.id IN ($perIncident)
+")->fetch(PDO::FETCH_ASSOC);
 
 // Incidents by severity
 $bySeverity = $pdo->query("SELECT severity, COUNT(*) AS total FROM clip_reports GROUP BY severity")->fetchAll(PDO::FETCH_KEY_PAIR);

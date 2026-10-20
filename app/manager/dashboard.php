@@ -5,12 +5,16 @@ require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('manager');
 
+$activeCount = $pdo->query("SELECT COUNT(*) FROM clip_reports WHERE status NOT IN ('resolved','cancelled')")->fetchColumn();
+
 $activeIncidents = $pdo->query("
     SELECT c.id, c.clip_ref, c.barangay, c.incident_type, c.severity, c.created_at,
-           d.status AS dispatch_status, d.departed_at, u.unit_name
+           d.status AS dispatch_status, d.departed_at,
+           (SELECT GROUP_CONCAT(u2.unit_name ORDER BY u2.unit_name SEPARATOR ', ')
+              FROM dispatch dx JOIN ptv_units u2 ON u2.id = dx.unit_id
+              WHERE dx.clip_report_id = c.id AND dx.status IN ('assigned','en_route','on_site','returning')) AS unit_name
     FROM clip_reports c
-    LEFT JOIN dispatch d ON d.clip_report_id = c.id
-    LEFT JOIN ptv_units u ON u.id = d.unit_id
+    LEFT JOIN dispatch d ON d.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id)
     WHERE c.status NOT IN ('resolved','cancelled')
     ORDER BY FIELD(c.severity,'Critical','High','Moderate','Low'), c.created_at DESC
     LIMIT 6
@@ -60,7 +64,7 @@ $unreadAlerts = $delayedCount;
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-top">
-                    <div><div class="stat-value"><?php echo count($activeIncidents); ?></div><div class="stat-label">Active Incidents</div></div>
+                    <div><div class="stat-value"><?php echo (int)$activeCount; ?></div><div class="stat-label">Active Incidents</div></div>
                     <div class="stat-icon" style="background:rgba(176,32,41,0.2)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="var(--redwood)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15V7a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>
                     </div>
@@ -115,7 +119,7 @@ $unreadAlerts = $delayedCount;
                     <?php else: ?>
                         <?php
                         $sevColors = ['Critical' => 'var(--critical)', 'High' => 'var(--high)', 'Moderate' => 'var(--moderate)', 'Low' => 'var(--low)'];
-                        $statusLabels = ['pending' => 'Pending', 'en_route' => 'En Route', 'on_site' => 'On Site'];
+                        $statusLabels = ['pending'=>'Pending','assigned'=>'Assigned','en_route'=>'En Route','on_site'=>'On Site','returning'=>'Returning'];
                         foreach ($activeIncidents as $inc):
                             $sevColor = $sevColors[$inc['severity']] ?? 'var(--light-grayish)';
                             $statusClass = 'status-' . ($inc['dispatch_status'] ?? 'pending');

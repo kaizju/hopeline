@@ -6,6 +6,7 @@
  *    "Turn on GPS" overlay when location is denied / unavailable
  *  - broadcasts every fix as a `hopegps:position` event for the map page
  */
+
 (function () {
     'use strict';
 
@@ -110,6 +111,7 @@
 
     /* ---------- upload ---------- */
     function maybeSend(isHeartbeat) {
+        
         if (!last) return;
         var now = Date.now();
         if (now - lastSentAt < (isHeartbeat ? HEARTBEAT_MS : MIN_SEND_GAP_MS)) return;
@@ -118,7 +120,7 @@
             method: 'POST',
             credentials: 'same-origin',
             keepalive: true,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CFG.csrf || '' },
             body: JSON.stringify({
                 lat: last.lat, lng: last.lng, accuracy: last.accuracy,
                 heading: last.heading, speed: last.speed

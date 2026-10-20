@@ -38,18 +38,18 @@ try {
 
     // 2. En-route dispatches past the delay threshold without arriving
     $st = $pdo->prepare("
-        SELECT d.id, d.departed_at, d.predicted_eta_minutes,
-               TIMESTAMPDIFF(MINUTE, d.departed_at, NOW()) AS mins,
-               u.unit_name, c.clip_ref, c.barangay, c.severity
-        FROM dispatch d
-        JOIN ptv_units u ON u.id = d.unit_id
-        JOIN clip_reports c ON c.id = d.clip_report_id
-        WHERE d.status = 'en_route' AND d.departed_at IS NOT NULL
-          AND TIMESTAMPDIFF(MINUTE, d.departed_at, NOW()) > ?
-        ORDER BY d.departed_at ASC
-    ");
-    $st->execute([$delayThreshold]);
-    $alerts['overdue'] = $st->fetchAll(PDO::FETCH_ASSOC);
+    SELECT u.id, u.unit_name, u.plate_no, u.status, u.last_location_at,
+           TIMESTAMPDIFF(MINUTE, u.last_location_at, NOW()) AS mins
+    FROM ptv_units u
+    JOIN dispatch d ON d.unit_id = u.id AND d.status IN ('en_route','on_site','returning')
+    WHERE u.archived_at IS NULL
+      AND d.departed_at < NOW() - INTERVAL ? MINUTE
+      AND (u.last_location_at IS NULL OR u.last_location_at < NOW() - INTERVAL ? MINUTE)
+    GROUP BY u.id
+    ORDER BY u.unit_name
+");
+$st->execute([$gpsStaleMinutes, $gpsStaleMinutes]);
+$alerts['gps'] = $st->fetchAll(PDO::FETCH_ASSOC);
 
     // 3. Units on duty whose phone GPS has gone quiet
     $st = $pdo->prepare("

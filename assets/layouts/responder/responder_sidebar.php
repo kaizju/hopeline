@@ -46,6 +46,7 @@ $headerIcon = '
 
 ob_start();
 ?>
+<script>window.HOPEGPS_CONFIG = { endpoint: '<?php echo BASE_URL; ?>/api/update-location.php', csrf: <?php echo json_encode(csrfToken()); ?> };</script>
      <script>window.HOPEGPS_CONFIG = { endpoint: '<?php echo BASE_URL; ?>/api/update-location.php' };</script>
      <script src="<?php echo BASE_URL; ?>/assets/js/gps-tracker.js"></script>
 <div class="nav-section-label">Overview</div>

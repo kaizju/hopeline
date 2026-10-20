@@ -32,58 +32,46 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $dispatchId = (int)($_POST['dispatch_id'] ?? 0);
     $action = $_POST['action'] ?? '';
     try {
-        if ($action === 'depart') {
-    $st = $pdo->prepare("UPDATE dispatch d
-        JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
-        SET d.status='en_route', d.departed_at=NOW()
-        WHERE d.team_id = ? AND d.status='assigned'");
-    $st->execute([$dispatchId, $myTeamId]);
-    if ($st->rowCount()) {
-        $pdo->prepare("UPDATE ptv_units u
-            JOIN dispatch d ON d.unit_id = u.id AND d.status='en_route' AND d.team_id = ?
-            JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
-            JOIN clip_reports c ON c.id = d.clip_report_id
-            SET u.status='En Route', u.current_lat = c.latitude, u.current_lng = c.longitude")
-            ->execute([$myTeamId, $dispatchId]);
-        $flash = 'Departure logged. Drive safe.';
-    } else {
-        $flash = 'This dispatch has changed. Your screen was refreshed.';
-    }
-}
+        if (in_array($action, ['depart', 'arrive', 'return_to_base'], true)) {
+    $map = [
+        'depart'         => ['from' => 'assigned',  'to' => 'en_route', 'col' => 'departed_at', 'unit' => 'En Route',  'msg' => 'Departure logged. Drive safe.'],
+        'arrive'         => ['from' => 'en_route',  'to' => 'on_site',  'col' => 'arrived_at',  'unit' => 'On Site',   'msg' => 'Arrival logged.'],
+        'return_to_base' => ['from' => 'returning', 'to' => 'resolved', 'col' => 'returned_at', 'unit' => 'Available', 'msg' => 'Welcome back! Units marked Available.'],
+    ][$action];
 
-if ($action === 'arrive') {
-    $st = $pdo->prepare("UPDATE dispatch d
+    $pdo->beginTransaction();
+    $sel = $pdo->prepare("SELECT d.id, d.unit_id FROM dispatch d
         JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
-        SET d.status='on_site', d.arrived_at=NOW()
-        WHERE d.team_id = ? AND d.status='en_route'");
-    $st->execute([$dispatchId, $myTeamId]);
-    if ($st->rowCount()) {
-        $pdo->prepare("UPDATE ptv_units u
-            JOIN dispatch d ON d.unit_id = u.id AND d.status='on_site' AND d.team_id = ?
-            JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
-            SET u.status='On Site'")->execute([$myTeamId, $dispatchId]);
-        $flash = 'Arrival logged.';
-    } else {
-        $flash = 'This dispatch has changed. Your screen was refreshed.';
-    }
-}
+        WHERE d.team_id = ? AND d.status = ? FOR UPDATE");
+    $sel->execute([$dispatchId, $myTeamId, $map['from']]);
+    $rows = $sel->fetchAll(PDO::FETCH_ASSOC);
 
-if ($action === 'return_to_base') {
-    $pdo->prepare("UPDATE ptv_units u
-        JOIN dispatch d ON d.unit_id = u.id AND d.status='returning' AND d.team_id = ?
-        JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
-        SET u.status='Available', u.current_lat = 8.371714652741774, u.current_lng = 124.85717564826615")
-        ->execute([$myTeamId, $dispatchId]);
-    $st = $pdo->prepare("UPDATE dispatch d
-        JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
-        SET d.status='resolved', d.returned_at=NOW()
-        WHERE d.team_id = ? AND d.status='returning'");
-    $st->execute([$dispatchId, $myTeamId]);
-    if ($st->rowCount()) {
-        if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'returned_to_command_center', 'success');
-        $flash = 'Welcome back! Units marked Available.';
+    if (!$rows) {
+        $pdo->rollBack();
+        $flash = 'This dispatch has changed. Your screen was refreshed.';
     } else {
-$              $flash = 'This dispatch has changed. Your screen was refreshed.';
+        $ids   = array_column($rows, 'id');
+        $units = array_column($rows, 'unit_id');
+        $inD = implode(',', array_fill(0, count($ids), '?'));
+        $inU = implode(',', array_fill(0, count($units), '?'));
+
+        $pdo->prepare("UPDATE dispatch SET status = ?, {$map['col']} = NOW() WHERE id IN ($inD)")
+            ->execute(array_merge([$map['to']], $ids));
+
+        if ($action === 'return_to_base') {
+            $pdo->prepare("UPDATE ptv_units SET status = 'Available', current_lat = ?, current_lng = ? WHERE id IN ($inU)")
+                ->execute(array_merge([PTV_BASE_LAT, PTV_BASE_LNG], $units));
+        } else {
+            // status only: no more "teleport to the incident pin" on depart
+            $pdo->prepare("UPDATE ptv_units SET status = ? WHERE id IN ($inU)")
+                ->execute(array_merge([$map['unit']], $units));
+        }
+        $pdo->commit();
+
+        if ($action === 'return_to_base' && function_exists('logActivity')) {
+            logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'returned_to_command_center', 'success');
+        }
+        $flash = $map['msg'];
     }
 }
 
@@ -109,9 +97,10 @@ $              $flash = 'This dispatch has changed. Your screen was refreshed.';
             $pdo->prepare($sql)->execute($params);
             $flash = 'Site report saved.';
         }
-    } catch (PDOException $e) {
-        $flash = 'Action failed: ' . $e->getMessage();
-    }
+   } catch (PDOException $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    $flash = 'Action failed: ' . $e->getMessage();
+}
 
     $_SESSION['flash'] = $flash;
     redirect('/app/responder/assignment.php');
@@ -568,14 +557,14 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
     }).addTo(map);
-
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     var pinIcon = L.divIcon({
         className: '',
         html: '<div class="inc-pin" style="--c:' + NAV.color + '"></div>',
         iconSize: [22, 22], iconAnchor: [11, 22]
     });
     if (hasPin || NAV.mode === 'return') {
-        L.marker([TARGET.lat, TARGET.lng], { icon: pinIcon }).addTo(map).bindPopup(NAV.label);
+        L.marker([TARGET.lat, TARGET.lng], { icon: pinIcon }).addTo(map).bindPopup(esc(NAV.label));
     }
     if (NAV.mode === 'incident') {
         L.circleMarker([BASE.lat, BASE.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#739ab9', fillOpacity: 1 })
