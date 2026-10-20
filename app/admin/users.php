@@ -6,15 +6,16 @@ require_once __DIR__ . '/../../config/functions.php';
 requireRole('admin');
 
 $flash = '';
+$validRoles = ['admin', 'manager', 'user'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     try {
         if ($action === 'create_user') {
-            $name = trim($_POST['name'] ?? '');
+            $name = postStr('name', 150); $email = postStr('email', 150); $contact = postStr('contact_no', 20);
             $email = trim($_POST['email'] ?? '');
             $password = $_POST['password'] ?? '';
-            $role = $_POST['role'] ?? 'user';
+            $role = in_array($_POST['role'] ?? '', $validRoles, true) ? $_POST['role'] : 'user';
             $contact = trim($_POST['contact_no'] ?? '');
 
             if ($name === '' || $email === '' || $password === '') {
@@ -32,10 +33,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'update_role') {
             $userId = (int)($_POST['user_id'] ?? 0);
-            $role = $_POST['role'] ?? 'user';
-            $pdo->prepare("UPDATE users SET role = ? WHERE id = ?")->execute([$role, $userId]);
-            $flash = 'Role updated.';
-        }
+            $role = $_POST['role'] ?? '';
+            if (!in_array($role, $validRoles, true))              { $flash = 'Invalid role.'; }
+elseif ($userId === (int)$_SESSION['user_id'])        { $flash = "You can't change your own role."; }
+else {
+        }}
 
         if ($action === 'toggle_active') {
             $userId = (int)($_POST['user_id'] ?? 0);

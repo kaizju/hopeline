@@ -421,7 +421,7 @@ tbody tr:hover { background: rgba(var(--surface-rgb), 0.03); }
 .sev-high label { background: rgba(217,117,43,0.18); color: var(--high); }
 .sev-moderate label { background: rgba(212,171,43,0.18); color: var(--moderate); }
 .sev-low label { background: rgba(63,122,92,0.18); color: var(--low); }
-
+.status-assigned, .status-returning { background: rgba(var(--border-rgb),0.2); color: var(--light-grayish); }
 /* Resource picker ("Problem" card) */
 .resource-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .resource-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid rgba(var(--border-rgb), 0.28); border-radius: 8px; padding: 10px 12px; color: var(--macadamia); transition: border-color .15s, background-color .15s; }

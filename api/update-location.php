@@ -36,15 +36,19 @@ $heading = isset($in['heading'])  && is_numeric($in['heading'])  ? (float)$in['h
 $speed   = isset($in['speed'])    && is_numeric($in['speed'])    ? (float)$in['speed']    : null;
 
 try {
-    $pdo->prepare("
-        UPDATE ptv_units
-        SET current_lat = ?, current_lng = ?, gps_accuracy = ?, gps_heading = ?, gps_speed = ?,
-            last_location_at = NOW()
-        WHERE responder_id = ? AND archived_at IS NULL
-    ")->execute([$lat, $lng, $acc, $heading, $speed, $userId]);
-
-    echo json_encode(['ok' => true]);
+    // The team leader's phone positions every vehicle on that team's moving dispatch.
+    $st = $pdo->prepare("
+        UPDATE ptv_units u
+        JOIN dispatch d ON d.unit_id = u.id AND d.status IN ('en_route','on_site','returning')
+        JOIN users usr  ON usr.id = ? AND usr.team_id = d.team_id
+        SET u.current_lat = ?, u.current_lng = ?, u.gps_accuracy = ?, u.gps_heading = ?, u.gps_speed = ?,
+            u.last_location_at = NOW()
+        WHERE u.archived_at IS NULL
+    ");
+    $st->execute([$userId, $lat, $lng, $acc, $heading, $speed]);
+    echo json_encode(['ok' => true, 'updated' => $st->rowCount()]);
 } catch (PDOException $e) {
+    error_log($e->getMessage());
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => 'db']);
 }

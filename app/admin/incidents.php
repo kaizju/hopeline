@@ -11,11 +11,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'force_cancel') {
-        $id = (int)($_POST['clip_report_id'] ?? 0);
-        $pdo->prepare("UPDATE clip_reports SET status = 'cancelled' WHERE id = ?")->execute([$id]);
-        $pdo->prepare("UPDATE dispatch SET status = 'cancelled' WHERE clip_report_id = ? AND status NOT IN ('resolved','cancelled')")->execute([$id]);
-        $flash = 'Incident cancelled.';
+    $id = (int)($_POST['clip_report_id'] ?? 0);
+    try {
+        $pdo->beginTransaction();
+        $st = $pdo->prepare("SELECT status FROM clip_reports WHERE id = ? FOR UPDATE");
+        $st->execute([$id]);
+        $cur = $st->fetchColumn();
+        if ($cur === false || in_array($cur, ['resolved', 'cancelled'], true)) {
+            $pdo->rollBack();
+            $flash = 'Only pending or dispatched incidents can be cancelled.';
+        } else {
+            $act = "('assigned','en_route','on_site','returning')";
+            // release vehicles BEFORE the dispatch rows stop counting as active
+            $pdo->prepare("UPDATE ptv_units u JOIN dispatch d ON d.unit_id = u.id
+                           SET u.status = 'Available', u.current_lat = ?, u.current_lng = ?
+                           WHERE d.clip_report_id = ? AND d.status IN $act")
+                ->execute([PTV_BASE_LAT, PTV_BASE_LNG, $id]);
+            $pdo->prepare("UPDATE dispatch SET status = 'cancelled' WHERE clip_report_id = ? AND status IN $act")->execute([$id]);
+            $pdo->prepare("UPDATE clip_reports SET status = 'cancelled' WHERE id = ?")->execute([$id]);
+            $pdo->commit();
+            if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'incident_cancelled', 'success');
+            $flash = 'Incident cancelled and its vehicles released.';
+        }
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log($e->getMessage());
+        $flash = 'Cancel failed. Please try again.';
     }
+}
 
     // ---- Archive (replaces Delete) — only resolved/cancelled incidents can be archived ----
     if ($action === 'archive_incident') {
@@ -46,15 +69,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // ---- Case closeout details (feeds the CSV report export) ----
     if ($action === 'save_closeout') {
-    $dispatchId   = (int)($_POST['dispatch_id'] ?? 0);
-    $patientName  = trim($_POST['patient_name'] ?? '');
-    $ageGroup     = $_POST['patient_age_group'] ?: null;
-    $sex          = $_POST['patient_sex'] ?: null;
-    $victimCount  = $_POST['victim_count'] !== '' ? (int)$_POST['victim_count'] : null;
-    $vitalSigns   = $_POST['vital_signs'] ?: null;
-    $alcohol      = $_POST['alcohol_breath'] ?: null;
-    $remarks      = trim($_POST['closeout_remarks'] ?? '');
-    $details      = trim($_POST['incident_details'] ?? '');
+    $patientName = postStr('patient_name', 150);
+$pick = function ($k, array $allowed) { $v = $_POST[$k] ?? ''; return (is_string($v) && in_array($v, $allowed, true)) ? $v : null; };
+$ageGroup   = $pick('patient_age_group', ['Minor', 'Matured', 'Senior']);
+$sex        = $pick('patient_sex', ['Male', 'Female']);
+$vitalSigns = $pick('vital_signs', ['Positive', 'Negative']);
+$alcohol    = $pick('alcohol_breath', ['Positive', 'Negative', 'Not Tested']);
+$victimCount = (isset($_POST['victim_count']) && is_numeric($_POST['victim_count'])) ? max(0, (int)$_POST['victim_count']) : null;
+$remarks = postStr('closeout_remarks', 255);
+$details = postStr('incident_details', 5000);
 
     $photoPath = null;
     if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
@@ -106,11 +129,14 @@ $totalStmt->execute($params);
 $totalRows = $totalStmt->fetchColumn();
 
 $stmt = $pdo->prepare("
-    SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.departed_at, d.arrived_at, u.unit_name,
-           d.patient_name, d.patient_age_group, d.patient_sex, d.victim_count, d.vital_signs, d.alcohol_breath,d.incident_details, d.incident_photo, d.closeout_remarks
+    SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.departed_at, d.arrived_at,
+           (SELECT GROUP_CONCAT(u2.unit_name ORDER BY u2.unit_name SEPARATOR ', ')
+              FROM dispatch dx JOIN ptv_units u2 ON u2.id = dx.unit_id
+              WHERE dx.clip_report_id = c.id AND dx.status <> 'cancelled') AS unit_name,
+           d.patient_name, d.patient_age_group, d.patient_sex, d.victim_count, d.vital_signs,
+           d.alcohol_breath, d.incident_details, d.incident_photo, d.closeout_remarks
     FROM clip_reports c
-    LEFT JOIN dispatch d ON d.clip_report_id = c.id
-    LEFT JOIN ptv_units u ON u.id = d.unit_id
+    LEFT JOIN dispatch d ON d.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id)
     $where
     ORDER BY c.created_at DESC
     LIMIT $perPage OFFSET $offset

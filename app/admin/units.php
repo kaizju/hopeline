@@ -47,62 +47,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'set_status') {
     $unitId = (int)($_POST['unit_id'] ?? 0);
-    $status = $_POST['status'] ?? 'Available';
+    $status = $_POST['status'] ?? '';
+    $allowed = ['Available', 'Assigned', 'En Route', 'On Site', 'Returning', 'Offline'];
+    if (!is_string($status) || !in_array($status, $allowed, true)) {
+        $flash = 'Invalid status.';
+    } else {
+        $act = "('assigned','en_route','on_site','returning')";
+        $pdo->beginTransaction();
+        $pdo->prepare("UPDATE ptv_units SET status = ? WHERE id = ?")->execute([$status, $unitId]);
 
-    $pdo->beginTransaction();
+        if (in_array($status, ['Available', 'Offline'], true)) {
+            $open = $pdo->prepare("SELECT DISTINCT clip_report_id FROM dispatch WHERE unit_id = ? AND status IN $act FOR UPDATE");
+            $open->execute([$unitId]);
+            $clipIds = $open->fetchAll(PDO::FETCH_COLUMN);
 
-    $pdo->prepare("UPDATE ptv_units SET status = ? WHERE id = ?")->execute([$status, $unitId]);
+            $pdo->prepare("UPDATE dispatch SET status = 'resolved',
+                               resolved_at = COALESCE(resolved_at, NOW()), returned_at = COALESCE(returned_at, NOW())
+                           WHERE unit_id = ? AND status IN $act")->execute([$unitId]);
 
-    // Freeing the unit (Available / Offline) must also close its open dispatch,
-    // otherwise the responder page keeps showing the old assignment.
-    if (in_array($status, ['Available', 'Offline'], true)) {
-        // Mark the linked incidents resolved first (before the dispatch leaves the "active" set)
-        $pdo->prepare("
-            UPDATE clip_reports c
-            JOIN dispatch d ON d.clip_report_id = c.id
-            SET c.status = 'resolved'
-            WHERE d.unit_id = ?
-              AND d.status IN ('assigned','en_route','on_site','returning')
-              AND c.status NOT IN ('resolved','cancelled')
-        ")->execute([$unitId]);
+            // only close the incident when NO other vehicle is still out on it
+            $left = $pdo->prepare("SELECT COUNT(*) FROM dispatch WHERE clip_report_id = ? AND status IN $act");
+            $done = $pdo->prepare("UPDATE clip_reports SET status = 'resolved' WHERE id = ? AND status NOT IN ('resolved','cancelled')");
+            foreach ($clipIds as $cid) {
+                $left->execute([$cid]);
+                if ((int)$left->fetchColumn() === 0) $done->execute([$cid]);
+            }
 
-        $pdo->prepare("
-            UPDATE dispatch
-            SET status = 'resolved',
-                resolved_at = COALESCE(resolved_at, NOW()),
-                returned_at = COALESCE(returned_at, NOW())
-            WHERE unit_id = ?
-              AND status IN ('assigned','en_route','on_site','returning')
-        ")->execute([$unitId]);
-
-        // Put the unit back at base
-        if ($status === 'Available') {
-            $pdo->prepare("UPDATE ptv_units SET current_lat = 8.371714652741774, current_lng = 124.85717564826615 WHERE id = ?")
-                ->execute([$unitId]);
+            if ($status === 'Available') {
+                $pdo->prepare("UPDATE ptv_units SET current_lat = ?, current_lng = ? WHERE id = ?")
+                    ->execute([PTV_BASE_LAT, PTV_BASE_LNG, $unitId]);
+            }
         }
+        $pdo->commit();
+        $flash = 'Unit status updated.';
     }
-
-    $pdo->commit();
-    $flash = 'Unit status updated.';
 }
 
         // ---- Archive (replaces Delete) ----
         if ($action === 'archive_unit') {
-            $unitId = (int)($_POST['unit_id'] ?? 0);
-            // Block archiving a unit that's currently on an active dispatch
-            $active = $pdo->prepare("SELECT COUNT(*) FROM dispatch WHERE unit_id = ? AND status IN ('assigned','en_route','on_site')");
-            $active->execute([$unitId]);
-            if ($active->fetchColumn() > 0) {
-                $flash = "Can't archive — this unit has an active dispatch. Resolve or reassign it first.";
-            } else {
-                // Unassign the responder and mark Offline so it can't be dispatched while archived
-                $pdo->prepare("UPDATE ptv_units SET archived_at = NOW(), responder_id = NULL, status = 'Offline' WHERE id = ?")->execute([$unitId]);
-                if (function_exists('logActivity')) {
-                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'unit_archived', 'success');
-                }
-                $flash = 'Unit archived.';
-            }
-        }
+    $unitId = (int)($_POST['unit_id'] ?? 0);
+    $pdo->beginTransaction();
+    $active = $pdo->prepare("SELECT COUNT(*) FROM dispatch WHERE unit_id = ? AND status IN ('assigned','en_route','on_site','returning') FOR UPDATE");
+    $active->execute([$unitId]);
+    if ($active->fetchColumn() > 0) {
+        $pdo->rollBack();
+        $flash = "Can't archive — this unit has an active dispatch. Resolve or reassign it first.";
+    } else {
+        $pdo->prepare("UPDATE ptv_units SET archived_at = NOW(), responder_id = NULL, status = 'Offline' WHERE id = ?")->execute([$unitId]);
+        $pdo->commit();
+        if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'unit_archived', 'success');
+        $flash = 'Unit archived.';
+    }
+}
 
         if ($action === 'restore_unit') {
             $unitId = (int)($_POST['unit_id'] ?? 0);
@@ -113,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flash = 'Unit restored. Its status is set to Available — reassign a responder as needed.';
         }
        } catch (PDOException $e) {
-        $flash = 'Action failed: ' . $e->getMessage();
+        if ($pdo->inTransaction()) $pdo->rollBack();
     }
 }
 

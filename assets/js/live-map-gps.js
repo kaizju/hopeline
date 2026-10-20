@@ -28,7 +28,7 @@
                (u.gps_speed != null ? '<div class="popup-row">Speed: ' + Math.round(u.gps_speed * 3.6) + ' km/h</div>' : '') +
                '<div class="popup-row">' + gps + '</div>';
     }
-
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     function applyUnit(u) {
         var existing = null;
         for (var i = 0; i < unitsData.length; i++) if (String(unitsData[i].id) === String(u.id)) { existing = unitsData[i]; break; }
