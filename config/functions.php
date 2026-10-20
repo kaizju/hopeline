@@ -4,6 +4,11 @@ function redirect($path) {
     header("Location: " . BASE_URL . $path);
     exit;
 }
+if (!defined('PTV_BASE_LAT')) {            // shared base coordinates (#7, #9)
+    define('PTV_BASE_LAT', 8.371714652741774);
+    define('PTV_BASE_LNG', 124.85717564826615);
+}
+
 function csrfToken(): string {
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
     if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32));
@@ -11,16 +16,26 @@ function csrfToken(): string {
 }
 
 function csrfField(): string {
-    return '<input type="hidden" name="csrf" value="' . htmlspecialchars(csrfToken()) . '">';
+    return '<input type="hidden" name="csrf" value="' . htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8') . '">';
 }
 
 function verifyCsrf(): void {
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
-    $t = $_POST['csrf'] ?? '';
-    if (!is_string($t) || !hash_equals($_SESSION['csrf'] ?? '', $t)) {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') return;
+    $t = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');   // form field OR header (JSON APIs)
+    if (!is_string($t) || !hash_equals(csrfToken(), $t)) {
         http_response_code(403);
+        if (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/api/') !== false) {
+            header('Content-Type: application/json');
+            exit(json_encode(['ok' => false, 'error' => 'csrf']));
+        }
         exit('Invalid or expired form token. Go back, refresh the page, and try again.');
     }
+}
+
+// safe string input: arrays/missing keys can't crash trim()
+function postStr(string $k, int $max = 255): string {
+    $v = $_POST[$k] ?? '';
+    return is_string($v) ? mb_substr(trim($v), 0, $max) : '';
 }
 function isLoggedIn() {
     return isset($_SESSION['user_id']);
@@ -97,4 +112,19 @@ function renderFooter() {
     <?php
 }
 require_once __DIR__ . '/../includes/activity-logger.php';
-?>
+
+// ---- CSRF, enforced once for every page/API that includes this file ----
+csrfToken();
+verifyCsrf();                                   // any POST without a valid token stops here
+
+$csrfFieldHtml = csrfField();
+$csrfSkip = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/api/') !== false
+         || basename($_SERVER['SCRIPT_NAME'] ?? '') === 'export-cases.php';
+if (!$csrfSkip) {
+    // auto-adds the hidden token to every <form method="POST"> in the page output
+    ob_start(function ($html) use ($csrfFieldHtml) {
+        if (stripos($html, '<form') === false) return $html;
+        return preg_replace_callback('/<form\b[^>]*\bmethod\s*=\s*["\']?post["\']?[^>]*>/i',
+            function ($m) use ($csrfFieldHtml) { return $m[0] . $csrfFieldHtml; }, $html);
+    });
+}
