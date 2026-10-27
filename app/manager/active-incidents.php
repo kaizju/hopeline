@@ -121,8 +121,9 @@ $teams = []; $busyTeams = [];
 try {
         $incidents = $pdo->query("
     SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.unit_id, u.unit_name,
-       d.incident_photo, d.incident_details, d.photo_lat, d.photo_lng, d.photo_location,
-       d.photo_taken_at, d.photo_gps_source, d.site_outcome, d.hospital_name,
+   t.name AS team_name,
+   d.incident_photo, d.incident_details, d.photo_lat, d.photo_lng, d.photo_location,
+   d.photo_taken_at, d.photo_gps_source, d.site_outcome, d.hospital_name,
            (SELECT GROUP_CONCAT(u3.unit_name ORDER BY u3.unit_name SEPARATOR ', ')
               FROM dispatch d3 JOIN ptv_units u3 ON u3.id = d3.unit_id
               WHERE d3.clip_report_id = c.id AND d3.status IN ('assigned','en_route','on_site')) AS vehicles

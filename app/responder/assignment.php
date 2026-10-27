@@ -111,16 +111,20 @@ $params[] = $dispatchId; $params[] = $myTeamId;
             $pdo->prepare($sql)->execute($params);
             $flash = 'Site report saved.';
         }
-        if (in_array($action, ['choose_minor','choose_hospital','hospital_declined','hospital_arrived'], true)) {
-    $q = $pdo->prepare("SELECT hospital_name, declined_hospitals FROM dispatch WHERE id=? AND team_id=? AND status='on_site'");
+                if (in_array($action, ['choose_minor','choose_hospital','hospital_declined','hospital_arrived','hospital_accepted','return_to_command'], true)) {
+    $q = $pdo->prepare("SELECT clip_report_id, hospital_name, hospital_arrived_at, hospital_accepted_at, declined_hospitals
+                        FROM dispatch WHERE id=? AND team_id=? AND status='on_site'");
     $q->execute([$dispatchId, $myTeamId]);
     $row = $q->fetch(PDO::FETCH_ASSOC);
+
     if (!$row) {
         $flash = 'This dispatch has changed. Your screen was refreshed.';
+
     } elseif ($action === 'choose_minor') {
         $pdo->prepare("UPDATE dispatch SET site_outcome='minor', outcome_at=COALESCE(outcome_at,NOW()),
-            hospital_name=NULL, hospital_lat=NULL, hospital_lng=NULL, hospital_arrived_at=NULL WHERE id=?")->execute([$dispatchId]);
+            hospital_name=NULL, hospital_lat=NULL, hospital_lng=NULL, hospital_arrived_at=NULL, hospital_accepted_at=NULL WHERE id=?")->execute([$dispatchId]);
         $flash = 'Logged: minor case, bandage only.';
+
     } elseif ($action === 'choose_hospital') {
         $name = mb_substr(trim($_POST['hospital_name'] ?? ''), 0, 150);
         $hl = $_POST['hospital_lat'] ?? ''; $hg = $_POST['hospital_lng'] ?? '';
@@ -128,20 +132,59 @@ $params[] = $dispatchId; $params[] = $myTeamId;
             $flash = 'Invalid hospital.';
         } else {
             $pdo->prepare("UPDATE dispatch SET site_outcome='hospital', outcome_at=COALESCE(outcome_at,NOW()),
-                hospital_name=?, hospital_lat=?, hospital_lng=?, hospital_arrived_at=NULL WHERE id=?")
+                hospital_name=?, hospital_lat=?, hospital_lng=?, hospital_arrived_at=NULL, hospital_accepted_at=NULL WHERE id=?")
                 ->execute([$name, (float)$hl, (float)$hg, $dispatchId]);
             $flash = 'Routing to ' . $name . '.';
         }
+
     } elseif ($action === 'hospital_declined') {
-        $list = json_decode($row['declined_hospitals'] ?? '[]', true) ?: [];
-        if ($row['hospital_name']) $list[] = $row['hospital_name'];
-        $pdo->prepare("UPDATE dispatch SET declined_hospitals=?, hospital_name=NULL, hospital_lat=NULL,
-            hospital_lng=NULL, hospital_arrived_at=NULL WHERE id=?")
-            ->execute([json_encode(array_values(array_unique($list))), $dispatchId]);
-        $flash = 'Hospital declined. Pick another hospital.';
-    } else {
+        if (!empty($row['hospital_accepted_at'])) {
+            $flash = 'The hospital already accepted the patient.';
+        } else {
+            $list = json_decode($row['declined_hospitals'] ?? '[]', true) ?: [];
+            if ($row['hospital_name']) $list[] = $row['hospital_name'];
+            $pdo->prepare("UPDATE dispatch SET declined_hospitals=?, hospital_name=NULL, hospital_lat=NULL,
+                hospital_lng=NULL, hospital_arrived_at=NULL, hospital_accepted_at=NULL WHERE id=?")
+                ->execute([json_encode(array_values(array_unique($list))), $dispatchId]);
+            $flash = 'Hospital declined. Pick another hospital.';
+        }
+
+    } elseif ($action === 'hospital_arrived') {
         $pdo->prepare("UPDATE dispatch SET hospital_arrived_at=COALESCE(hospital_arrived_at,NOW()) WHERE id=?")->execute([$dispatchId]);
         $flash = 'Arrival at hospital logged.';
+
+    } elseif ($action === 'hospital_accepted') {
+        if (empty($row['hospital_arrived_at'])) {
+            $flash = 'Log your arrival at the hospital first.';
+        } else {
+            $pdo->prepare("UPDATE dispatch SET hospital_accepted_at=COALESCE(hospital_accepted_at,NOW()) WHERE id=?")->execute([$dispatchId]);
+            $flash = 'Hospital accepted the patient. You can now return to the command center.';
+        }
+
+    } else { // return_to_command
+        if (empty($row['hospital_accepted_at'])) {
+            $flash = 'Locked: confirm that the hospital accepted the patient first.';
+        } else {
+            $pdo->beginTransaction();
+            $f = $pdo->prepare("SELECT id, unit_id FROM dispatch WHERE clip_report_id=? AND team_id=? AND status='on_site' FOR UPDATE");
+            $f->execute([$row['clip_report_id'], $myTeamId]);
+            $active = $f->fetchAll(PDO::FETCH_ASSOC);
+
+            if (!$active) {
+                $pdo->rollBack();
+                $flash = 'This dispatch has changed. Your screen was refreshed.';
+            } else {
+                $pdo->prepare("UPDATE clip_reports SET status='resolved' WHERE id=?")->execute([$row['clip_report_id']]);
+                $ud = $pdo->prepare("UPDATE dispatch SET status='returning', resolved_at=NOW() WHERE id=?");
+                $uu = $pdo->prepare("UPDATE ptv_units SET status='Returning' WHERE id=?");
+                foreach ($active as $d) {
+                    $ud->execute([$d['id']]);
+                    $uu->execute([$d['unit_id']]);
+                }
+                $pdo->commit();
+                $flash = 'Returning to the command center.';
+            }
+        }
     }
 }
    } catch (PDOException $e) {
@@ -525,21 +568,53 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
             <?php if ($step === 'on_site'): ?>
 <section class="dpane" data-pane="outcome">
     <div class="is-k">Patient outcome</div>
-    <?php if ($dispatch['site_outcome'] === 'hospital' && $dispatch['hospital_name']): ?>
+        <?php if ($dispatch['site_outcome'] === 'hospital' && $dispatch['hospital_name']):
+        $hArrived  = !empty($dispatch['hospital_arrived_at']);
+        $hAccepted = !empty($dispatch['hospital_accepted_at']); ?>
+
         <div class="is-v"><?php echo hle($dispatch['hospital_name']); ?></div>
-        <div class="is-s"><?php echo $dispatch['hospital_arrived_at'] ? 'Arrived ' . date('H:i', strtotime($dispatch['hospital_arrived_at'])) : 'Route shown on the map'; ?></div>
-        <?php if (!$dispatch['hospital_arrived_at']): ?>
+        <div class="is-s">
+            <?php
+            if ($hAccepted)      echo 'Accepted the patient at ' . date('H:i', strtotime($dispatch['hospital_accepted_at']));
+            elseif ($hArrived)   echo 'Arrived ' . date('H:i', strtotime($dispatch['hospital_arrived_at'])) . ' · waiting for the hospital to accept';
+            else                 echo 'Route shown on the map';
+            ?>
+        </div>
+
+        <?php if (!$hArrived): ?>
         <form method="POST" style="margin-top:12px;">
             <input type="hidden" name="action" value="hospital_arrived">
             <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
             <button type="submit" class="btn-action" style="width:100%;">Arrived at hospital</button>
         </form>
+        <?php elseif (!$hAccepted): ?>
+        <form method="POST" style="margin-top:12px;" onsubmit="return confirm('Confirm that the hospital accepted the patient?');">
+            <input type="hidden" name="action" value="hospital_accepted">
+            <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
+            <button type="submit" class="btn-action" style="width:100%;">✔ Hospital accepted the patient</button>
+        </form>
         <?php endif; ?>
+
+        <?php if (!$hAccepted): ?>
         <form method="POST" style="margin-top:8px;" onsubmit="return confirm('Hospital declined the patient? You will pick another hospital.');">
             <input type="hidden" name="action" value="hospital_declined">
             <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
             <button type="submit" class="btn-primary" style="width:100%;">Hospital declined — refer another</button>
         </form>
+        <?php endif; ?>
+
+        <?php if ($hAccepted): ?>
+        <form method="POST" style="margin-top:14px;">
+            <input type="hidden" name="action" value="return_to_command">
+            <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
+            <button type="submit" class="btn-action" style="width:100%;"><?php echo hl_ico('back'); ?> Return to command center</button>
+        </form>
+        <?php else: ?>
+        <button type="button" class="btn-action" disabled style="width:100%;margin-top:14px;opacity:.4;cursor:not-allowed;" title="Unlocks when the hospital accepts the patient">
+            <?php echo hl_ico('lock'); ?> Return to command center
+        </button>
+        <div class="is-s" style="margin-top:6px;">Unlocks after the hospital accepts the patient.</div>
+        <?php endif; ?>
     <?php else: ?>
         <?php if ($declined): ?><div class="is-s">Declined: <?php echo hle(implode(', ', $declined)); ?></div><?php endif; ?>
         <button type="button" class="btn-action" id="btnFindHosp" style="width:100%;margin-top:10px;">🏥 <?php echo $declined ? 'Find other hospitals' : 'Deliver to nearest hospital'; ?></button>
@@ -881,19 +956,26 @@ if (sr) sr.addEventListener('submit', function () {
     var f = window.HopeGPS && window.HopeGPS.getLast && window.HopeGPS.getLast();
     if (f) { sr.elements.client_lat.value = f.lat; sr.elements.client_lng.value = f.lng; }
 });
-/* ---------- Hospital picker: Overpass (find) + OSRM table (rank by drive time) ---------- */
+/* ---------- Hospital picker helpers ---------- */
 var DISPATCH_ID = <?php echo (int)$dispatch['id']; ?>;
 var DECLINED = <?php echo json_encode(array_map('mb_strtolower', $declined)); ?>;
 var OSRM_TABLE = 'https://router.project-osrm.org/table/v1/driving';
 var hospBtn = $('btnFindHosp'), hospList = $('hospList');
 
 function postAction(fields) {
+    // reuse the CSRF token that the page's existing forms already carry
+    var src = document.querySelector(
+        'form input[type="hidden"][name*="csrf" i], form input[type="hidden"][name*="token" i]'
+    );
+    if (src) fields[src.name] = src.value;
+
     var f = document.createElement('form'); f.method = 'POST';
     Object.keys(fields).forEach(function (k) {
         var i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = fields[k]; f.appendChild(i);
     });
     document.body.appendChild(f); f.submit();
 }
+
 function renderHospitals(list) {
     hospList.textContent = '';
     list.forEach(function (h) {
@@ -906,35 +988,43 @@ function renderHospitals(list) {
         hospList.appendChild(b);
     });
 }
+var HOSPITALS = [
+    { name: 'Camp Philips Memorial Hospital', lat: 8.325902, lng: 124.817519 },
+    { name: 'Bukidnon Provincial Hospital',   lat: 8.384815, lng: 124.839063 }
+];
+
 function findHospitals() {
     var o = myPos || (NAV.origin ? NAV.origin : (hasPin ? { lat: NAV.lat, lng: NAV.lng } : BASE));
-    hospList.textContent = 'Searching nearby hospitals…';
-    var q = '[out:json][timeout:20];(node["amenity"="hospital"](around:30000,' + o.lat + ',' + o.lng + ');' +
-            'way["amenity"="hospital"](around:30000,' + o.lat + ',' + o.lng + '););out center 30;';
-    fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q)
-    }).then(function (r) { return r.json(); }).then(function (d) {
-        var seen = {}, list = [];
-        d.elements.forEach(function (e) {
-            var name = e.tags && e.tags.name;
-            var lat = e.lat != null ? e.lat : (e.center && e.center.lat), lng = e.lon != null ? e.lon : (e.center && e.center.lon);
-            if (!name || lat == null || seen[name] || DECLINED.indexOf(name.toLowerCase()) > -1) return;
-            seen[name] = 1;
-            list.push({ name: name, lat: lat, lng: lng, air: haversine([o.lat, o.lng], [lat, lng]) });
-        });
-        list.sort(function (a, b) { return a.air - b.air; });
-        list = list.slice(0, 5);
-        if (!list.length) { hospList.textContent = 'No other hospital found within 30 km. Contact the command center.'; return; }
-        var coords = [o.lng + ',' + o.lat].concat(list.map(function (h) { return h.lng + ',' + h.lat; })).join(';');
-        return fetch(OSRM_TABLE + '/' + coords + '?sources=0&annotations=duration,distance')
-            .then(function (r) { return r.json(); })
-            .then(function (t) {
-                list.forEach(function (h, i) { h.sec = t.durations[0][i + 1]; h.m = t.distances[0][i + 1]; });
-                list.sort(function (a, b) { return (a.sec == null ? 1e9 : a.sec) - (b.sec == null ? 1e9 : b.sec); });
-                renderHospitals(list);
-            })
-            .catch(function () { renderHospitals(list); }); // OSRM down: still show by straight-line distance
-    }).catch(function () { hospList.textContent = 'Could not load hospitals. Check your connection and try again.'; });
+
+    // Hide hospitals that already declined the patient
+    var list = HOSPITALS
+        .filter(function (h) { return DECLINED.indexOf(h.name.toLowerCase()) === -1; })
+        .map(function (h) {
+            return { name: h.name, lat: h.lat, lng: h.lng, air: haversine([o.lat, o.lng], [h.lat, h.lng]) };
+        })
+        .sort(function (a, b) { return a.air - b.air; });
+
+    if (!list.length) {
+        hospList.textContent = 'No other hospital available. Contact the command center.';
+        return;
+    }
+
+    renderHospitals(list); // shows instantly (straight-line distance)
+
+    // Refine with real drive time; if OSRM is slow or down, the list above stays
+    var coords = [o.lng + ',' + o.lat].concat(list.map(function (h) { return h.lng + ',' + h.lat; })).join(';');
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 6000);
+
+    fetch(OSRM_TABLE + '/' + coords + '?sources=0&annotations=duration,distance', { signal: ctrl.signal })
+        .then(function (r) { return r.json(); })
+        .then(function (t) {
+            clearTimeout(timer);
+            list.forEach(function (h, i) { h.sec = t.durations[0][i + 1]; h.m = t.distances[0][i + 1]; });
+            list.sort(function (a, b) { return (a.sec == null ? 1e9 : a.sec) - (b.sec == null ? 1e9 : b.sec); });
+            renderHospitals(list);
+        })
+        .catch(function () { clearTimeout(timer); });
 }
 if (hospBtn) hospBtn.addEventListener('click', findHospitals);
 if (hospBtn && DECLINED.length) findHospitals(); // after a decline, show the next options right away
