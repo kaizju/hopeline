@@ -73,7 +73,7 @@ $unreadAlerts = 0;
         <tbody>
             <?php foreach ($logs as $l): ?>
             <tr>
-                <td><?php echo date('M j, Y g:i:s A', strtotime($l['created_at'])); ?></td>
+                <td><?php echo date('M j, Y H:i:s', strtotime($l['created_at'])); ?></td>
                 <td><?php echo htmlspecialchars($l['email'] ?? 'Unknown'); ?></td>
                 <td><?php echo htmlspecialchars(ucwords(str_replace('_',' ',$l['action']))); ?></td>
                 <td><span class="status-badge status-<?php echo $l['status']; ?>"><?php echo $l['status']; ?></span></td>

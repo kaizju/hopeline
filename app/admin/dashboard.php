@@ -71,7 +71,7 @@ function fmtAvgResponse($seconds) {
                 <div class="audit-row">
                     <div>
                         <div class="audit-action"><?php echo htmlspecialchars(ucwords(str_replace('_',' ', $a['action']))); ?></div>
-                        <div class="audit-meta"><?php echo htmlspecialchars($a['email'] ?? 'unknown'); ?> · <?php echo date('M j, g:i A', strtotime($a['created_at'])); ?></div>
+                        <div class="audit-meta"><?php echo htmlspecialchars($a['email'] ?? 'unknown'); ?> · <?php echo date('M j, H:i', strtotime($a['created_at'])); ?></div>
                     </div>
                     <span class="audit-status status-<?php echo $a['status']; ?>"><?php echo $a['status']; ?></span>
                 </div>

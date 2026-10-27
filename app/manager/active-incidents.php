@@ -121,7 +121,9 @@ $teams = []; $busyTeams = [];
 try {
         $incidents = $pdo->query("
     SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.unit_id, u.unit_name,
-           t.name AS team_name,
+   t.name AS team_name,
+   d.incident_photo, d.incident_details, d.photo_lat, d.photo_lng, d.photo_location,
+   d.photo_taken_at, d.photo_gps_source, d.site_outcome, d.hospital_name,
            (SELECT GROUP_CONCAT(u3.unit_name ORDER BY u3.unit_name SEPARATOR ', ')
               FROM dispatch d3 JOIN ptv_units u3 ON u3.id = d3.unit_id
               WHERE d3.clip_report_id = c.id AND d3.status IN ('assigned','en_route','on_site')) AS vehicles
@@ -209,9 +211,25 @@ try {
                     <div class="info-block"><div class="label">Caller</div><div class="value"><?php echo htmlspecialchars($inc['caller_name']); ?></div></div>
                     <div class="info-block"><div class="label">Sitio/Purok</div><div class="value"><?php echo htmlspecialchars($inc['sitio_purok'] ?: '—'); ?></div></div>
                     <div class="info-block"><div class="label">Resources Needed</div><div class="value"><?php echo htmlspecialchars($inc['problem_resources']); ?></div></div>
-                    <div class="info-block"><div class="label">Reported</div><div class="value"><?php echo date('g:i A', strtotime($inc['created_at'])); ?></div></div>
+                    <div class="info-block"><div class="label">Reported</div><div class="value"><?php echo date('H:i', strtotime($inc['created_at'])); ?></div></div>
                 </div>
-
+<?php if (!empty($inc['incident_photo'])): ?>
+<div style="display:flex;gap:12px;align-items:flex-start;margin:12px 0;">
+    <a href="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" target="_blank">
+        <img src="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" style="width:130px;height:96px;object-fit:cover;border-radius:8px;">
+    </a>
+    <div class="info-block">
+        <div class="label">Site photo<?php echo $inc['photo_taken_at'] ? ' · ' . date('M j, H:i', strtotime($inc['photo_taken_at'])) : ''; ?></div>
+        <?php if ($inc['photo_lat']): ?>
+        <div class="value"><a href="https://www.openstreetmap.org/?mlat=<?php echo $inc['photo_lat']; ?>&mlon=<?php echo $inc['photo_lng']; ?>#map=18/<?php echo $inc['photo_lat']; ?>/<?php echo $inc['photo_lng']; ?>" target="_blank">📍 <?php echo round($inc['photo_lat'], 6) . ', ' . round($inc['photo_lng'], 6); ?></a></div>
+        <div class="value"><?php echo htmlspecialchars($inc['photo_location'] ?: ''); ?></div>
+        <?php endif; ?>
+        <?php if ($inc['site_outcome']): ?>
+        <div class="value">Outcome: <?php echo $inc['site_outcome'] === 'hospital' ? 'To hospital' . ($inc['hospital_name'] ? ' — ' . htmlspecialchars($inc['hospital_name']) : '') : 'Minor (bandage only)'; ?></div>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
                 <div class="incident-actions">
     <?php if ($inc['team_name']): ?>
         <div class="responder-tag" style="font-weight:600;">

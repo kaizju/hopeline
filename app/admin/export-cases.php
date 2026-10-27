@@ -10,12 +10,17 @@ foreach (['status' => 'c.status', 'severity' => 'c.severity', 'barangay' => 'c.b
     if (($_GET[$k] ?? '') !== '') { $where .= " AND $col = ?"; $params[] = $_GET[$k]; }
 }
 if (($_GET['q'] ?? '') !== '') { $where .= " AND (c.clip_ref LIKE ? OR c.caller_name LIKE ?)"; $params[] = '%'.$_GET['q'].'%'; $params[] = '%'.$_GET['q'].'%'; }
-if (($_GET['from'] ?? '') !== '') { $where .= " AND c.created_at >= ?"; $params[] = $_GET['from'].' 00:00:00'; }
-if (($_GET['to'] ?? '') !== '')   { $where .= " AND c.created_at <= ?"; $params[] = $_GET['to'].' 23:59:59'; }
+$per  = reportPeriod($_GET['period'] ?? '', $_GET['ref'] ?? '');
+$from = $per ? $per['from'] : ($_GET['from'] ?? '');
+$to   = $per ? $per['to']   : ($_GET['to'] ?? '');
+if ($from !== '') { $where .= " AND c.created_at >= ?"; $params[] = $from . ' 00:00:00'; }
+if ($to !== '')   { $where .= " AND c.created_at <= ?"; $params[] = $to . ' 23:59:59'; }
 
 $stmt = $pdo->prepare("
     SELECT c.clip_ref, c.created_at, c.caller_name, c.caller_contact, c.barangay, c.sitio_purok, c.landmark,
        c.incident_type, c.severity, c.status, c.problem_resources,
+       c.id, c.latitude, c.longitude, c.geo_barangay, c.geo_purok, c.geo_address,
+d.photo_lat, d.photo_lng, d.photo_location, d.photo_taken_at, d.site_outcome, d.hospital_name, d.declined_hospitals,
        (SELECT GROUP_CONCAT(u2.unit_name ORDER BY u2.unit_name SEPARATOR ', ')
           FROM dispatch dx JOIN ptv_units u2 ON u2.id = dx.unit_id
           WHERE dx.clip_report_id = c.id AND dx.status <> 'cancelled') AS unit_name,
@@ -33,22 +38,25 @@ $where
 ORDER BY c.created_at DESC
 ");
 $stmt->execute($params);
+set_time_limit(0);
+$rows = array_map(function ($r) use ($pdo) { return fillGeo($pdo, $r); }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 
 function csvSafe($v) { $v = (string)$v; return preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v; }
 function mins($s) { return $s === null ? '' : round($s / 60, 1); }
 
 header('Content-Type: text/csv; charset=utf-8');
-header('Content-Disposition: attachment; filename="hopeline-case-report-' . date('Ymd-His') . '.csv"');
+header('Content-Disposition: attachment; filename="hopeline-case-report-' . ($per ? $per['label'] . '-' : '') . date('Ymd-His') . '.csv"');
 header('Cache-Control: no-store');
 
 $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF"); // UTF-8 BOM so Excel reads it correctly
 fputcsv($out, ['CLIP Ref','Date Reported','Caller','Contact','Barangay','Sitio/Purok','Landmark','Incident Type','Severity','Status',
     'Resources','Unit','Plate','Dispatched','Departed','Arrived','Returned','Travel (min)','Total Response (min)',
-    'Patient Name','Age Group','Sex','# Victims','Vital Signs','Alcohol Breath','Remarks','Incident Details','Photo URL'], ',', '"', '');
+    'Patient Name','Age Group','Sex','# Victims','Vital Signs','Alcohol Breath','Remarks','Incident Details','Photo URL','Incident Lat','Incident Lng','Detected Barangay','Detected Purok','Detected Address','Photo Lat','Photo Lng','Photo Location','Photo Taken','Outcome','Hospital','Declined Hospitals'], ',', '"', '');
+
 
 $base = rtrim(BASE_URL, '/') . '/';
-while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+foreach ($rows as $r) {
     fputcsv($out, array_map('csvSafe', [
         $r['clip_ref'], $r['created_at'], $r['caller_name'], $r['caller_contact'], $r['barangay'], $r['sitio_purok'], $r['landmark'],
         $r['incident_type'], $r['severity'], $r['status'], $r['problem_resources'], $r['unit_name'], $r['plate_no'],
@@ -56,7 +64,9 @@ while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
         mins($r['travel_s']), mins($r['response_s']),
         $r['patient_name'] ?: $r['caller_name'], $r['patient_age_group'], $r['patient_sex'], $r['victim_count'],
         $r['vital_signs'], $r['alcohol_breath'], $r['closeout_remarks'], $r['incident_details'],
-        $r['incident_photo'] ? $base . $r['incident_photo'] : ''
+        $r['incident_photo'] ? $base . $r['incident_photo'] : '',$r['latitude'], $r['longitude'], $r['geo_barangay'], $r['geo_purok'], $r['geo_address'],
+$r['photo_lat'], $r['photo_lng'], $r['photo_location'], $r['photo_taken_at'],
+$r['site_outcome'], $r['hospital_name'], implode('; ', json_decode($r['declined_hospitals'] ?: '[]', true) ?: [])
     ]), ',', '"', '');
 }
 fclose($out);

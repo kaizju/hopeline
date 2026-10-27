@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../config/functions.php';
 requireRole('admin');
 
 $flash = '';
-
+$dispatchId = (int)($_POST['dispatch_id'] ?? 0);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
@@ -167,7 +167,7 @@ $unreadAlerts = 0;
             <h1>Incident Records</h1>
             <p>Full log of every CLIP report system-wide — <?php echo $totalRows; ?> <?php echo $view; ?>.</p>
         </div>
-       <a href="<?php echo BASE_URL; ?>/app/admin/export-cases.php?<?php echo htmlspecialchars(http_build_query($_GET)); ?>" class="btn-primary">Export Case Report (.csv) →</a>
+      <?php echo exportPeriodForm(BASE_URL . '/app/admin/export-cases.php', array_diff_key($_GET, array_flip(['period','ref','from','to','page']))); ?>
     </div>
 
     <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
@@ -221,7 +221,7 @@ $unreadAlerts = 0;
                 <td><?php echo htmlspecialchars($inc['incident_type']); ?></td>
                 <td><span class="sev-badge sev-<?php echo $inc['severity']; ?>"><?php echo $inc['severity']; ?></span></td>
                 <td><?php echo htmlspecialchars($inc['unit_name'] ?? '—'); ?></td>
-                <td><?php echo date('M j, g:i A', strtotime($inc['created_at'])); ?></td>
+                <td><?php echo date('M j, H:i', strtotime($inc['created_at'])); ?></td>
                 <td><span class="status-badge status-<?php echo $inc['status']; ?>"><?php echo ucfirst($inc['status']); ?></span></td>
 
                 <!-- Photo -->

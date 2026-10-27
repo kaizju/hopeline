@@ -129,9 +129,9 @@ function fmtDuration($seconds) {
                 <td><?php echo htmlspecialchars($h['incident_type']); ?></td>
                 <td><span class="sev-badge sev-<?php echo $h['severity']; ?>"><?php echo $h['severity']; ?></span></td>
                 <td><?php echo htmlspecialchars($h['unit_name'] ?? '—'); ?></td>
-                <td><?php echo date('M j, g:i A', strtotime($h['report_received_at'])); ?></td>
-                <td><?php echo $h['departed_at'] ? date('g:i A', strtotime($h['departed_at'])) : '—'; ?></td>
-                <td><?php echo $h['arrived_at'] ? date('g:i A', strtotime($h['arrived_at'])) : '—'; ?></td>
+                <td><?php echo date('M j, H:i', strtotime($h['report_received_at'])); ?></td>
+                <td><?php echo $h['departed_at'] ? date('H:i', strtotime($h['departed_at'])) : '—'; ?></td>
+                <td><?php echo $h['arrived_at'] ? date('H:i', strtotime($h['arrived_at'])) : '—'; ?></td>
                 <td><?php echo fmtDuration($h['travel_seconds']); ?></td>
                 <td><?php echo fmtDuration($h['total_response_seconds']); ?></td>
                 <td class="<?php echo $h['delay_count'] > 0 ? 'delay-flag' : 'no-delay'; ?>"><?php echo $h['delay_count']; ?></td>
