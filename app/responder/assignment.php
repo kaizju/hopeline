@@ -77,26 +77,73 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'save_site_report') {
             $details = trim($_POST['incident_details'] ?? '');
-            $photoPath = null;
-            if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
-                $ext = strtolower(pathinfo($_FILES['incident_photo']['name'], PATHINFO_EXTENSION));
-                if (in_array($ext, ['jpg','jpeg','png','webp']) && @getimagesize($_FILES['incident_photo']['tmp_name'])) {
-                    $uploadDir = __DIR__ . '/../../assets/uploads/incidents/';
-                    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-                    $filename = 'incident_' . $dispatchId . '_' . time() . '.' . $ext;
-                    if (move_uploaded_file($_FILES['incident_photo']['tmp_name'], $uploadDir . $filename)) {
-                        $photoPath = 'assets/uploads/incidents/' . $filename;
-                    }
-                }
+$photoPath = null; $gps = null; $gpsSrc = null; $geoText = null; $takenAt = null;
+if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
+    $ext = strtolower(pathinfo($_FILES['incident_photo']['name'], PATHINFO_EXTENSION));
+    if (in_array($ext, ['jpg','jpeg','png','webp']) && @getimagesize($_FILES['incident_photo']['tmp_name'])) {
+        $uploadDir = __DIR__ . '/../../assets/uploads/incidents/';
+        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+        $filename = 'incident_' . $dispatchId . '_' . time() . '.' . $ext;
+        if (move_uploaded_file($_FILES['incident_photo']['tmp_name'], $uploadDir . $filename)) {
+            $photoPath = 'assets/uploads/incidents/' . $filename;
+
+            $gps = exifGps($uploadDir . $filename); $gpsSrc = 'exif';
+            if (!$gps && is_numeric($_POST['client_lat'] ?? '') && is_numeric($_POST['client_lng'] ?? '')) {
+                $gps = ['lat' => (float)$_POST['client_lat'], 'lng' => (float)$_POST['client_lng'], 'taken' => null];
+                $gpsSrc = 'device';   // phone GPS at upload time (EXIF had no GPS)
             }
-            $sql = "UPDATE dispatch SET incident_details=?" . ($photoPath ? ", incident_photo=?" : "")
-                 . " WHERE id=? AND team_id=? AND status='on_site'";
-            $params = [$details];
-            if ($photoPath) $params[] = $photoPath;
-            $params[] = $dispatchId; $params[] = $myTeamId;
+            if ($gps && abs($gps['lat']) <= 90 && abs($gps['lng']) <= 180) {
+                $geo = reverseGeocode($gps['lat'], $gps['lng']);
+                $geoText = $geo['address'] ?? null;
+                $takenAt = $gps['taken'] ?: date('Y-m-d H:i:s');
+            } else { $gps = null; $gpsSrc = null; }
+        }
+    }
+}
+$sql = "UPDATE dispatch SET incident_details=?";
+$params = [$details];
+if ($photoPath) {
+    $sql .= ", incident_photo=?, photo_lat=?, photo_lng=?, photo_location=?, photo_taken_at=?, photo_gps_source=?";
+    array_push($params, $photoPath, $gps['lat'] ?? null, $gps['lng'] ?? null, $geoText, $takenAt, $gpsSrc);
+}
+$sql .= " WHERE id=? AND team_id=? AND status='on_site'";
+$params[] = $dispatchId; $params[] = $myTeamId;
             $pdo->prepare($sql)->execute($params);
             $flash = 'Site report saved.';
         }
+        if (in_array($action, ['choose_minor','choose_hospital','hospital_declined','hospital_arrived'], true)) {
+    $q = $pdo->prepare("SELECT hospital_name, declined_hospitals FROM dispatch WHERE id=? AND team_id=? AND status='on_site'");
+    $q->execute([$dispatchId, $myTeamId]);
+    $row = $q->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        $flash = 'This dispatch has changed. Your screen was refreshed.';
+    } elseif ($action === 'choose_minor') {
+        $pdo->prepare("UPDATE dispatch SET site_outcome='minor', outcome_at=COALESCE(outcome_at,NOW()),
+            hospital_name=NULL, hospital_lat=NULL, hospital_lng=NULL, hospital_arrived_at=NULL WHERE id=?")->execute([$dispatchId]);
+        $flash = 'Logged: minor case, bandage only.';
+    } elseif ($action === 'choose_hospital') {
+        $name = mb_substr(trim($_POST['hospital_name'] ?? ''), 0, 150);
+        $hl = $_POST['hospital_lat'] ?? ''; $hg = $_POST['hospital_lng'] ?? '';
+        if ($name === '' || !is_numeric($hl) || !is_numeric($hg)) {
+            $flash = 'Invalid hospital.';
+        } else {
+            $pdo->prepare("UPDATE dispatch SET site_outcome='hospital', outcome_at=COALESCE(outcome_at,NOW()),
+                hospital_name=?, hospital_lat=?, hospital_lng=?, hospital_arrived_at=NULL WHERE id=?")
+                ->execute([$name, (float)$hl, (float)$hg, $dispatchId]);
+            $flash = 'Routing to ' . $name . '.';
+        }
+    } elseif ($action === 'hospital_declined') {
+        $list = json_decode($row['declined_hospitals'] ?? '[]', true) ?: [];
+        if ($row['hospital_name']) $list[] = $row['hospital_name'];
+        $pdo->prepare("UPDATE dispatch SET declined_hospitals=?, hospital_name=NULL, hospital_lat=NULL,
+            hospital_lng=NULL, hospital_arrived_at=NULL WHERE id=?")
+            ->execute([json_encode(array_values(array_unique($list))), $dispatchId]);
+        $flash = 'Hospital declined. Pick another hospital.';
+    } else {
+        $pdo->prepare("UPDATE dispatch SET hospital_arrived_at=COALESCE(hospital_arrived_at,NOW()) WHERE id=?")->execute([$dispatchId]);
+        $flash = 'Arrival at hospital logged.';
+    }
+}
    } catch (PDOException $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     $flash = 'Action failed: ' . $e->getMessage();
@@ -138,16 +185,20 @@ $sevColors = ['Critical' => '#b02029', 'High' => '#b02029', 'Moderate' => '#d4ab
 if ($dispatch) {
     $hasIncidentPin = !empty($dispatch['latitude']) && !empty($dispatch['longitude']);
     $isReturning    = $dispatch['status'] === 'returning';
-    $nav = [
-        'mode'   => $isReturning ? 'return' : 'incident',
-        'status' => $dispatch['status'],
-        'lat'    => $hasIncidentPin ? (float)$dispatch['latitude']  : null,
-        'lng'    => $hasIncidentPin ? (float)$dispatch['longitude'] : null,
-        'color'  => $sevColors[$dispatch['severity']] ?? '#b02029',
-        'label'  => $isReturning
-            ? 'LDRRMO Manolo Fortich (Command Center)'
-            : ($dispatch['incident_type'] . ' — ' . $dispatch['barangay']),
-    ];
+    $toHospital = $dispatch['status'] === 'on_site' && $dispatch['site_outcome'] === 'hospital'
+           && !empty($dispatch['hospital_lat']) && empty($dispatch['hospital_arrived_at']);
+$nav = [
+    'mode'    => $isReturning ? 'return' : ($toHospital ? 'hospital' : 'incident'),
+    'status'  => $dispatch['status'],
+    'outcome' => $dispatch['site_outcome'],
+    'lat'     => $toHospital ? (float)$dispatch['hospital_lat'] : ($hasIncidentPin ? (float)$dispatch['latitude']  : null),
+    'lng'     => $toHospital ? (float)$dispatch['hospital_lng'] : ($hasIncidentPin ? (float)$dispatch['longitude'] : null),
+    'origin'  => $hasIncidentPin ? ['lat' => (float)$dispatch['latitude'], 'lng' => (float)$dispatch['longitude']] : null,
+    'color'   => $sevColors[$dispatch['severity']] ?? '#b02029',
+    'label'   => $isReturning
+        ? 'LDRRMO Manolo Fortich (Command Center)'
+        : ($toHospital ? $dispatch['hospital_name'] : ($dispatch['incident_type'] . ' — ' . $dispatch['barangay'])),
+];
     if (!empty($unit['current_lat']) && !empty($unit['current_lng'])) {
         $unitPos = ['lat' => (float)$unit['current_lat'], 'lng' => (float)$unit['current_lng']];
     }
@@ -185,11 +236,13 @@ function hl_ico($n) {
 $steps = [];
 if ($dispatch) {
     $cur = $dispatch['status'];
-    $fmt = function ($t) { return $t ? date('g:i A', strtotime($t)) : '—'; };
+    $fmt = function ($t) { return $t ? date('H:i', strtotime($t)) : '—'; };
+    $ocCls = !empty($dispatch['outcome_at']) ? 'done' : ($cur === 'on_site' ? 'current' : ($cur === 'returning' ? 'done' : ''));
     $steps = [
         ['key' => 'assigned',  'label' => 'Assigned', 'time' => $fmt($dispatch['dispatched_at']), 'icon' => 'check', 'cls' => stepClass('assigned', $cur) ?: 'done'],
         ['key' => 'en_route',  'label' => 'Departed', 'time' => $fmt($dispatch['departed_at']),   'icon' => 'truck', 'cls' => stepClass('en_route', $cur)],
         ['key' => 'on_site',   'label' => 'Arrived',  'time' => $fmt($dispatch['arrived_at']),    'icon' => 'pin',   'cls' => stepClass('on_site', $cur)],
+        ['key' => 'outcome', 'label' => 'Outcome', 'time' => $fmt($dispatch['outcome_at'] ?? null), 'icon' => 'kit', 'cls' => $ocCls],
         ['key' => 'returning', 'label' => 'Returned', 'time' => $fmt($dispatch['returned_at']),   'icon' => 'back',  'cls' => stepClass('returning', $cur)],
     ];
 }
@@ -228,7 +281,8 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
         </div>
     </div>
 
-<?php else: ?>
+<?php else: $declined = json_decode($dispatch['declined_hospitals'] ?? '[]', true) ?: []; ?>
+    
 <?php $step = $dispatch['status']; ?>
 <div class="ws" id="ws">
 
@@ -269,8 +323,14 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                 <a href="<?php echo BASE_URL; ?>/app/responder/report-delay.php" class="hud-link">Running late? Report a delay</a>
 
             <?php elseif ($step === 'on_site'): ?>
-                <button type="button" class="btn-action" disabled><?php echo hl_ico('lock'); ?> Waiting for command center to release unit</button>
-                <button type="button" class="hud-link hud-link-btn" data-open-tab="updates">Add site report</button>
+    <?php if (!$dispatch['site_outcome']): ?>
+        <button type="button" class="btn-action" data-open-tab="outcome">Choose patient outcome</button>
+    <?php elseif ($dispatch['site_outcome'] === 'minor'): ?>
+        <button type="button" class="btn-action" disabled><?php echo hl_ico('lock'); ?> Minor case — waiting for command center</button>
+    <?php else: ?>
+        <button type="button" class="btn-action" data-open-tab="outcome"><?php echo hl_ico('truck'); ?> <?php echo hle($dispatch['hospital_name'] ?: 'Select hospital'); ?></button>
+    <?php endif; ?>
+    <button type="button" class="hud-link hud-link-btn" data-open-tab="updates">Add site report</button>
 
             <?php else: /* returning */ ?>
                 <div class="hud-meta"><div class="hud-timer" id="elapsedTimer">00:00:00</div><div class="hud-sub">Returning to command center</div></div>
@@ -334,6 +394,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
             <button type="button" role="tab" class="dtab active" data-tab="details">Details</button>
             <button type="button" role="tab" class="dtab" data-tab="updates">Updates</button>
             <button type="button" role="tab" class="dtab" data-tab="route">Route</button>
+            <?php if ($step === 'on_site'): ?><button type="button" role="tab" class="dtab" data-tab="outcome">Outcome</button><?php endif; ?>
         </div>
 
         <div class="drawer-body">
@@ -354,7 +415,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                     <div>
                         <div class="is-k">Caller / Reported by</div>
                         <div class="is-v"><?php echo hle($dispatch['caller_name']); ?></div>
-                        <div class="is-s">Reported <?php echo date('g:i A', strtotime($dispatch['reported_at'])); ?></div>
+                        <div class="is-s">Reported <?php echo date('H:i', strtotime($dispatch['reported_at'])); ?></div>
                         <?php if ($dispatch['caller_contact']): ?>
                         <a class="call-btn" href="tel:<?php echo hle($dispatch['caller_contact']); ?>"><?php echo hl_ico('phone'); ?> <?php echo hle($dispatch['caller_contact']); ?></a>
                         <?php endif; ?>
@@ -401,7 +462,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                             <div class="ud-label"><?php echo $s['label']; ?></div>
                             <div class="ud-time"><?php echo hle($s['time']); ?></div>
                             <?php if ($s['key'] === 'returning' && $step === 'returning' && !empty($dispatch['resolved_at'])): ?>
-                                <div class="is-s">Released by command center at <?php echo date('g:i A', strtotime($dispatch['resolved_at'])); ?></div>
+                                <div class="is-s">Released by command center at <?php echo date('H:i', strtotime($dispatch['resolved_at'])); ?></div>
                             <?php endif; ?>
                         </div>
                     </li>
@@ -411,6 +472,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                 <?php if ($step === 'on_site'): ?>
                 <form method="POST" enctype="multipart/form-data" class="site-report">
                     <input type="hidden" name="action" value="save_site_report">
+                    <input type="hidden" name="client_lat" value=""><input type="hidden" name="client_lng" value="">
                     <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
                     <div class="is-k">Site report</div>
                     <label for="incident_details">Incident details</label>
@@ -419,6 +481,9 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                     <input type="file" name="incident_photo" id="incident_photo" accept="image/*" capture="environment">
                     <?php if (!empty($dispatch['incident_photo'])): ?>
                         <img src="<?php echo BASE_URL . '/' . hle($dispatch['incident_photo']); ?>" alt="Saved incident photo" class="site-photo">
+                        <?php if (!empty($dispatch['photo_lat'])): ?>
+    <div class="is-s">📍 <?php echo hle(round($dispatch['photo_lat'], 6) . ', ' . round($dispatch['photo_lng'], 6)); ?> (<?php echo hle($dispatch['photo_gps_source']); ?>)<br><?php echo hle($dispatch['photo_location']); ?></div>
+<?php endif; ?>
                     <?php endif; ?>
                     <button type="submit" class="btn-primary" style="margin-top:14px;width:100%;justify-content:center;">Save site report</button>
                 </form>
@@ -457,6 +522,37 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                     </div>
                 </div>
             </section>
+            <?php if ($step === 'on_site'): ?>
+<section class="dpane" data-pane="outcome">
+    <div class="is-k">Patient outcome</div>
+    <?php if ($dispatch['site_outcome'] === 'hospital' && $dispatch['hospital_name']): ?>
+        <div class="is-v"><?php echo hle($dispatch['hospital_name']); ?></div>
+        <div class="is-s"><?php echo $dispatch['hospital_arrived_at'] ? 'Arrived ' . date('H:i', strtotime($dispatch['hospital_arrived_at'])) : 'Route shown on the map'; ?></div>
+        <?php if (!$dispatch['hospital_arrived_at']): ?>
+        <form method="POST" style="margin-top:12px;">
+            <input type="hidden" name="action" value="hospital_arrived">
+            <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
+            <button type="submit" class="btn-action" style="width:100%;">Arrived at hospital</button>
+        </form>
+        <?php endif; ?>
+        <form method="POST" style="margin-top:8px;" onsubmit="return confirm('Hospital declined the patient? You will pick another hospital.');">
+            <input type="hidden" name="action" value="hospital_declined">
+            <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
+            <button type="submit" class="btn-primary" style="width:100%;">Hospital declined — refer another</button>
+        </form>
+    <?php else: ?>
+        <?php if ($declined): ?><div class="is-s">Declined: <?php echo hle(implode(', ', $declined)); ?></div><?php endif; ?>
+        <button type="button" class="btn-action" id="btnFindHosp" style="width:100%;margin-top:10px;">🏥 <?php echo $declined ? 'Find other hospitals' : 'Deliver to nearest hospital'; ?></button>
+        <div id="hospList" style="margin-top:12px;"></div>
+        <form method="POST" style="margin-top:14px;">
+            <input type="hidden" name="action" value="choose_minor">
+            <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
+            <button type="submit" class="btn-primary" style="width:100%;">Minor — bandage only</button>
+        </form>
+        <?php if ($dispatch['site_outcome'] === 'minor'): ?><div class="is-s" style="margin-top:8px;">Currently logged: minor case.</div><?php endif; ?>
+    <?php endif; ?>
+</section>
+<?php endif; ?>
         </div>
     </aside>
 </div>
@@ -507,7 +603,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
 
     var hasPin   = NAV.lat !== null && NAV.lng !== null;
     var TARGET   = (NAV.mode === 'return' || !hasPin) ? BASE : { lat: NAV.lat, lng: NAV.lng };
-    var ROUTING_ENABLED = NAV.status !== 'on_site' && (NAV.mode === 'return' || hasPin);
+   var ROUTING_ENABLED = (NAV.status !== 'on_site' || NAV.mode === 'hospital') && (NAV.mode === 'return' || hasPin);
 
     var $ = function (id) { return document.getElementById(id); };
     var ws = $('ws'), drawer = $('drawer'), handle = $('drawerHandle');
@@ -546,7 +642,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
 
     // Open by default on wide screens; keep the map clear on phones/tablets
     setPanel(window.innerWidth > 1100);
-
+if (NAV.status === 'on_site' && !NAV.outcome) setPanel(true, 'outcome');
     var toast = $('hudToast');
     if (toast) setTimeout(function () { toast.classList.add('hide'); }, 6000);
 
@@ -684,7 +780,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
     function setStats(distM, sec) {
         put('dist', fmtDist(distM));
         put('time', fmtTime(sec));
-        put('arrive', new Date(Date.now() + sec * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+       put('arrive', new Date(Date.now() + sec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }));
         put('summary', fmtDist(distM) + ' • ' + fmtTime(sec));
     }
 
@@ -780,7 +876,68 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
         updateProgress();
     }
     window.addEventListener('hopegps:position', function (e) { onPosition(e.detail); });
+var sr = document.querySelector('.site-report');
+if (sr) sr.addEventListener('submit', function () {
+    var f = window.HopeGPS && window.HopeGPS.getLast && window.HopeGPS.getLast();
+    if (f) { sr.elements.client_lat.value = f.lat; sr.elements.client_lng.value = f.lng; }
+});
+/* ---------- Hospital picker: Overpass (find) + OSRM table (rank by drive time) ---------- */
+var DISPATCH_ID = <?php echo (int)$dispatch['id']; ?>;
+var DECLINED = <?php echo json_encode(array_map('mb_strtolower', $declined)); ?>;
+var OSRM_TABLE = 'https://router.project-osrm.org/table/v1/driving';
+var hospBtn = $('btnFindHosp'), hospList = $('hospList');
 
+function postAction(fields) {
+    var f = document.createElement('form'); f.method = 'POST';
+    Object.keys(fields).forEach(function (k) {
+        var i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = fields[k]; f.appendChild(i);
+    });
+    document.body.appendChild(f); f.submit();
+}
+function renderHospitals(list) {
+    hospList.textContent = '';
+    list.forEach(function (h) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'btn-action'; b.style.cssText = 'width:100%;margin-bottom:8px;text-align:left;';
+        b.textContent = h.name + ' · ' + (h.sec != null ? fmtTime(h.sec) + ' · ' + fmtDist(h.m) : fmtDist(h.air) + ' (straight line)');
+        b.addEventListener('click', function () {
+            postAction({ action: 'choose_hospital', dispatch_id: DISPATCH_ID, hospital_name: h.name, hospital_lat: h.lat, hospital_lng: h.lng });
+        });
+        hospList.appendChild(b);
+    });
+}
+function findHospitals() {
+    var o = myPos || (NAV.origin ? NAV.origin : (hasPin ? { lat: NAV.lat, lng: NAV.lng } : BASE));
+    hospList.textContent = 'Searching nearby hospitals…';
+    var q = '[out:json][timeout:20];(node["amenity"="hospital"](around:30000,' + o.lat + ',' + o.lng + ');' +
+            'way["amenity"="hospital"](around:30000,' + o.lat + ',' + o.lng + '););out center 30;';
+    fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(q)
+    }).then(function (r) { return r.json(); }).then(function (d) {
+        var seen = {}, list = [];
+        d.elements.forEach(function (e) {
+            var name = e.tags && e.tags.name;
+            var lat = e.lat != null ? e.lat : (e.center && e.center.lat), lng = e.lon != null ? e.lon : (e.center && e.center.lon);
+            if (!name || lat == null || seen[name] || DECLINED.indexOf(name.toLowerCase()) > -1) return;
+            seen[name] = 1;
+            list.push({ name: name, lat: lat, lng: lng, air: haversine([o.lat, o.lng], [lat, lng]) });
+        });
+        list.sort(function (a, b) { return a.air - b.air; });
+        list = list.slice(0, 5);
+        if (!list.length) { hospList.textContent = 'No other hospital found within 30 km. Contact the command center.'; return; }
+        var coords = [o.lng + ',' + o.lat].concat(list.map(function (h) { return h.lng + ',' + h.lat; })).join(';');
+        return fetch(OSRM_TABLE + '/' + coords + '?sources=0&annotations=duration,distance')
+            .then(function (r) { return r.json(); })
+            .then(function (t) {
+                list.forEach(function (h, i) { h.sec = t.durations[0][i + 1]; h.m = t.distances[0][i + 1]; });
+                list.sort(function (a, b) { return (a.sec == null ? 1e9 : a.sec) - (b.sec == null ? 1e9 : b.sec); });
+                renderHospitals(list);
+            })
+            .catch(function () { renderHospitals(list); }); // OSRM down: still show by straight-line distance
+    }).catch(function () { hospList.textContent = 'Could not load hospitals. Check your connection and try again.'; });
+}
+if (hospBtn) hospBtn.addEventListener('click', findHospitals);
+if (hospBtn && DECLINED.length) findHospitals(); // after a decline, show the next options right away
     /* ---------- go ---------- */
     if (!ROUTING_ENABLED) {
         var msg = NAV.status === 'on_site'
@@ -789,7 +946,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
         setBanner('⚑', msg[0], msg[1]);
         put('navstatus', msg[2]);
     } else {
-        fetchRoute(BASE, false); // instant "suggested route" preview before the phone has a GPS fix
+       fetchRoute(NAV.mode === 'hospital' && NAV.origin ? NAV.origin : BASE, false);
     }
     if (window.HopeGPS && window.HopeGPS.getLast()) onPosition(window.HopeGPS.getLast());
 })();

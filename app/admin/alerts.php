@@ -158,7 +158,7 @@ $tabs = [
                 <?php if (!empty($a['notes'])): ?><div class="delay-notes"><?php echo h($a['notes']); ?></div><?php endif; ?>
             </div>
             <div class="delay-side">
-                <div class="delay-duration"><strong><?php echo ago($a['mins']); ?></strong><br>since <?php echo date('g:i A', strtotime($a['started_at'])); ?></div>
+                <div class="delay-duration"><strong><?php echo ago($a['mins']); ?></strong><br>since <?php echo date('H:i', strtotime($a['started_at'])); ?></div>
             </div>
         </div>
     <?php endforeach; ?>
@@ -177,7 +177,7 @@ $tabs = [
                 <?php endif; ?>
             </div>
             <div class="delay-side">
-                <div class="delay-duration">departed <?php echo date('g:i A', strtotime($a['departed_at'])); ?></div>
+                <div class="delay-duration">departed <?php echo date('H:i', strtotime($a['departed_at'])); ?></div>
             </div>
         </div>
     <?php endforeach; ?>
@@ -210,7 +210,7 @@ $tabs = [
                 <div class="delay-meta"><?php echo h($a['clip_ref']); ?> · waiting for a unit</div>
             </div>
             <div class="delay-side">
-                <div class="delay-duration"><strong><?php echo ago($a['mins']); ?></strong><br>since <?php echo date('g:i A', strtotime($a['created_at'])); ?></div>
+                <div class="delay-duration"><strong><?php echo ago($a['mins']); ?></strong><br>since <?php echo date('H:i', strtotime($a['created_at'])); ?></div>
                 <a class="btn-resolve" style="text-decoration:none;" href="<?php echo BASE_URL; ?>/app/admin/incidents.php?q=<?php echo urlencode($a['clip_ref']); ?>">View</a>
             </div>
         </div>
@@ -227,7 +227,7 @@ $tabs = [
                 <div class="delay-meta"><?php echo (int)$a['attempts']; ?> failed attempt<?php echo $a['attempts'] == 1 ? '' : 's'; ?> in the last 24 hours</div>
             </div>
             <div class="delay-side">
-                <div class="delay-duration">last <?php echo date('M j, g:i A', strtotime($a['last_at'])); ?></div>
+                <div class="delay-duration">last <?php echo date('M j, H:i', strtotime($a['last_at'])); ?></div>
                 <a class="btn-resolve" style="text-decoration:none;" href="<?php echo BASE_URL; ?>/app/admin/audit-trail.php?action_type=login&status=failed&q=<?php echo urlencode($a['email']); ?>">Audit trail</a>
             </div>
         </div>

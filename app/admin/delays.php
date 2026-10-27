@@ -155,7 +155,7 @@ function fmtDuration($seconds) {
                 <td><?php echo htmlspecialchars($d['barangay']); ?></td>
                 <td><?php echo htmlspecialchars($d['reason']); ?></td>
                 <td><?php echo htmlspecialchars($d['logged_by_name'] ?? 'Responder'); ?></td>
-                <td><?php echo date('M j, g:i A', strtotime($d['started_at'])); ?></td>
+                <td><?php echo date('M j, H:i', strtotime($d['started_at'])); ?></td>
                 <td><?php echo $duration; ?></td>
                 <td><span class="tag <?php echo $d['is_manual'] ? 'tag-manual' : 'tag-auto'; ?>"><?php echo $d['is_manual'] ? 'Manual' : 'Reported'; ?></span></td>
                 <td><span class="tag <?php echo $isActive ? 'tag-active' : 'tag-resolved'; ?>"><?php echo $isActive ? 'Active' : 'Resolved'; ?></span></td>

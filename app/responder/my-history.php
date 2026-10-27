@@ -90,9 +90,9 @@ function fmtDuration($seconds) {
                 <span class="sev-badge sev-<?php echo $h['severity']; ?>"><?php echo $h['severity']; ?></span>
             </div>
             <div class="hc-grid">
-                <div class="hc-block"><div class="label">Dispatched</div><div class="value"><?php echo date('M j, g:i A', strtotime($h['dispatched_at'])); ?></div></div>
-                <div class="hc-block"><div class="label">Departed</div><div class="value"><?php echo $h['departed_at'] ? date('g:i A', strtotime($h['departed_at'])) : '—'; ?></div></div>
-                <div class="hc-block"><div class="label">Arrived</div><div class="value"><?php echo $h['arrived_at'] ? date('g:i A', strtotime($h['arrived_at'])) : '—'; ?></div></div>
+                <div class="hc-block"><div class="label">Dispatched</div><div class="value"><?php echo date('M j, H:i', strtotime($h['dispatched_at'])); ?></div></div>
+                <div class="hc-block"><div class="label">Departed</div><div class="value"><?php echo $h['departed_at'] ? date('H:i', strtotime($h['departed_at'])) : '—'; ?></div></div>
+                <div class="hc-block"><div class="label">Arrived</div><div class="value"><?php echo $h['arrived_at'] ? date('H:i', strtotime($h['arrived_at'])) : '—'; ?></div></div>
                 <div class="hc-block"><div class="label">Travel Time</div><div class="value"><?php echo fmtDuration($h['travel_seconds']); ?></div></div>
                 <div class="hc-block"><div class="label">Delays</div><div class="value <?php echo $h['delay_count'] > 0 ? 'delay' : ''; ?>"><?php echo $h['delay_count']; ?></div></div>
             </div>

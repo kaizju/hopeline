@@ -109,6 +109,7 @@ function fmtHours($seconds) {
 
 <main class="main">
     <div class="page-head">
+        <div style="margin-bottom:16px;"><?php echo exportPeriodForm(BASE_URL . '/app/admin/export-analytics.php'); ?></div>
         <h1>Analytics &amp; Reports</h1>
         <p>System-wide response performance.</p>
     </div>

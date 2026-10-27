@@ -10,11 +10,12 @@ try {
     $stmt = $pdo->query("
     SELECT u.id, u.unit_name, u.plate_no, u.driver_name, u.status,
            u.current_lat, u.current_lng,
-           d.status AS dispatch_status, d.departed_at, d.resolved_at,
+           LEFT JOIN dispatch d ON d.id = (SELECT MAX(d2.id) FROM dispatch d2
+        WHERE d2.unit_id = u.id AND d2.status IN ('en_route','on_site','returning')) d.departed_at, d.resolved_at,
            c.clip_ref, c.barangay, c.severity,
            c.latitude AS dest_lat, c.longitude AS dest_lng
     FROM ptv_units u
-    LEFT JOIN dispatch d ON d.unit_id = u.id AND d.status IN ('en_route','returning')
+    d.incident_photo, d.photo_lat, d.photo_lng, d.photo_location,
     LEFT JOIN clip_reports c ON c.id = d.clip_report_id
     ORDER BY u.unit_name ASC
 ");
@@ -84,7 +85,8 @@ try {
     // setInterval() simulation below with a Supabase Realtime subscription that
     // pushes actual GPS updates instead of polling.
     const unitsData = <?php echo json_encode($units, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-
+const BASE_URL = <?php echo json_encode(BASE_URL); ?>;
+window.esc = window.esc || function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); };
     const statusColors = {
         'Available': '#3f7a5c',
         'En Route': '#d9752b',
@@ -156,19 +158,19 @@ try {
                 markers[u.id] = L.marker(latlng, { icon: unitIcon(u) }).addTo(map);
             }
 
-            const popupHtml = `
-                <div class="popup-title">${esc(u.unit_name)} <span style="color:${statusColors[u.status]}">● ${esc(u.status)}</span></div>
-<div class="popup-row">Driver: ${esc(u.driver_name) || '—'}</div>
-<div class="popup-row">Plate: ${esc(u.plate_no) || '—'}</div>
-${u.clip_ref ? `<div class="popup-row">Incident: ${esc(u.clip_ref)} (${esc(u.barangay)})</div>` : ''}
-// renderList: ${esc(u.unit_name)}, ${esc(u.status)}, ${esc(u.driver_name || '—')} · ${esc(u.plate_no || '—')}, ${esc(u.barangay)}
-                ${u.departed_at ? `<div class="popup-row">En route: ${elapsedSince(u.departed_at)}</div>` : ''}
-                <a class="popup-btn" href="javascript:void(0)">View Incident</a>
-            `;
-            markers[u.id].bindPopup(popupHtml);
-
-            
-        });
+            const photoHtml = u.incident_photo
+    ? `<a href="${BASE_URL}/${esc(u.incident_photo)}" target="_blank"><img src="${BASE_URL}/${esc(u.incident_photo)}" style="width:100%;border-radius:8px;margin-top:8px;display:block;"></a>
+       <div class="popup-row">📍 ${esc(u.photo_location || '')}${u.photo_lat ? ' (' + Number(u.photo_lat).toFixed(5) + ', ' + Number(u.photo_lng).toFixed(5) + ')' : ''}</div>`
+    : '';
+const popupHtml = `
+    <div class="popup-title">${esc(u.unit_name)} <span style="color:${statusColors[u.status]}">● ${esc(u.status)}</span></div>
+    <div class="popup-row">Driver: ${esc(u.driver_name) || '—'}</div>
+    <div class="popup-row">Plate: ${esc(u.plate_no) || '—'}</div>
+    ${u.clip_ref ? `<div class="popup-row">Incident: ${esc(u.clip_ref)} (${esc(u.barangay)})</div>` : ''}
+    ${u.departed_at ? `<div class="popup-row">En route: ${elapsedSince(u.departed_at)}</div>` : ''}
+    ${photoHtml}
+    <a class="popup-btn" href="javascript:void(0)">View Incident</a>`;
+markers[u.id].bindPopup(popupHtml, { maxWidth: 260 });
 
         const allLatLngs = Object.values(markers).map(m => m.getLatLng());
         if (allLatLngs.length) map.fitBounds(L.latLngBounds(allLatLngs).pad(0.25));

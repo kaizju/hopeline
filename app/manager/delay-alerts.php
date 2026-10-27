@@ -116,7 +116,7 @@ $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === 
                     <?php if (!empty($d['notes'])): ?><div class="delay-notes"><?php echo htmlspecialchars($d['notes']); ?></div><?php endif; ?>
                 </div>
                 <div class="delay-side">
-                    <div class="delay-duration"><strong><?php echo $duration; ?></strong><br>started <?php echo date('g:i A', strtotime($d['started_at'])); ?></div>
+                    <div class="delay-duration"><strong><?php echo $duration; ?></strong><br>started <?php echo date('H:i', strtotime($d['started_at'])); ?></div>
                     <?php if ($isActive): ?>
                         <form method="POST">
                             <input type="hidden" name="action" value="resolve_delay">
