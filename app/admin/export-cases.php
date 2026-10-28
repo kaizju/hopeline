@@ -17,7 +17,7 @@ if ($from !== '') { $where .= " AND c.created_at >= ?"; $params[] = $from . ' 00
 if ($to !== '')   { $where .= " AND c.created_at <= ?"; $params[] = $to . ' 23:59:59'; }
 
 $stmt = $pdo->prepare("
-    SELECT c.clip_ref, c.created_at, c.caller_name, c.caller_contact, c.barangay, c.sitio_purok, c.landmark,
+    SELECT c.clip_ref, c.created_at, c.caller_name, c.caller_contact, c.barangay, c.report_source, c.landmark,
        c.incident_type, c.severity, c.status, c.problem_resources,
        c.id, c.latitude, c.longitude, c.geo_barangay, c.geo_purok, c.geo_address,
 d.photo_lat, d.photo_lng, d.photo_location, d.photo_taken_at, d.site_outcome, d.hospital_name, d.declined_hospitals,
@@ -50,7 +50,7 @@ header('Cache-Control: no-store');
 
 $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF"); // UTF-8 BOM so Excel reads it correctly
-fputcsv($out, ['CLIP Ref','Date Reported','Caller','Contact','Barangay','Sitio/Purok','Landmark','Incident Type','Severity','Status',
+fputcsv($out, ['CLIP Ref','Date Reported','Caller','Contact','Barangay','Received Via','Landmark','Incident Type','Severity','Status',
     'Resources','Unit','Plate','Dispatched','Departed','Arrived','Returned','Travel (min)','Total Response (min)',
     'Patient Name','Age Group','Sex','# Victims','Vital Signs','Alcohol Breath','Remarks','Incident Details','Photo URL','Incident Lat','Incident Lng','Detected Barangay','Detected Purok','Detected Address','Photo Lat','Photo Lng','Photo Location','Photo Taken','Outcome','Hospital','Declined Hospitals'], ',', '"', '');
 
@@ -58,8 +58,8 @@ fputcsv($out, ['CLIP Ref','Date Reported','Caller','Contact','Barangay','Sitio/P
 $base = rtrim(BASE_URL, '/') . '/';
 foreach ($rows as $r) {
     fputcsv($out, array_map('csvSafe', [
-        $r['clip_ref'], $r['created_at'], $r['caller_name'], $r['caller_contact'], $r['barangay'], $r['sitio_purok'], $r['landmark'],
-        $r['incident_type'], $r['severity'], $r['status'], $r['problem_resources'], $r['unit_name'], $r['plate_no'],
+        $r['clip_ref'], $r['created_at'], $r['caller_name'], $r['caller_contact'], $r['barangay'], $r['report_source'], $r['landmark'],
+        $r['incident_type'], $r['severity'],statusLabel($r['status']), $r['problem_resources'], $r['unit_name'], $r['plate_no'],
         $r['dispatched_at'], $r['departed_at'], $r['arrived_at'], $r['returned_at'],
         mins($r['travel_s']), mins($r['response_s']),
         $r['patient_name'] ?: $r['caller_name'], $r['patient_age_group'], $r['patient_sex'], $r['victim_count'],

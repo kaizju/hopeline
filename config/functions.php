@@ -18,7 +18,7 @@ function exifGps(string $file): ?array {
         'taken' => $dt ? $dt->format('Y-m-d H:i:s') : null,
     ];
 }
-
+function statusLabel($s) { $s = (string)$s; return $s === 'resolved' ? 'Completed' : ucfirst(str_replace('_', ' ', $s)); }
 /* Coordinates -> readable location (OSM Nominatim) */
 function reverseGeocode(float $lat, float $lng): ?array {
     $url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&lat=' . $lat . '&lon=' . $lng;

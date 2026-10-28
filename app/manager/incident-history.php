@@ -28,12 +28,12 @@ $where = "WHERE c.created_at BETWEEN ? AND ? AND c.barangay IN ($in)";
     $stmt = $pdo->prepare("
        SELECT c.clip_ref, c.caller_name, c.barangay, c.incident_type, c.severity, c.status,
        c.created_at AS report_received_at,
-       d.departed_at, d.arrived_at, d.incident_photo, d.incident_details,
+       d.departed_at, d.arrived_at, d.incident_photo, d.incident_details, d.hospital_name, d.hospital_arrived_at,
        (SELECT GROUP_CONCAT(u2.unit_name ORDER BY u2.unit_name SEPARATOR ', ')
           FROM dispatch dx JOIN ptv_units u2 ON u2.id = dx.unit_id
           WHERE dx.clip_report_id = c.id AND dx.status <> 'cancelled') AS unit_name,
-       TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) AS travel_seconds,
-       TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at) AS total_response_seconds,
+       TIMESTAMPDIFF(SECOND, c.created_at, d.dispatched_at) AS dispatch_wait_seconds,
+TIMESTAMPDIFF(SECOND, d.dispatched_at, d.departed_at) AS turnout_seconds,
        (SELECT COUNT(*) FROM delay_logs dl JOIN dispatch dd ON dd.id = dl.dispatch_id
          WHERE dd.clip_report_id = c.id) AS delay_count
 FROM clip_reports c
@@ -116,6 +116,8 @@ function fmtDuration($seconds) {
                 <th>Travel Time</th>
                 <th>Total Response</th>
                 <th>Delays</th>
+                <th>Hospital</th>
+                <th>Hospital Arrival</th>
 <th>Photo</th>
 <th>Status</th>
             </tr>
@@ -142,7 +144,7 @@ function fmtDuration($seconds) {
         </a>
     <?php else: ?>—<?php endif; ?>
 </td>
-                <td><span class="status-badge <?php echo $h['status'] === 'resolved' ? 'status-resolved' : ''; ?>"><?php echo ucfirst($h['status']); ?></span></td>
+                <td><span class="status-badge <?php echo $h['status'] === 'resolved' ? 'status-resolved' : ''; ?>"><?php echo statusLabel($h['status']); ?></span></td>
             </tr>
             <?php endforeach; ?>
         </tbody>

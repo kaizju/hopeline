@@ -561,7 +561,7 @@ tbody tr:hover { background: rgba(var(--surface-rgb), 0.03); }
 .unit-meta svg { width: 11px; height: 11px; }
 .map-wrap { flex: 1; position: relative; min-width: 0; }
 .map-wrap #map { height: 100%; width: 100%; }
-.map-legend { position: absolute; bottom: 16px; left: 16px; z-index: 500; background: rgba(var(--surface-rgb), 0.92); border: 1px solid rgba(var(--border-rgb), 0.25); border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--macadamia); display: flex; gap: 14px; }
+.map-legend { position: absolute; bottom: 16px; left: 16px; z-index: 500; background: var(--cool-blue); border: 1px solid rgba(var(--border-rgb), 0.25); border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--macadamia); display: flex; gap: 14px; }
 .legend-item { display: flex; align-items: center; gap: 5px; }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
 .leaflet-popup-content-wrapper { background: var(--cool-blue); color: var(--macadamia); border-radius: 8px; }
@@ -686,11 +686,12 @@ tbody tr:hover { background: rgba(var(--surface-rgb), 0.03); }
 .hc-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
 .hc-title { font-size: 13.5px; font-weight: 700; }
 .hc-ref { font-size: 10.5px; color: var(--light-grayish); font-family: monospace; }
-.hc-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.hc-grid { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));}
 .hc-block .label { font-size: 9.5px; text-transform: uppercase; color: var(--light-grayish); margin-bottom: 3px; }
 .hc-block .value { font-size: 12px; font-weight: 600; color: var(--macadamia); }
 .hc-block .value.delay { color: var(--high); }
-
+.outcome-pill{display:inline-block;margin:0 0 12px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.os-warn{background:rgba(217,117,43,.18);color:#a8540f}.os-ok{background:rgba(63,122,92,.2);color:#1d5139}.os-info{background:rgba(var(--border-rgb),.2);color:var(--macadamia)}
 /* ---------- GPS status pill (every responder page) ---------- */
 #gpsPill { position: fixed; top: 12px; right: 14px; z-index: 900; display: flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 20px; font-size: 11.5px; font-weight: 700; background: var(--cool-blue); color: var(--macadamia); border: 1px solid rgba(var(--border-rgb), 0.3); }
 #gpsPill .gps-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--light-grayish); }
@@ -909,3 +910,10 @@ tbody tr:hover { background: rgba(var(--surface-rgb), 0.03); }
     .stats-grid { grid-template-columns: minmax(0, 1fr); }
     .incident-body { grid-template-columns: minmax(0, 1fr); }
 }
+[data-theme="light"] .alert-success, [data-theme="light"] .flash { background:#e3f3ea; color:#1d5139; }
+[data-theme="light"] .alert-error { background:#fbe4e5; color:#8f1b24; }
+[data-theme="light"] .btn-resolve { background:#e3f3ea; color:#1d5139; }
+[data-theme="light"] .checklist li.done { color:#1d5139; }
+[data-theme="light"] .unit-meta.alert { color:#a8540f; }
+[data-theme="light"] .resource-option.unavailable .resource-available { color:#b02029; }
+.btn-resolve:disabled { opacity:.6; }

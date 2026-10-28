@@ -95,6 +95,8 @@ function fmtDuration($seconds) {
                 <div class="hc-block"><div class="label">Arrived</div><div class="value"><?php echo $h['arrived_at'] ? date('H:i', strtotime($h['arrived_at'])) : '—'; ?></div></div>
                 <div class="hc-block"><div class="label">Travel Time</div><div class="value"><?php echo fmtDuration($h['travel_seconds']); ?></div></div>
                 <div class="hc-block"><div class="label">Delays</div><div class="value <?php echo $h['delay_count'] > 0 ? 'delay' : ''; ?>"><?php echo $h['delay_count']; ?></div></div>
+                <div class="hc-block"><div class="label">Hospital</div><div class="value"><?php echo $h['hospital_name'] ? htmlspecialchars($h['hospital_name']) : '—'; ?></div></div>
+<div class="hc-block"><div class="label">Arrived at hospital</div><div class="value"><?php echo $h['hospital_arrived_at'] ? date('H:i', strtotime($h['hospital_arrived_at'])) : '—'; ?></div></div>
             </div>
         </div>
         <?php endforeach; ?>

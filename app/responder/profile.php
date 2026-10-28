@@ -234,7 +234,7 @@ function mins($v) {
                             <td><?php echo hle($r['barangay']); ?></td>
                             <td><span class="sev-badge sev-<?php echo hle($r['severity']); ?>"><?php echo hle($r['severity']); ?></span></td>
                             <td><?php echo $r['dispatched_at'] ? hle(date('M j, H:i', strtotime($r['dispatched_at']))) : '—'; ?></td>
-                            <td><span class="status-badge status-<?php echo hle($r['status']); ?>"><?php echo hle(str_replace('_', ' ', $r['status'])); ?></span></td>
+                            <td><span class="status-badge status-<?php echo hle($r['status']); ?>"><?php echo hle(statusLabel($r['status'])); ?></span></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

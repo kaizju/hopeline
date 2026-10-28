@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $callerName    = postStr('caller_name', 150);
 $callerContact = postStr('caller_contact', 20);
 $barangay      = postStr('barangay', 100);
-$sitioPurok    = postStr('sitio_purok', 150);
+$reportSource = in_array($_POST['report_source'] ?? '', ['Phone Call','Walk-in'], true) ? $_POST['report_source'] : 'Phone Call';
 $landmark      = postStr('landmark', 255);
 $latitude      = postStr('latitude', 20);
 $longitude     = postStr('longitude', 20);
@@ -48,7 +48,7 @@ if (!is_numeric($longitude) || abs((float)$longitude) > 180) $longitude = '';
         }
         if ($qty > 0) $resources[$vehicleName] = $qty;
     }
-
+if ($latitude === '' || $longitude === '') $errors[] = 'Drop a map pin on the incident location.';
     if ($callerName === '')    $errors[] = 'Caller name is required.';
     if ($barangay === '')      $errors[] = 'Purok is required.';
     if ($barangay !== ''     && !in_array($barangay, purokList(), true))     $errors[] = 'Invalid purok.';
@@ -73,10 +73,10 @@ if (!in_array($severity, ['Critical','High','Moderate','Low'], true))    $errors
 
         try {
             $stmt = $pdo->prepare("INSERT INTO clip_reports
-    (clip_ref, caller_name, caller_contact, barangay, sitio_purok, landmark, latitude, longitude, incident_type, severity, problem_resources, problem_notes, predicted_eta_minutes, reported_by)
+    (clip_ref, caller_name, caller_contact, barangay, report_source, landmark, latitude, longitude, incident_type, severity, problem_resources, problem_notes, predicted_eta_minutes, reported_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 $stmt->execute([
-    $clipRef, $callerName, $callerContact, $barangay, $sitioPurok, $landmark,
+    $clipRef, $callerName, $callerContact, $barangay, $reportSource, $landmark,
     $latitude ?: null, $longitude ?: null, $incidentType, $severity,
     $resourcesStr, $problemNotes,
     ($_POST['eta_minutes'] ?? '') !== '' ? (float)$_POST['eta_minutes'] : null,
@@ -234,10 +234,13 @@ $stmt->execute([
         <option>Upper Sosohon</option>
     </select>
 </div>
-                        <div class="field">
-                          <label for="sitio_purok">Street / Sitio <span class="optional">(optional)</span></label>
-<input type="text" id="sitio_purok" name="sitio_purok" placeholder="e.g. Rizal St.">
-                        </div>
+                    <div class="field">
+  <label>Report received via</label>
+  <div class="incident-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+    <div class="incident-option"><input type="radio" name="report_source" id="src_phone" value="Phone Call" checked><label for="src_phone">📞 Phone Call</label></div>
+    <div class="incident-option"><input type="radio" name="report_source" id="src_walk" value="Walk-in"><label for="src_walk">🚶 Walk-in</label></div>
+  </div>
+</div>    
                     </div>
 
                     <div class="field">
@@ -714,7 +717,7 @@ if (sv) sv.checked = true;
         toggleCheck('chkCaller', callerName !== '');
 
         const barangay = document.getElementById('barangay').value;
-        const sitio = document.getElementById('sitio_purok').value.trim();
+        const locStr = barangay;
         const locStr = barangay ? (barangay + (sitio ? ', ' + sitio : '')) : '';
         setSummary('sumLocation', locStr);
         toggleCheck('chkLocation', barangay !== '');
@@ -744,7 +747,7 @@ if (sv) sv.checked = true;
         el.classList.toggle('done', done);
     }
 
-    ['caller_name', 'barangay', 'sitio_purok'].forEach(id => {
+    ['caller_name','barangay'].forEach(id => {
         document.getElementById(id).addEventListener('input', updateSummary);
         document.getElementById(id).addEventListener('change', updateSummary);
     });
@@ -760,6 +763,9 @@ if (sv) sv.checked = true;
         'Reference: CLIP-' + y + m + d + '-XXXXX (assigned on submit)';
 
     updateSummary();
+    document.getElementById('clipForm').addEventListener('submit', function (e) {
+    if (!latInput.value) { e.preventDefault(); alert('Drop a pin on the map first.'); }
+});
 </script>
 
 </body>

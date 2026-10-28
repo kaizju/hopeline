@@ -12,6 +12,7 @@ try {
                u.current_lat, u.current_lng,
                d.status AS dispatch_status, d.departed_at, d.resolved_at,
                d.incident_photo, d.photo_lat, d.photo_lng, d.photo_location,
+               d.hospital_name, d.hospital_arrived_at,
                c.clip_ref, c.barangay, c.severity,
                c.latitude AS dest_lat, c.longitude AS dest_lng
         FROM ptv_units u
@@ -170,6 +171,7 @@ window.esc = window.esc || function (s) { return String(s == null ? '' : s).repl
             <div class="popup-row">Plate: ${esc(u.plate_no) || '—'}</div>
             ${u.clip_ref ? `<div class="popup-row">Incident: ${esc(u.clip_ref)} (${esc(u.barangay)})</div>` : ''}
             ${u.departed_at ? `<div class="popup-row">En route: ${elapsedSince(u.departed_at)}</div>` : ''}
+            ${u.hospital_name ? `<div class="popup-row">🏥 ${esc(u.hospital_name)}${u.hospital_arrived_at ? ' · arrived ' + esc(u.hospital_arrived_at.substr(11,5)) : ''}</div>` : ''}
             ${photoHtml}
             <a class="popup-btn" href="javascript:void(0)">View Incident</a>`;
         markers[u.id].bindPopup(popupHtml, { maxWidth: 260 });

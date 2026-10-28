@@ -15,7 +15,15 @@ requireRole('manager');
 // Show + clear flash from the previous request
 $flash = $_SESSION['flash'] ?? '';
 unset($_SESSION['flash']);
-
+function outcomeStage($i) {
+    if ($i['dispatch_status'] !== 'on_site') return null;
+    if (empty($i['incident_photo'])) return ['Waiting for site photo', 'warn'];
+    if (empty($i['site_outcome'])) return ['Assessing patient — outcome pending', 'warn'];
+    if ($i['site_outcome'] === 'minor') return ['Minor case — treated on site', 'ok'];
+    if (empty($i['hospital_arrived_at'])) return ['En route to ' . $i['hospital_name'], 'info'];
+    if (empty($i['hospital_accepted_at'])) return ['At ' . $i['hospital_name'] . ' — awaiting acceptance', 'warn'];
+    return ['Accepted by ' . $i['hospital_name'], 'ok'];
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $msg = '';
@@ -123,7 +131,7 @@ try {
     SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.unit_id, u.unit_name,
    t.name AS team_name,
    d.incident_photo, d.incident_details, d.photo_lat, d.photo_lng, d.photo_location,
-   d.photo_taken_at, d.photo_gps_source, d.site_outcome, d.hospital_name,
+   d.photo_taken_at, d.photo_gps_source, d.site_outcome, d.hospital_name,d.hospital_arrived_at, d.hospital_accepted_at, d.declined_hospitals,
            (SELECT GROUP_CONCAT(u3.unit_name ORDER BY u3.unit_name SEPARATOR ', ')
               FROM dispatch d3 JOIN ptv_units u3 ON u3.id = d3.unit_id
               WHERE d3.clip_report_id = c.id AND d3.status IN ('assigned','en_route','on_site')) AS vehicles
@@ -196,6 +204,7 @@ try {
                  data-severity="<?php echo htmlspecialchars($inc['severity']); ?>"
                  data-status="<?php echo $inc['dispatch_id'] ? 'dispatched' : 'pending'; ?>"
                  data-search="<?php echo htmlspecialchars(strtolower($inc['clip_ref'].' '.$inc['caller_name'].' '.$inc['barangay'])); ?>">
+                 <?php if ($os = outcomeStage($inc)): ?><div class="outcome-pill os-<?php echo $os[1]; ?>"><?php echo htmlspecialchars($os[0]); ?></div><?php endif; ?>
                 <div class="incident-top">
                     <div class="incident-title-wrap">
                         <span class="sev-badge sev-<?php echo $inc['severity']; ?>"><?php echo $inc['severity']; ?></span>
@@ -209,7 +218,7 @@ try {
 
                 <div class="incident-body">
                     <div class="info-block"><div class="label">Caller</div><div class="value"><?php echo htmlspecialchars($inc['caller_name']); ?></div></div>
-                    <div class="info-block"><div class="label">Sitio/Purok</div><div class="value"><?php echo htmlspecialchars($inc['sitio_purok'] ?: '—'); ?></div></div>
+                    <div class="info-block"><div class="label">Received via</div><div class="value"><?php echo htmlspecialchars($inc['report_source'] ?: '—'); ?></div></div>
                     <div class="info-block"><div class="label">Resources Needed</div><div class="value"><?php echo htmlspecialchars($inc['problem_resources']); ?></div></div>
                     <div class="info-block"><div class="label">Reported</div><div class="value"><?php echo date('H:i', strtotime($inc['created_at'])); ?></div></div>
                 </div>
@@ -219,17 +228,21 @@ try {
         <img src="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" style="width:130px;height:96px;object-fit:cover;border-radius:8px;">
     </a>
     <div class="info-block">
-        <div class="label">Site photo<?php echo $inc['photo_taken_at'] ? ' · ' . date('M j, H:i', strtotime($inc['photo_taken_at'])) : ''; ?></div>
-        <?php if ($inc['photo_lat']): ?>
-        <div class="value"><a href="https://www.openstreetmap.org/?mlat=<?php echo $inc['photo_lat']; ?>&mlon=<?php echo $inc['photo_lng']; ?>#map=18/<?php echo $inc['photo_lat']; ?>/<?php echo $inc['photo_lng']; ?>" target="_blank">📍 <?php echo round($inc['photo_lat'], 6) . ', ' . round($inc['photo_lng'], 6); ?></a></div>
-        <div class="value"><?php echo htmlspecialchars($inc['photo_location'] ?: ''); ?></div>
-        <?php endif; ?>
-        <?php if ($inc['site_outcome']): ?>
-        <div class="value">Outcome: <?php echo $inc['site_outcome'] === 'hospital' ? 'To hospital' . ($inc['hospital_name'] ? ' — ' . htmlspecialchars($inc['hospital_name']) : '') : 'Minor (bandage only)'; ?></div>
-        <?php endif; ?>
+        <div class="label">Site photo<?php echo $inc['photo_taken_at'] ? ' · ' . date('H:i', strtotime($inc['photo_taken_at'])) : ''; ?></div>
+<?php if ($inc['photo_lat']): ?>
+    <div class="value">Incident coordinates (<?php echo htmlspecialchars(strtoupper($inc['photo_gps_source'])); ?>)</div>
+    <div class="value"><a href="https://www.openstreetmap.org/?mlat=<?php echo $inc['photo_lat']; ?>&mlon=<?php echo $inc['photo_lng']; ?>#map=18/<?php echo $inc['photo_lat']; ?>/<?php echo $inc['photo_lng']; ?>" target="_blank">📍 <?php echo round($inc['photo_lat'], 6) . ', ' . round($inc['photo_lng'], 6); ?></a></div>
+    <div class="value"><?php echo htmlspecialchars($inc['photo_location'] ?: ''); ?></div>
+<?php else: ?><div class="value" style="color:var(--high)">⚠ No GPS found in photo</div><?php endif; ?>
+<?php if ($inc['site_outcome'] === 'hospital'): ?>
+    <div class="value">🏥 <?php echo htmlspecialchars($inc['hospital_name'] ?: '—'); ?></div>
+    <?php if ($inc['hospital_arrived_at']): ?><div class="value">Arrived <?php echo date('H:i', strtotime($inc['hospital_arrived_at'])); ?></div><?php endif; ?>
+    <?php if ($inc['hospital_accepted_at']): ?><div class="value">Accepted <?php echo date('H:i', strtotime($inc['hospital_accepted_at'])); ?></div><?php endif; ?>
+    <?php if ($d = json_decode($inc['declined_hospitals'] ?: '[]', true)): ?><div class="value">Declined: <?php echo htmlspecialchars(implode(', ', $d)); ?></div><?php endif; ?>
+<?php elseif ($inc['site_outcome'] === 'minor'): ?><div class="value">Minor (bandage only)</div><?php endif; ?>
     </div>
 </div>
-<?php endif; ?>
+<?php endif; ?><?php if ($os = outcomeStage($inc)): ?><div class="outcome-pill os-<?php echo $os[1]; ?>"><?php echo htmlspecialchars($os[0]); ?></div><?php endif; ?>
                 <div class="incident-actions">
     <?php if ($inc['team_name']): ?>
         <div class="responder-tag" style="font-weight:600;">
@@ -241,7 +254,7 @@ try {
         <form method="POST" style="margin-left:auto;">
             <input type="hidden" name="action" value="resolve">
             <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
-            <button type="submit" class="btn btn-resolve">Mark Resolved</button>
+            <button type="submit" class="btn btn-resolve">Mark Completed</button>
         </form>
     <?php else: ?>
         <button type="button" class="btn btn-resolve" disabled style="margin-left:auto;opacity:.4;cursor:not-allowed;" title="Unlocks when the team arrives on site">🔒 Awaiting arrival</button>
@@ -270,16 +283,28 @@ try {
 </main>
 
 <script>
+    setInterval(async function () {
+    if (document.hidden) return;
+    var a = document.activeElement;
+    if (a && a.closest('#incidentList') && /SELECT|INPUT|TEXTAREA/.test(a.tagName)) return;
+    if ([].some.call(document.querySelectorAll('.dispatch-form select'), function (s) { return s.value; })) return;
+    try {
+        var r = await fetch(location.href, { credentials: 'same-origin', cache: 'no-store' });
+        var doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+        var fresh = doc.getElementById('incidentList');
+        if (fresh) { document.getElementById('incidentList').innerHTML = fresh.innerHTML; applyFilters(); }
+    } catch (e) {}
+}, 5000);
     const searchBox = document.getElementById('searchBox');
     const sevFilter = document.getElementById('severityFilter');
     const statusFilter = document.getElementById('statusFilter');
-    const cards = document.querySelectorAll('.incident-card');
+    
 
     function applyFilters() {
         const term = searchBox.value.toLowerCase();
         const sev = sevFilter.value;
         const stat = statusFilter.value;
-        cards.forEach(card => {
+        document.querySelectorAll('.incident-card').forEach({
             const matchesSearch = card.dataset.search.includes(term);
             const matchesSev = sev === 'all' || card.dataset.severity === sev;
             const matchesStatus = stat === 'all' || card.dataset.status === stat;
