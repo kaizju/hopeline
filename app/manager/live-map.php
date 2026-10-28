@@ -26,7 +26,22 @@ try {
 } catch (PDOException $e) {
     error_log('live-map query failed: ' . $e->getMessage());
 }
-
+$donePins = [];
+try {
+    $donePins = $pdo->query("
+        SELECT c.id, c.clip_ref, c.barangay, c.severity, c.incident_type,
+               d.incident_photo, d.photo_lat, d.photo_lng, d.photo_location,
+               d.photo_gps_source, d.resolved_at
+        FROM clip_reports c
+        JOIN dispatch d ON d.id = (
+            SELECT MAX(d2.id) FROM dispatch d2
+            WHERE d2.clip_report_id = c.id AND d2.photo_lat IS NOT NULL)
+        WHERE c.status = 'resolved'
+          AND d.resolved_at >= NOW() - INTERVAL 24 HOUR
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log('live-map pins failed: ' . $e->getMessage());
+}
 
 ?>
 <!DOCTYPE html>
@@ -88,6 +103,7 @@ try {
     // setInterval() simulation below with a Supabase Realtime subscription that
     // pushes actual GPS updates instead of polling.
     const unitsData = <?php echo json_encode($units, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+    const donePins = <?php echo json_encode($donePins, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const BASE_URL = <?php echo json_encode(BASE_URL); ?>;
 window.esc = window.esc || function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); };
     const statusColors = {
@@ -181,7 +197,22 @@ window.esc = window.esc || function (s) { return String(s == null ? '' : s).repl
     if (allLatLngs.length) map.fitBounds(L.latLngBounds(allLatLngs).pad(0.25));
 }
     renderMarkers();
-
+const donePinLayer = L.layerGroup().addTo(map);
+function renderDonePins() {
+    donePins.forEach(p => {
+        if (p.photo_lat == null || p.photo_lng == null) return;
+        const lat = parseFloat(p.photo_lat), lng = parseFloat(p.photo_lng);
+        const html = `
+            <div class="popup-title">${esc(p.incident_type)} — ${esc(p.barangay)}</div>
+            <div class="popup-row">${esc(p.clip_ref)} · ✔ Completed ${esc((p.resolved_at || '').substr(11,5))}</div>
+            ${p.incident_photo ? `<a href="${BASE_URL}/${esc(p.incident_photo)}" target="_blank"><img src="${BASE_URL}/${esc(p.incident_photo)}" style="width:100%;border-radius:8px;margin-top:8px;display:block;"></a>` : ''}
+            <div class="popup-row">📍 ${lat.toFixed(6)}, ${lng.toFixed(6)} (${esc((p.photo_gps_source || '').toUpperCase())})</div>
+            <div class="popup-row">${esc(p.photo_location || '')}</div>`;
+        L.marker([lat, lng], { icon: destIcon(p.severity) })
+            .bindPopup(html, { maxWidth: 260 }).addTo(donePinLayer);
+    });
+}
+renderDonePins();
     /* =====================================================================
        OSRM live route tracking — animates En Route / Returning units along
        the real road route instead of teleporting between two fixed points.
@@ -220,10 +251,14 @@ window.esc = window.esc || function (s) { return String(s == null ? '' : s).repl
     }
 
     async function setupUnitRoute(u) {
-        if (!['en_route','returning'].includes(u.dispatch_status) || !u.dest_lat) return;
-        const dest = { lat: parseFloat(u.dest_lat), lng: parseFloat(u.dest_lng) };
-        const from = u.dispatch_status === 'en_route' ? PTV_BASE : dest;
-        const to   = u.dispatch_status === 'en_route' ? dest : PTV_BASE;
+        if (!['en_route','returning'].includes(u.dispatch_status)) return;
+// Prefer the responder's photo GPS (EXIF/device); fall back to the CLIP report pin
+const incident = (u.photo_lat != null && u.photo_lng != null)
+    ? { lat: parseFloat(u.photo_lat), lng: parseFloat(u.photo_lng) }
+    : (u.dest_lat != null ? { lat: parseFloat(u.dest_lat), lng: parseFloat(u.dest_lng) } : null);
+if (!incident) return;
+const from = u.dispatch_status === 'en_route' ? PTV_BASE : incident;
+const to   = u.dispatch_status === 'en_route' ? incident : PTV_BASE;
         const startStr = u.dispatch_status === 'en_route' ? u.departed_at : u.resolved_at;
         if (!startStr) return;
 
