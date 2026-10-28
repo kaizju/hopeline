@@ -1,7 +1,10 @@
 -- =====================================================================
--- HopeLine — full schema + demo data
--- Target: MySQL 8 / MariaDB 10.4+ (XAMPP), InnoDB, utf8mb4
+-- HopeLine — full schema + demo data  (UPDATED to match current code)
+-- Target: MariaDB 10.4+ / MySQL 8 (XAMPP), InnoDB, utf8mb4
 -- Import into an empty database:  mysql -u root < hopeline_schema.sql
+--
+-- Already have a database with data? Don't re-import this file.
+-- Run hopeline_migration.sql instead (adds only what is missing).
 --
 -- DEMO LOGINS (passwords are bcrypt-hashed below)
 --   admin@hopeline.local     Admin@123       (role: admin)
@@ -9,6 +12,9 @@
 --   user@hopeline.local      Responder@123   (role: user, leads Team 1)
 --   user2@hopeline.local     Responder@123   (role: user, leads Team 2)
 -- Change these passwords before any real deployment.
+--
+-- NOTE: the status value 'resolved' is stored as-is. The UI shows it as
+-- "Completed" through statusLabel() in config/functions.php.
 -- =====================================================================
 
 CREATE DATABASE IF NOT EXISTS hopeline
@@ -19,8 +25,8 @@ SET NAMES utf8mb4;
 
 -- ---------------------------------------------------------------------
 -- 1. users
---    team_id has no FK (matches the live schema): teams.leader_id already
---    points back at users, so a second FK would be circular.
+--    team_id has no FK: teams.leader_id already points back at users,
+--    so a second FK would be circular.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
   id          INT(11)      NOT NULL AUTO_INCREMENT,
@@ -94,20 +100,28 @@ CREATE TABLE IF NOT EXISTS ptv_units (
 
 -- ---------------------------------------------------------------------
 -- 4. clip_reports
+--    NEW: report_source, geo_barangay, geo_purok, geo_address
+--    sitio_purok is legacy. The forms no longer write it, but
+--    api/incident-pins.php and live-map-incidents.js still read it,
+--    so it stays (nullable) until those two are cleaned up.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clip_reports (
   id                    INT(11)      NOT NULL AUTO_INCREMENT,
   clip_ref              VARCHAR(30)  NOT NULL,
   caller_name           VARCHAR(150) NOT NULL,
   caller_contact        VARCHAR(20)  DEFAULT NULL,
-  barangay              VARCHAR(100) NOT NULL,
-  sitio_purok           VARCHAR(150) DEFAULT NULL,
+  barangay              VARCHAR(100) NOT NULL,            -- holds the Purok name
+  report_source         ENUM('Phone Call','Walk-in') NOT NULL DEFAULT 'Phone Call',
+  sitio_purok           VARCHAR(150) DEFAULT NULL,        -- legacy
   landmark              VARCHAR(255) DEFAULT NULL,
   latitude              DECIMAL(10,7) DEFAULT NULL,
   longitude             DECIMAL(10,7) DEFAULT NULL,
+  geo_barangay          VARCHAR(100) DEFAULT NULL,        -- reverse-geocode cache
+  geo_purok             VARCHAR(100) DEFAULT NULL,
+  geo_address           VARCHAR(255) DEFAULT NULL,
   incident_type         VARCHAR(50)  NOT NULL,
   severity              ENUM('Critical','High','Moderate','Low') DEFAULT NULL,
-  problem_resources     VARCHAR(255) NOT NULL,
+  problem_resources     VARCHAR(255) NOT NULL,            -- e.g. "Ambulance x1, Fire Truck x1"
   problem_notes         TEXT         DEFAULT NULL,
   predicted_eta_minutes DECIMAL(6,2) DEFAULT NULL,
   status                ENUM('pending','dispatched','resolved','cancelled') NOT NULL DEFAULT 'pending',
@@ -119,15 +133,18 @@ CREATE TABLE IF NOT EXISTS clip_reports (
   UNIQUE KEY uq_clip_ref (clip_ref),
   KEY idx_clip_status (status),
   KEY idx_clip_reported_by (reported_by),
+  KEY idx_clip_created (created_at),
+  KEY idx_clip_barangay (barangay),
+  KEY idx_clip_archived (archived_at),
   CONSTRAINT fk_clip_reported_by FOREIGN KEY (reported_by)
     REFERENCES users (id) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------------
 -- 5. dispatch  (one row per vehicle sent; team_id = the crew)
---    active_unit_key is a generated column. The live expression is not
---    shown in the data dictionary, so this assumes: a unit may be on at
---    most one open dispatch (assigned / en_route / on_site / returning).
+--    NEW: site photo + GPS columns, patient outcome / hospital flow.
+--    active_unit_key: a unit may be on at most one open dispatch
+--    (assigned / en_route / on_site / returning).
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS dispatch (
   id                    INT(11)      NOT NULL AUTO_INCREMENT,
@@ -142,6 +159,8 @@ CREATE TABLE IF NOT EXISTS dispatch (
   arrived_at            DATETIME     DEFAULT NULL,
   returned_at           DATETIME     DEFAULT NULL,
   resolved_at           DATETIME     DEFAULT NULL,
+
+  -- Case details (manager Incident History + admin Incident Records)
   patient_name          VARCHAR(150) DEFAULT NULL,
   patient_age_group     ENUM('Minor','Matured','Senior') DEFAULT NULL,
   patient_sex           ENUM('Male','Female') DEFAULT NULL,
@@ -150,7 +169,25 @@ CREATE TABLE IF NOT EXISTS dispatch (
   alcohol_breath        ENUM('Positive','Negative','Not Tested') DEFAULT NULL,
   closeout_remarks      VARCHAR(255) DEFAULT NULL,
   incident_details      TEXT         DEFAULT NULL,
+
+  -- Site photo (responder camera) + where it was taken
   incident_photo        VARCHAR(255) DEFAULT NULL,
+  photo_lat             DECIMAL(10,7) DEFAULT NULL,
+  photo_lng             DECIMAL(10,7) DEFAULT NULL,
+  photo_location        VARCHAR(255) DEFAULT NULL,
+  photo_taken_at        DATETIME     DEFAULT NULL,
+  photo_gps_source      ENUM('exif','device') DEFAULT NULL,
+
+  -- Patient outcome / hospital hand-off
+  site_outcome          ENUM('minor','hospital') DEFAULT NULL,
+  outcome_at            DATETIME     DEFAULT NULL,
+  hospital_name         VARCHAR(150) DEFAULT NULL,
+  hospital_lat          DECIMAL(10,7) DEFAULT NULL,
+  hospital_lng          DECIMAL(10,7) DEFAULT NULL,
+  hospital_arrived_at   DATETIME     DEFAULT NULL,
+  hospital_accepted_at  DATETIME     DEFAULT NULL,
+  declined_hospitals    TEXT         DEFAULT NULL,        -- JSON array of hospital names
+
   active_unit_key       INT(11) GENERATED ALWAYS AS
     (CASE WHEN status IN ('assigned','en_route','on_site','returning') THEN unit_id ELSE NULL END) STORED,
   PRIMARY KEY (id),
@@ -159,6 +196,8 @@ CREATE TABLE IF NOT EXISTS dispatch (
   KEY idx_dispatch_unit (unit_id),
   KEY idx_dispatch_team (team_id),
   KEY idx_dispatch_by (dispatched_by),
+  KEY idx_dispatch_status (status),
+  KEY idx_dispatch_team_status (team_id, status),
   CONSTRAINT fk_dispatch_clip FOREIGN KEY (clip_report_id)
     REFERENCES clip_reports (id) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT fk_dispatch_unit FOREIGN KEY (unit_id)
@@ -185,6 +224,7 @@ CREATE TABLE IF NOT EXISTS delay_logs (
   KEY idx_delay_dispatch (dispatch_id),
   KEY idx_delay_unit (unit_id),
   KEY idx_delay_logged_by (logged_by),
+  KEY idx_delay_open (resolved_at, started_at),
   CONSTRAINT fk_delay_dispatch FOREIGN KEY (dispatch_id)
     REFERENCES dispatch (id) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT fk_delay_unit FOREIGN KEY (unit_id)
@@ -194,7 +234,7 @@ CREATE TABLE IF NOT EXISTS delay_logs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------------------------------------------------------------
--- 7. activity_log (+ activity_logs view)
+-- 7. activity_log (+ activity_logs view used by includes/activity-logger.php)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS activity_log (
   id         INT(11)      NOT NULL AUTO_INCREMENT,
@@ -207,6 +247,8 @@ CREATE TABLE IF NOT EXISTS activity_log (
   created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_activity_user (user_id),
+  KEY idx_activity_lookup (action, status, created_at),
+  KEY idx_activity_email (email),
   CONSTRAINT fk_activity_user FOREIGN KEY (user_id)
     REFERENCES users (id) ON DELETE SET NULL ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -216,11 +258,11 @@ CREATE OR REPLACE VIEW activity_logs AS
   FROM activity_log;
 
 -- ---------------------------------------------------------------------
--- 8. settings
+-- 8. settings  (setting_value is TEXT so the barangay list can't be cut off)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS settings (
   setting_key   VARCHAR(100) NOT NULL,
-  setting_value VARCHAR(255) NOT NULL,
+  setting_value TEXT         NOT NULL,
   updated_at    DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (setting_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
