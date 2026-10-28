@@ -205,7 +205,16 @@ const typeFilter = document.getElementById('incidentTypeFilter');
 // Fill the dropdown with the incident types that exist in the data
 ['Medical Emergency','Fire','Vehicular Accident','Flood / Landslide','Violence / Assault','Other']
     .forEach(t => typeFilter.add(new Option(t, t)));
-
+const TYPE_ICONS = { 'Fire':'🔥', 'Medical Emergency':'🚑', 'Vehicular Accident':'🚗',
+                     'Flood / Landslide':'🌊', 'Violence / Assault':'⚠️', 'Other':'❓' };
+const SEV_COLORS = { Critical:'#e5484d', High:'#d9752b', Moderate:'#d4ab2b', Low:'#3f7a5c' };
+function incidentIcon(p) {
+    return L.divIcon({
+        className: '',
+        html: `<div style="width:30px;height:30px;border-radius:50%;background:#fff;border:3px solid ${SEV_COLORS[p.severity] || '#888'};box-shadow:0 2px 6px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1">${TYPE_ICONS[p.incident_type] || '❓'}</div>`,
+        iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -15]
+    });
+}
 function renderDonePins() {
     donePinLayer.clearLayers();
     donePins.forEach(p => {
@@ -218,7 +227,7 @@ function renderDonePins() {
             ${p.incident_photo ? `<a href="${BASE_URL}/${esc(p.incident_photo)}" target="_blank"><img src="${BASE_URL}/${esc(p.incident_photo)}" style="width:100%;border-radius:8px;margin-top:8px;display:block;"></a>` : ''}
             <div class="popup-row">📍 ${lat.toFixed(6)}, ${lng.toFixed(6)} (${esc((p.photo_gps_source || '').toUpperCase())})</div>
             <div class="popup-row">${esc(p.photo_location || '')}</div>`;
-        L.marker([lat, lng], { icon: destIcon(p.severity) })
+       L.marker([lat, lng], { icon: incidentIcon(p) })
             .bindPopup(html, { maxWidth: 260 }).addTo(donePinLayer);
     });
 }
@@ -392,8 +401,6 @@ const to   = u.dispatch_status === 'en_route' ? incident : PTV_BASE;
         document.getElementById('lastUpdated').textContent = 'Updated just now';
     }, 5000);
 </script>
-      <script>window.LIVEMAP_INCIDENT_API = '<?php echo BASE_URL; ?>/api/incident-pins.php';</script>
-     <script src="<?php echo BASE_URL; ?>/assets/js/live-map-incidents.js"></script>
      <script>window.LIVEMAP_GPS_API = '<?php echo BASE_URL; ?>/api/unit-locations.php';</script>
      <script src="<?php echo BASE_URL; ?>/assets/js/live-map-gps.js"></script>
 </body>
