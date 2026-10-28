@@ -203,7 +203,7 @@ const donePinLayer = L.layerGroup().addTo(map);
 const typeFilter = document.getElementById('incidentTypeFilter');
 
 // Fill the dropdown with the incident types that exist in the data
-[...new Set(donePins.map(p => p.incident_type).filter(Boolean))].sort()
+['Medical Emergency','Fire','Vehicular Accident','Flood / Landslide','Violence / Assault','Other']
     .forEach(t => typeFilter.add(new Option(t, t)));
 
 function renderDonePins() {
