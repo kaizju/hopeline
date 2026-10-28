@@ -232,6 +232,7 @@ $stmt->execute([
         <option>Upper Kalanawan</option>
         <option>Upper Pol-ton</option>
         <option>Upper Sosohon</option>
+        <option>Mullberry Village</option>
     </select>
 </div>
                     <div class="field">
@@ -422,15 +423,16 @@ function findNearestBarangay(lat, lng) {
     // ⚠️ PLACEHOLDER COORDINATES — verify against LGU/LDRRMO GIS data
     // before using this for real dispatch.
     const barangayCoords = {
-    'Kihare':           { lat: 8.3750, lng: 124.8710 },
+    'Kihare':           { lat: 8.359970, lng: 124.865290 },
     'Lower Kalanawan':  { lat: 8.3720, lng: 124.8680 },
-    'Lower Pol-ton':    { lat: 8.3710, lng: 124.8700 },
-    'Lower Sosohon':    { lat: 8.3740, lng: 124.8660 },
-    'Mangima':          { lat: 8.3760, lng: 124.8690 },
-    'Saint Joseph':     { lat: 8.3730, lng: 124.8720 },
-    'Upper Kalanawan':  { lat: 8.3770, lng: 124.8670 },
-    'Upper Pol-ton':    { lat: 8.3700, lng: 124.8730 },
-    'Upper Sosohon':    { lat: 8.3780, lng: 124.8650 }
+    'Lower Pol-ton':    { lat: 8.374958, lng: 124.865291 },
+    'Lower Sosohon':    { lat: 8.376105, lng: 124.874424 },
+    'Mangima':          { lat: 8.376699, lng: 124.881113 },
+    'Saint Joseph':     { lat: 8.365037, lng: 124.867884 },
+    'Upper Kalanawan':  { lat: 8.371148, lng: 124.856005 },
+    'Upper Pol-ton':    { lat: 8.371392, lng: 124.865464 },
+    'Upper Sosohon':    { lat: 8.368717, lng: 124.868770 },
+    'Mullberry Village':{ lat: 8.364938, lng: 124.861387 }
 };
 
     let routingControl = null;
