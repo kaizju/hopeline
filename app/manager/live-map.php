@@ -37,7 +37,6 @@ try {
             SELECT MAX(d2.id) FROM dispatch d2
             WHERE d2.clip_report_id = c.id AND d2.photo_lat IS NOT NULL)
         WHERE c.status = 'resolved'
-          AND d.resolved_at >= NOW() - INTERVAL 24 HOUR
     ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     error_log('live-map pins failed: ' . $e->getMessage());
@@ -87,6 +86,9 @@ try {
 
         <div class="map-wrap">
             <div id="map"></div>
+            <select id="incidentTypeFilter" style="position:absolute;top:12px;right:12px;z-index:1000;padding:8px 12px;border-radius:8px;border:1px solid #ccc;background:#fff;font-size:14px;">
+    <option value="all">All incidents</option>
+</select>
             <div class="map-legend">
                 <div class="legend-item"><span class="legend-dot" style="background:var(--available)"></span> Available</div>
                 <div class="legend-item"><span class="legend-dot" style="background:var(--enroute)"></span> En Route</div>
@@ -198,9 +200,17 @@ window.esc = window.esc || function (s) { return String(s == null ? '' : s).repl
 }
     renderMarkers();
 const donePinLayer = L.layerGroup().addTo(map);
+const typeFilter = document.getElementById('incidentTypeFilter');
+
+// Fill the dropdown with the incident types that exist in the data
+[...new Set(donePins.map(p => p.incident_type).filter(Boolean))].sort()
+    .forEach(t => typeFilter.add(new Option(t, t)));
+
 function renderDonePins() {
+    donePinLayer.clearLayers();
     donePins.forEach(p => {
         if (p.photo_lat == null || p.photo_lng == null) return;
+        if (typeFilter.value !== 'all' && p.incident_type !== typeFilter.value) return;
         const lat = parseFloat(p.photo_lat), lng = parseFloat(p.photo_lng);
         const html = `
             <div class="popup-title">${esc(p.incident_type)} — ${esc(p.barangay)}</div>
@@ -212,6 +222,7 @@ function renderDonePins() {
             .bindPopup(html, { maxWidth: 260 }).addTo(donePinLayer);
     });
 }
+typeFilter.addEventListener('change', renderDonePins);
 renderDonePins();
     /* =====================================================================
        OSRM live route tracking — animates En Route / Returning units along
