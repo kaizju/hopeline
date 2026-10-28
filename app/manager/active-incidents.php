@@ -118,7 +118,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $msg = 'Action failed: ' . $e->getMessage();
     }
-
+        if ($action === 'cancel_incident') {
+            $clipId = (int)($_POST['clip_report_id'] ?? 0);
+            $pdo->beginTransaction();
+            $st = $pdo->prepare("SELECT status FROM clip_reports WHERE id = ? FOR UPDATE");
+            $st->execute([$clipId]);
+            $cur = $st->fetchColumn();
+            if ($cur === false || in_array($cur, ['resolved', 'cancelled'], true)) {
+                $pdo->rollBack();
+                $msg = 'Only pending or dispatched incidents can be cancelled.';
+            } else {
+                $act = "('assigned','en_route','on_site','returning')";
+                // release vehicles BEFORE the dispatch rows stop counting as active
+                $pdo->prepare("UPDATE ptv_units u JOIN dispatch d ON d.unit_id = u.id
+                               SET u.status = 'Available', u.current_lat = ?, u.current_lng = ?
+                               WHERE d.clip_report_id = ? AND d.status IN $act")
+                    ->execute([PTV_BASE_LAT, PTV_BASE_LNG, $clipId]);
+                $pdo->prepare("UPDATE dispatch SET status = 'cancelled' WHERE clip_report_id = ? AND status IN $act")->execute([$clipId]);
+                $pdo->prepare("UPDATE clip_reports SET status = 'cancelled' WHERE id = ?")->execute([$clipId]);
+                $pdo->commit();
+                if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'incident_cancelled', 'success');
+                $msg = 'Incident cancelled and its vehicles released.';
+            }
+        }
     // Post/Redirect/Get: this is what stops reload from re-submitting
     $_SESSION['flash'] = $msg;
     header('Location: active-incidents.php');
@@ -242,7 +264,8 @@ try {
 <?php elseif ($inc['site_outcome'] === 'minor'): ?><div class="value">Minor (bandage only)</div><?php endif; ?>
     </div>
 </div>
-<?php endif; ?><?php if ($os = outcomeStage($inc)): ?><div class="outcome-pill os-<?php echo $os[1]; ?>"><?php echo htmlspecialchars($os[0]); ?></div><?php endif; ?>
+<?php endif; ?>
+<?php if ($os = outcomeStage($inc)): ?><div class="outcome-pill os-<?php echo $os[1]; ?>"><?php echo htmlspecialchars($os[0]); ?></div><?php endif; ?>
                 <div class="incident-actions">
     <?php if ($inc['team_name']): ?>
         <div class="responder-tag" style="font-weight:600;">
@@ -275,7 +298,13 @@ try {
         </form>
                 <?php endif; ?>
     <?php endif; ?>
-</div><!-- /.incident-actions -->
+</div>
+    <form method="POST" onsubmit="return confirm('Cancel this incident? Assigned vehicles will be released and the team stood down.');">
+        <input type="hidden" name="action" value="cancel_incident">
+        <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
+        <button type="submit" class="btn-cancel-inc">Cancel incident</button>
+    </form>
+<!-- /.incident-actions -->
             </div><!-- /.incident-card -->
             <?php endforeach; ?>
         <?php endif; ?>
@@ -304,7 +333,7 @@ try {
         const term = searchBox.value.toLowerCase();
         const sev = sevFilter.value;
         const stat = statusFilter.value;
-        document.querySelectorAll('.incident-card').forEach({
+        document.querySelectorAll('.incident-card').forEach(card => {
             const matchesSearch = card.dataset.search.includes(term);
             const matchesSev = sev === 'all' || card.dataset.severity === sev;
             const matchesStatus = stat === 'all' || card.dataset.status === stat;

@@ -18,8 +18,17 @@ function exifGps(string $file): ?array {
         'taken' => $dt ? $dt->format('Y-m-d H:i:s') : null,
     ];
 }
-function statusLabel($s) { $s = (string)$s; return $s === 'resolved' ? 'Completed' : ucfirst(str_replace('_', ' ', $s)); }
+function statusLabel($s) {
+    $map = [
+        'pending'    => 'Pending',
+        'dispatched' => 'Dispatched',
+        'resolved'   => 'Completed',
+        'cancelled'  => 'Cancelled',
+    ];
+    return $map[$s] ?? ucfirst(str_replace('_', ' ', (string)$s));
+}
 /* Coordinates -> readable location (OSM Nominatim) */
+
 function reverseGeocode(float $lat, float $lng): ?array {
     $url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&lat=' . $lat . '&lon=' . $lng;
     $ctx = stream_context_create(['http' => ['timeout' => 6, 'header' => "User-Agent: HopeLine-LDRRMO/1.0 (you@yourdomain.com)\r\n"]]);

@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
+require_once __DIR__ . '/../../config/closeout.php';
 
 requireRole('admin');
 
@@ -68,43 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // ---- Case closeout details (feeds the CSV report export) ----
-    if ($action === 'save_closeout') {
-    $patientName = postStr('patient_name', 150);
-$pick = function ($k, array $allowed) { $v = $_POST[$k] ?? ''; return (is_string($v) && in_array($v, $allowed, true)) ? $v : null; };
-$ageGroup   = $pick('patient_age_group', ['Minor', 'Matured', 'Senior']);
-$sex        = $pick('patient_sex', ['Male', 'Female']);
-$vitalSigns = $pick('vital_signs', ['Positive', 'Negative']);
-$alcohol    = $pick('alcohol_breath', ['Positive', 'Negative', 'Not Tested']);
-$victimCount = (isset($_POST['victim_count']) && is_numeric($_POST['victim_count'])) ? max(0, (int)$_POST['victim_count']) : null;
-$remarks = postStr('closeout_remarks', 255);
-$details = postStr('incident_details', 5000);
-
-    $photoPath = null;
-    if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
-        $ext = strtolower(pathinfo($_FILES['incident_photo']['name'], PATHINFO_EXTENSION));
-        if (in_array($ext, ['jpg','jpeg','png','webp'])) {
-            $uploadDir = __DIR__ . '/../../assets/uploads/incidents/';
-            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-            $filename = 'incident_' . $dispatchId . '_' . time() . '.' . $ext;
-            if (move_uploaded_file($_FILES['incident_photo']['tmp_name'], $uploadDir . $filename)) {
-                $photoPath = 'assets/uploads/incidents/' . $filename;
-            }
-        }
-    }
-
-    $sql = "UPDATE dispatch SET patient_name=?, patient_age_group=?, patient_sex=?, victim_count=?,
-            vital_signs=?, alcohol_breath=?, closeout_remarks=?, incident_details=?"
-            . ($photoPath ? ", incident_photo=?" : "") . " WHERE id=?";
-    $params = [$patientName, $ageGroup, $sex, $victimCount, $vitalSigns, $alcohol, $remarks, $details];
-    if ($photoPath) $params[] = $photoPath;
-    $params[] = $dispatchId;
-    $pdo->prepare($sql)->execute($params);
-
-    if (function_exists('logActivity')) {
-        logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'incident_closeout_saved', 'success');
-    }
-    $flash = 'Case details saved.';
-}
+       if ($action === 'save_closeout') {
+       $flash = saveCloseout($pdo, $dispatchId);
+   }
 }
 
 $view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
@@ -184,7 +151,7 @@ $unreadAlerts = 0;
             <option value="">All Statuses</option>
             <option value="pending" <?php echo $statusFilter==='pending'?'selected':''; ?>>Pending</option>
             <option value="dispatched" <?php echo $statusFilter==='dispatched'?'selected':''; ?>>Dispatched</option>
-            <option value="resolved" <?php echo $statusFilter==='resolved'?'selected':''; ?>>Resolved</option>
+            <option value="resolved" <?php echo $statusFilter==='resolved'?'selected':''; ?>>Completed</option>
             <option value="cancelled" <?php echo $statusFilter==='cancelled'?'selected':''; ?>>Cancelled</option>
         </select>
         <select name="severity">
@@ -213,7 +180,7 @@ $unreadAlerts = 0;
             <th>Unit</th><th>Reported</th><th>Status</th><th>Photo</th><th>Case Details</th><th>Actions</th>
         </tr></thead>
         <tbody>
-            <?php foreach ($incidents as $inc): ?>
+               <?php foreach ($incidents as $inc) if (canEditCloseout($inc)) closeoutModal($inc); ?>
             <tr>
                 <td class="clip-ref-cell"><?php echo htmlspecialchars($inc['clip_ref']); ?></td>
                 <td><?php echo htmlspecialchars($inc['caller_name']); ?></td>
@@ -235,7 +202,7 @@ $unreadAlerts = 0;
 
                 <!-- Case Details (this cell was missing) -->
                 <td>
-                    <?php if ($inc['dispatch_id'] && $inc['status'] === 'resolved'): ?>
+                     <?php if (canEditCloseout($inc)): closeoutButton($inc); else: ?>—<?php endif; ?>
                         <button type="button"
                                 class="btn-mini <?php echo $inc['patient_name'] ? 'btn-activate' : 'btn-deactivate'; ?>"
                                 onclick="document.getElementById('closeout-<?php echo (int)$inc['dispatch_id']; ?>').classList.add('show')">

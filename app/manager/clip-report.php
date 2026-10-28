@@ -604,33 +604,35 @@ Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].avai
         }).addTo(map);
     }
 
-    function dropPin(lat, lng) {
+        function dropPin(lat, lng, keepPurok) {
         if (marker) map.removeLayer(marker);
         marker = L.marker([lat, lng], { draggable: true }).addTo(map);
         marker.on('dragend', () => {
             const pos = marker.getLatLng();
             setCoords(pos.lat, pos.lng);
         });
-        map.setView([lat, lng], 16);
-        setCoords(lat, lng);
+        map.setView([lat, lng], 15);
+        setCoords(lat, lng, keepPurok);
     }
 
-   function setCoords(lat, lng) {
+     function setCoords(lat, lng, keepPurok) {
     latInput.value = lat.toFixed(6);
     lngInput.value = lng.toFixed(6);
     coordsReadout.innerHTML = '📍 <strong>' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</strong> — pin set';
 
-    // Auto-fill barangay from nearest match to the dropped pin
-    const barangaySelect = document.getElementById('barangay');
-    const nearest = findNearestBarangay(lat, lng);
-    if (nearest) {
-        barangaySelect.value = nearest;
-        document.getElementById('barangayAutoTag').style.display = 'inline';
+    if (!keepPurok) {   // only auto-detect the purok when the pin was placed by hand/GPS
+        const barangaySelect = document.getElementById('barangay');
+        const nearest = findNearestBarangay(lat, lng);
+        if (nearest) {
+            barangaySelect.value = nearest;
+            document.getElementById('barangayAutoTag').style.display = 'inline';
+        }
     }
 
     updateSummary();
     calculateRoute(lat, lng);
 }
+
 
     map.on('click', (e) => dropPin(e.latlng.lat, e.latlng.lng));
 
@@ -655,19 +657,12 @@ Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].avai
         updateSummary();
     });
 
-    document.getElementById('barangay').addEventListener('change', function () {
-    document.getElementById('barangayAutoTag').style.display = 'none'; // user took over manually
-    const coords = barangayCoords[this.value];
-    if (!coords) return;
-
-    map.setView([coords.lat, coords.lng], 14);
-
-    if (!marker) {
-        calculateRoute(coords.lat, coords.lng);
-    }
-
-    updateSummary();
-});
+        document.getElementById('barangay').addEventListener('change', function () {
+        document.getElementById('barangayAutoTag').style.display = 'none';
+        const coords = barangayCoords[this.value];
+        if (!coords) return;
+        dropPin(coords.lat, coords.lng, true);
+    });
 
     // ---------- Incident type -> resource auto-suggest ----------
     // Values are the suggested QUANTITY to pre-fill for that vehicle (capped
@@ -718,7 +713,6 @@ if (sv) sv.checked = true;
 
         const barangay = document.getElementById('barangay').value;
         const locStr = barangay;
-        const locStr = barangay ? (barangay + (sitio ? ', ' + sitio : '')) : '';
         setSummary('sumLocation', locStr);
         toggleCheck('chkLocation', barangay !== '');
         toggleCheck('chkPin', latInput.value !== '');

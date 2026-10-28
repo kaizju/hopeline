@@ -31,6 +31,9 @@ $flash = '';
 if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $dispatchId = (int)($_POST['dispatch_id'] ?? 0);
     $action = $_POST['action'] ?? '';
+        if (empty($_POST) && !empty($_SERVER['CONTENT_LENGTH'])) {
+        $flash = 'Photo too large. Server limit is ' . ini_get('post_max_size') . '.';
+    }
     try {
         if ($action === 'arrive' && defined('ARRIVE_GEOFENCE_M') && ARRIVE_GEOFENCE_M > 0) {
     $g = $pdo->prepare("SELECT u.current_lat ulat, u.current_lng ulng, c.latitude clat, c.longitude clng
@@ -38,9 +41,11 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
         WHERE d.id = ? AND d.team_id = ?");
     $g->execute([$dispatchId, $myTeamId]);
     $g = $g->fetch(PDO::FETCH_ASSOC);
-    if ($g && $g['clat'] !== null && $g['ulat'] !== null) {
+       $ulat = is_numeric($_POST['client_lat'] ?? '') ? (float)$_POST['client_lat'] : ($g['ulat'] ?? null);
+    $ulng = is_numeric($_POST['client_lng'] ?? '') ? (float)$_POST['client_lng'] : ($g['ulng'] ?? null);
+    if ($g && $g['clat'] !== null && $ulat !== null && $ulng !== null) {
         $k = M_PI / 180;
-        $a = sin(($g['clat'] - $g['ulat']) * $k / 2) ** 2 + cos($g['ulat'] * $k) * cos($g['clat'] * $k) * sin(($g['clng'] - $g['ulng']) * $k / 2) ** 2;
+        $a = sin(($g['clat'] - $ulat) * $k / 2) ** 2 + cos($ulat * $k) * cos($g['clat'] * $k) * sin(($g['clng'] - $ulng) * $k / 2) ** 2;
         $m = 6371000 * 2 * atan2(sqrt($a), sqrt(1 - $a));
         if ($m > ARRIVE_GEOFENCE_M) { $flash = 'You are still ' . round($m) . ' m from the incident.'; $action = ''; }
     }
@@ -124,7 +129,14 @@ $params[] = $dispatchId; $params[] = $myTeamId;
             $had = $pdo->prepare("SELECT incident_photo FROM dispatch WHERE id=? AND team_id=?");
 $had->execute([$dispatchId, $myTeamId]);
 if (!$photoPath && !$had->fetchColumn()) {
-    $flash = 'A site photo is required. Tap the camera button.';
+        $why = '';
+    $fe = $_FILES['incident_photo']['error'] ?? null;
+    if ($fe !== null && $fe !== UPLOAD_ERR_OK && !empty($_FILES['incident_photo']['name'])) {
+        $why = in_array($fe, [1, 2], true) ? ' (photo too large for the server)' : ' (upload error ' . $fe . ')';
+    } elseif (!empty($_FILES['incident_photo']['name']) && !$photoPath) {
+        $why = ' (must be a JPG/PNG/WebP image, and assets/uploads/incidents must be writable)';
+    }
+    $flash = 'A site photo is required.' . $why;
 } else {
     $pdo->prepare($sql)->execute($params);
     $flash = ($gps || !$photoPath) ? 'Site report saved.' : 'Photo saved, but no GPS location was found.';
@@ -134,11 +146,13 @@ if (!$photoPath && !$had->fetchColumn()) {
     $q = $pdo->prepare("SELECT clip_report_id, hospital_name, hospital_arrived_at, hospital_accepted_at,incident_photo, declined_hospitals
                         FROM dispatch WHERE id=? AND team_id=? AND status='on_site'");
     $q->execute([$dispatchId, $myTeamId]);
-    $row = $q->fetch(PDO::FETCH_ASSOC);
-} elseif (empty($row['incident_photo']) && in_array($action, ['choose_minor','choose_hospital'], true)) {
-    $flash = 'Take the site photo first.';
+        $row = $q->fetch(PDO::FETCH_ASSOC);
+
     if (!$row) {
         $flash = 'This dispatch has changed. Your screen was refreshed.';
+
+    } elseif (empty($row['incident_photo']) && in_array($action, ['choose_minor','choose_hospital'], true)) {
+        $flash = 'Take the site photo first.';
 
     } elseif ($action === 'choose_minor') {
         $pdo->prepare("UPDATE dispatch SET site_outcome='minor', outcome_at=COALESCE(outcome_at,NOW()),
@@ -228,7 +242,7 @@ if ($unit) {
         SELECT d.*,
                TIMESTAMPDIFF(SECOND, d.departed_at, NOW()) AS en_route_secs,
                TIMESTAMPDIFF(SECOND, d.resolved_at, NOW()) AS returning_secs,
-               c.clip_ref, c.caller_name, c.caller_contact, c.barangay, c.sitio_purok,
+               c.clip_ref, c.caller_name, c.caller_contact, c.barangay,
                c.landmark, c.latitude, c.longitude, c.incident_type, c.severity,
                c.problem_resources, c.problem_notes, c.created_at AS reported_at
         FROM dispatch d
@@ -379,9 +393,10 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
 
             <?php elseif ($step === 'en_route'): ?>
                 <div class="hud-meta"><div class="hud-timer" id="elapsedTimer">00:00:00</div><div class="hud-sub">Time en route</div></div>
-                <form method="POST">
+                                <form method="POST" id="arriveForm">
                     <input type="hidden" name="action" value="arrive">
                     <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
+                    <input type="hidden" name="client_lat"><input type="hidden" name="client_lng">
                     <button type="submit" class="btn-action"><?php echo hl_ico('arrow'); ?> Mark as Arrived</button>
                 </form>
                 <a href="<?php echo BASE_URL; ?>/app/responder/report-delay.php" class="hud-link">Running late? Report a delay</a>
@@ -488,7 +503,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                     <div>
                         <div class="is-k">Location</div>
                         <div class="is-v"><?php echo nl2br(hle($dispatch['landmark'] ?: 'No landmark provided')); ?></div>
-                        <div class="is-s"><?php echo hle(trim(($dispatch['sitio_purok'] ? $dispatch['sitio_purok'] . ', ' : '') . $dispatch['barangay'] . ', Manolo Fortich, Bukidnon')); ?></div>
+                       <div class="is-s"><?php echo hle($dispatch['barangay'] . ', Manolo Fortich, Bukidnon'); ?></div>
                     </div>
                 </div>
 
@@ -607,66 +622,34 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
             <?php if ($step === 'on_site'): ?>
 <section class="dpane" data-pane="outcome">
     <div class="is-k">Patient outcome</div>
-    <?php if (empty($dispatch['incident_photo'])): ?><div class="is-s">📷 Take the site photo first. Outcome unlocks after it is saved.</div><?php else: ?>
-        <?php if ($dispatch['site_outcome'] === 'hospital' && $dispatch['hospital_name']):
+
+    <?php if (empty($dispatch['incident_photo'])): ?>
+        <div class="is-s">📷 Take the site photo first. Outcome unlocks after it is saved.</div>
+
+    <?php elseif ($dispatch['site_outcome'] === 'hospital' && $dispatch['hospital_name']):
         $hArrived  = !empty($dispatch['hospital_arrived_at']);
-        $hAccepted = !empty($dispatch['hospital_accepted_at']); ?>
+        $hAccepted = !empty($dispatch['hospital_accepted_at']);
+        $stage = $hAccepted ? 3 : ($hArrived ? 2 : 1); ?>
 
         <div class="is-v"><?php echo hle($dispatch['hospital_name']); ?></div>
-        <div class="is-s">
-            <?php
-            if ($hAccepted)      echo 'Accepted the patient at ' . date('H:i', strtotime($dispatch['hospital_accepted_at']));
-            elseif ($hArrived)   echo 'Arrived ' . date('H:i', strtotime($dispatch['hospital_arrived_at'])) . ' · waiting for the hospital to accept';
-            else                 echo 'Route shown on the map';
-            ?>
-        </div>
-
-        <?php if (!$hArrived): ?>
-        <form method="POST" style="margin-top:12px;">
-            <input type="hidden" name="action" value="hospital_arrived">
+        <ol class="oc-steps">
+            <li class="<?php echo $stage > 1 ? 'done' : 'current'; ?>">Heading to hospital</li>
+            <li class="<?php echo $stage > 2 ? 'done' : ($stage == 2 ? 'current' : ''); ?>">Arrived<?php echo $hArrived ? ' · ' . date('H:i', strtotime($dispatch['hospital_arrived_at'])) : ''; ?></li>
+            <li class="<?php echo $stage >= 3 ? 'done' : ''; ?>">Accepted<?php echo $hAccepted ? ' · ' . date('H:i', strtotime($dispatch['hospital_accepted_at'])) : ''; ?></li>
+        </ol>
+        <form method="POST">
+            <input type="hidden" name="action" value="<?php echo ['hospital_arrived','hospital_accepted','return_to_command'][$stage-1]; ?>">
             <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
-            <button type="submit" class="btn-action" style="width:100%;">Arrived at hospital</button>
+            <button type="submit" class="btn-action" style="width:100%;"><?php echo ['Arrived at hospital','✔ Hospital accepted the patient','Return to command center'][$stage-1]; ?></button>
         </form>
-        <?php elseif (!$hAccepted): ?>
-        <form method="POST" style="margin-top:12px;" onsubmit="return confirm('Confirm that the hospital accepted the patient?');">
-            <input type="hidden" name="action" value="hospital_accepted">
-            <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
-            <button type="submit" class="btn-action" style="width:100%;">✔ Hospital accepted the patient</button>
-        </form>
-        <?php endif; ?>
-
         <?php if (!$hAccepted): ?>
-        <form method="POST" style="margin-top:8px;" onsubmit="return confirm('Hospital declined the patient? You will pick another hospital.');">
+        <form method="POST" onsubmit="return confirm('Hospital declined the patient? You will pick another hospital.');">
             <input type="hidden" name="action" value="hospital_declined">
             <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
-            <button type="submit" class="btn-primary" style="width:100%;">Hospital declined — refer another</button>
+            <button type="submit" class="btn-ghost-danger">Hospital declined — refer another</button>
         </form>
         <?php endif; ?>
 
-        <?php $stage = $hAccepted ? 3 : ($hArrived ? 2 : 1); ?>
-<div class="is-v"><?php echo hle($dispatch['hospital_name']); ?></div>
-<ol class="oc-steps">
-    <li class="<?php echo $stage > 1 ? 'done' : 'current'; ?>">Heading to hospital</li>
-    <li class="<?php echo $stage > 2 ? 'done' : ($stage == 2 ? 'current' : ''); ?>">Arrived<?php echo $hArrived ? ' · ' . date('H:i', strtotime($dispatch['hospital_arrived_at'])) : ''; ?></li>
-    <li class="<?php echo $stage >= 3 ? 'done' : ''; ?>">Accepted<?php echo $hAccepted ? ' · ' . date('H:i', strtotime($dispatch['hospital_accepted_at'])) : ''; ?></li>
-</ol>
-<form method="POST">
-    <input type="hidden" name="action" value="<?php echo ['hospital_arrived','hospital_accepted','return_to_command'][$stage-1]; ?>">
-    <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
-    <button type="submit" class="btn-action" style="width:100%;"><?php echo ['Arrived at hospital','✔ Hospital accepted the patient','Return to command center'][$stage-1]; ?></button>
-</form>
-<?php if (!$hAccepted): ?>
-<form method="POST" onsubmit="return confirm('Hospital declined the patient? You will pick another hospital.');">
-    <input type="hidden" name="action" value="hospital_declined">
-    <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
-    <button type="submit" class="btn-ghost-danger">Hospital declined — refer another</button>
-</form>
-<?php endif; ?>
-        <button type="button" class="btn-action" disabled style="width:100%;margin-top:14px;opacity:.4;cursor:not-allowed;" title="Unlocks when the hospital accepts the patient">
-            <?php echo hl_ico('lock'); ?> Return to command center
-        </button>
-        <div class="is-s" style="margin-top:6px;">Unlocks after the hospital accepts the patient.</div>
-        <?php endif; ?>
     <?php else: ?>
         <?php if ($declined): ?><div class="is-s">Declined: <?php echo hle(implode(', ', $declined)); ?></div><?php endif; ?>
         <button type="button" class="btn-action" id="btnFindHosp" style="width:100%;margin-top:10px;">🏥 <?php echo $declined ? 'Find other hospitals' : 'Deliver to nearest hospital'; ?></button>
@@ -677,7 +660,6 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
             <button type="submit" class="btn-primary" style="width:100%;">Minor — bandage only</button>
         </form>
         <?php if ($dispatch['site_outcome'] === 'minor'): ?><div class="is-s" style="margin-top:8px;">Currently logged: minor case.</div><?php endif; ?>
-    <?php endif; ?>
     <?php endif; ?>
 </section>
 <?php endif; ?>
@@ -1011,6 +993,11 @@ if (camInput) camInput.addEventListener('change', function () {
     var f = window.HopeGPS && window.HopeGPS.getLast && window.HopeGPS.getLast();
     if (f) { camForm.elements.client_lat.value = f.lat; camForm.elements.client_lng.value = f.lng; }
     camForm.submit();
+});
+var af = $('arriveForm');
+if (af) af.addEventListener('submit', function () {
+    var f = myPos || (window.HopeGPS && window.HopeGPS.getLast && window.HopeGPS.getLast());
+    if (f) { af.elements.client_lat.value = f.lat; af.elements.client_lng.value = f.lng; }
 });
 var sr = document.querySelector('.site-report');
 if (sr) sr.addEventListener('submit', function () {
