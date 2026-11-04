@@ -70,6 +70,10 @@ ob_start();
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
     My Dispatch History
 </a>
+<a class="nav-item <?php echo navActive('security-logs', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/responder/security-logs.php">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    Security Logs
+</a>
 <?php
 $navHtml = ob_get_clean();
 
