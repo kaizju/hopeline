@@ -180,7 +180,7 @@ $unreadAlerts = 0;
             <th>Unit</th><th>Reported</th><th>Status</th><th>Photo</th><th>Case Details</th><th>Actions</th>
         </tr></thead>
         <tbody>
-               <?php foreach ($incidents as $inc) if (canEditCloseout($inc)) closeoutModal($inc); ?>
+               <?php foreach ($incidents as $inc): ?>
             <tr>
                 <td class="clip-ref-cell"><?php echo htmlspecialchars($inc['clip_ref']); ?></td>
                 <td><?php echo htmlspecialchars($inc['caller_name']); ?></td>
@@ -201,15 +201,10 @@ $unreadAlerts = 0;
                 </td>
 
                 <!-- Case Details (this cell was missing) -->
-                <td>
-                     <?php if (canEditCloseout($inc)): closeoutButton($inc); else: ?>—<?php endif; ?>
-                        <button type="button"
-                                class="btn-mini <?php echo $inc['patient_name'] ? 'btn-activate' : 'btn-deactivate'; ?>"
-                                onclick="document.getElementById('closeout-<?php echo (int)$inc['dispatch_id']; ?>').classList.add('show')">
-                            <?php echo $inc['patient_name'] ? 'Edit' : 'Add Details'; ?>
-                        </button>
-                    <?php else: ?>—<?php endif; ?>
-                </td>
+                <!-- Case Details -->
+<td>
+    <?php if (canEditCloseout($inc)): closeoutButton($inc); else: ?>—<?php endif; ?>
+</td>
 
                 <!-- Actions -->
                 <td class="row-actions">
@@ -238,7 +233,7 @@ $unreadAlerts = 0;
             </tr>
             <?php endforeach; ?>
         </tbody>
-    </table>
+       </table>
     </div>
 
     <div class="pagination">
@@ -248,91 +243,7 @@ $unreadAlerts = 0;
         <?php endfor; ?>
     </div>
 
-    <!-- ===== Case Details modals: OUTSIDE the table ===== -->
-    <?php foreach ($incidents as $inc): ?>
-        <?php if ($inc['dispatch_id'] && $inc['status'] === 'resolved'): ?>
-        <div class="modal-overlay" id="closeout-<?php echo (int)$inc['dispatch_id']; ?>"
-             onclick="if(event.target===this)this.classList.remove('show')">
-            <div class="modal">
-                <h3>Case Details — <?php echo htmlspecialchars($inc['clip_ref']); ?></h3>
-                <form method="POST" enctype="multipart/form-data">
-                    <input type="hidden" name="action" value="save_closeout">
-                    <input type="hidden" name="dispatch_id" value="<?php echo (int)$inc['dispatch_id']; ?>">
-
-                    <div class="field">
-                            <label>Name of Patient</label>
-                            <input type="text" name="patient_name" value="<?php echo htmlspecialchars($inc['patient_name'] ?? ''); ?>" placeholder="Defaults to caller name if left blank">
-                        </div>
-                        <div class="field-row">
-                            <div class="field">
-                                <label>Age Group</label>
-                                <select name="patient_age_group">
-                                    <option value="">— Select —</option>
-                                    <option value="Minor" <?php echo $inc['patient_age_group']==='Minor'?'selected':''; ?>>Minor (18 below)</option>
-                                    <option value="Matured" <?php echo $inc['patient_age_group']==='Matured'?'selected':''; ?>>Matured (19 above)</option>
-                                    <option value="Senior" <?php echo $inc['patient_age_group']==='Senior'?'selected':''; ?>>Senior</option>
-                                </select>
-                            </div>
-                            <div class="field">
-                                <label>Sex</label>
-                                <select name="patient_sex">
-                                    <option value="">— Select —</option>
-                                    <option value="Male" <?php echo $inc['patient_sex']==='Male'?'selected':''; ?>>Male</option>
-                                    <option value="Female" <?php echo $inc['patient_sex']==='Female'?'selected':''; ?>>Female</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="field-row">
-                            <div class="field">
-                                <label># of Victims</label>
-                                <input type="number" name="victim_count" min="0" value="<?php echo htmlspecialchars($inc['victim_count'] ?? ''); ?>">
-                            </div>
-                            <div class="field">
-                                <label>Vital Signs</label>
-                                <select name="vital_signs">
-                                    <option value="">— Select —</option>
-                                    <option value="Negative" <?php echo $inc['vital_signs']==='Negative'?'selected':''; ?>>Negative</option>
-                                    <option value="Positive" <?php echo $inc['vital_signs']==='Positive'?'selected':''; ?>>Positive</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="field">
-                            <label>Alcohol Breath Test</label>
-                            <select name="alcohol_breath">
-                                <option value="">— Select —</option>
-                                <option value="Positive" <?php echo $inc['alcohol_breath']==='Positive'?'selected':''; ?>>Positive</option>
-                                <option value="Negative" <?php echo $inc['alcohol_breath']==='Negative'?'selected':''; ?>>Negative</option>
-                                <option value="Not Tested" <?php echo $inc['alcohol_breath']==='Not Tested'?'selected':''; ?>>Not Tested</option>
-                            </select>
-                        </div>
-                        <div class="field">
-                            <label>Remarks</label>
-                            <textarea name="closeout_remarks" rows="2"><?php echo htmlspecialchars($inc['closeout_remarks'] ?? ''); ?></textarea>
-                        </div>
-                        <div class="field">
-    <label>Incident Details</label>
-    <textarea name="incident_details" rows="3"><?php echo htmlspecialchars($inc['incident_details'] ?? ''); ?></textarea>
-</div>
-<div class="field">
-    <label>Incident Photo</label>
-    <input type="file" name="incident_photo" accept="image/*">
-    <?php if (!empty($inc['incident_photo'])): ?>
-        <div style="margin-top:8px;">
-            <img src="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" style="max-width:140px;border-radius:8px;">
-        </div>
-    <?php endif; ?>
-</div>
-
-                    <div class="modal-actions">
-                        <button type="button" class="btn-cancel"
-                                onclick="document.getElementById('closeout-<?php echo (int)$inc['dispatch_id']; ?>').classList.remove('show')">Cancel</button>
-                        <button type="submit" class="btn-primary">Save</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <?php endif; ?>
-    <?php endforeach; ?>
+    <?php foreach ($incidents as $inc) if (canEditCloseout($inc)) closeoutModal($inc); ?>
     <?php endif; ?>
 </main>
 

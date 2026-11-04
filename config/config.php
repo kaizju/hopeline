@@ -4,11 +4,11 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 date_default_timezone_set('Asia/Manila');
 define('ARRIVE_GEOFENCE_M', 300);
-define('BASE_URL', 'https://localhost/hopeline');
+define('BASE_URL', 'https://hopeline.ics-dev.io/');
 $host = 'localhost';
-$dbname = 'hopeline';
-$username = 'root';
-$password = '';
+$dbname = 'u442411629_hopeline_db';
+$username = 'u442411629_hoeline_dev';
+$password = 'w[9_£J98gFz}';
 
 try {
     $pdo = new PDO(
