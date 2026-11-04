@@ -318,7 +318,9 @@ try {
     if (a && a.closest('#incidentList') && /SELECT|INPUT|TEXTAREA/.test(a.tagName)) return;
     if ([].some.call(document.querySelectorAll('.dispatch-form select'), function (s) { return s.value; })) return;
     try {
-        var r = await fetch(location.href, { credentials: 'same-origin', cache: 'no-store' });
+       // active-incidents.php auto-refresh
+var r = await fetch(location.href, { credentials: 'same-origin', cache: 'no-store',
+                                     headers: { 'X-Requested-With': 'fetch' } });
         var doc = new DOMParser().parseFromString(await r.text(), 'text/html');
         var fresh = doc.getElementById('incidentList');
         if (fresh) { document.getElementById('incidentList').innerHTML = fresh.innerHTML; applyFilters(); }

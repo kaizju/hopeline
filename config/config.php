@@ -1,14 +1,17 @@
 <?php
+date_default_timezone_set('Asia/Manila');
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-date_default_timezone_set('Asia/Manila');
+
 define('ARRIVE_GEOFENCE_M', 300);
-define('BASE_URL', 'https://hopeline.ics-dev.io/');
-$host = 'localhost';
-$dbname = 'u442411629_hopeline_db';
-$username = 'u442411629_hoeline_dev';
-$password = 'w[9_£J98gFz}';
+define('BASE_URL', 'https://localhost/hopeline');
+
+$host     = 'localhost';
+$dbname   = 'hopeline';
+$username = 'root';
+$password = '';
 
 try {
     $pdo = new PDO(
@@ -17,6 +20,7 @@ try {
         $password,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
+    $pdo->exec("SET time_zone = '+08:00'");
 } catch (PDOException $e) {
     die('Database connection failed: ' . $e->getMessage());
 }

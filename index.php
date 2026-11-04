@@ -10,7 +10,7 @@ if (isLoggedIn()) {
         case 'user':    redirect('/app/responder/dashboard.php'); break;
     }
 }
-sessionStart($pdo, (int)$user['id'], $user['email'], $user['role']);
+
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -38,6 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['email']   = $user['email'];
             $_SESSION['role']    = $user['role'];
 
+            // Record the session only now, when $user exists
+            sessionStart($pdo, (int)$user['id'], $user['email'], $user['role']);
             logActivity($pdo, $user['id'], $user['email'], 'login', 'success');
 
             switch ($user['role']) {

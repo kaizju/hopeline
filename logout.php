@@ -11,6 +11,10 @@ if (isset($_SESSION['user_id']) && function_exists('logActivity')) {
 }
 
 // Clear all session data
+if (isset($_SESSION['user_id'])) {
+    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'logout', 'success');
+    sessionEnd($pdo);          // before clearing
+}
 $_SESSION = [];
 sessionEnd($pdo);
 // Destroy the session cookie itself

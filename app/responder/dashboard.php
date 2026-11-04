@@ -3,7 +3,7 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 require_once __DIR__ . '/../../config/security_logs.php';
-renderSecurityLogCard($pdo, 'admin', (int)$_SESSION['user_id'], BASE_URL . '/app/responder/security-logs.php'); ?>
+renderSecurityLogCard($pdo, 'user', (int)$_SESSION['user_id'], BASE_URL . '/app/responder/security-logs.php');
 requireRole('user');
 
 $me = $pdo->prepare("SELECT team_id FROM users WHERE id = ?");
@@ -136,6 +136,7 @@ $statusText = ['assigned' => 'Awaiting departure', 'en_route' => 'En route', 'on
         <?php endif; ?>
 
         <div class="stats-grid">
+            <?php renderSecurityLogCard($pdo, 'user', (int)$_SESSION['user_id'], BASE_URL . '/app/responder/security-logs.php'); ?>
             <div class="stat-card">
     <div class="stat-value"><?php echo htmlspecialchars($teamName); ?></div>
     <div class="stat-label">Your Team · <?php echo htmlspecialchars($myVehicles); ?></div>

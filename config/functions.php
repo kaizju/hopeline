@@ -226,3 +226,7 @@ if (!$csrfSkip) {
     });
 }
 if (isset($pdo) && $pdo instanceof PDO) trackPageView($pdo);
+
+$isApi = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/api/') !== false
+      || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
+if (!$isApi && isset($pdo) && $pdo instanceof PDO) trackPageView($pdo);

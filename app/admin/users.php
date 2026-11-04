@@ -37,7 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!in_array($role, $validRoles, true))              { $flash = 'Invalid role.'; }
 elseif ($userId === (int)$_SESSION['user_id'])        { $flash = "You can't change your own role."; }
 else {
-        }}
+    $pdo->prepare("UPDATE users SET role = ? WHERE id = ?")->execute([$role, $userId]);
+    $flash = 'Role updated.';
+}}
 
         if ($action === 'toggle_active') {
             $userId = (int)($_POST['user_id'] ?? 0);

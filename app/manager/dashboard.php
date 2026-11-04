@@ -3,7 +3,7 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 require_once __DIR__ . '/../../config/security_logs.php';
-renderSecurityLogCard($pdo, 'admin', (int)$_SESSION['user_id'], BASE_URL . '/app/manager/security-logs.php'); ?>
+
 requireRole('manager');
 
 $activeCount = $pdo->query("SELECT COUNT(*) FROM clip_reports WHERE status NOT IN ('resolved','cancelled')")->fetchColumn();
@@ -63,6 +63,7 @@ $unreadAlerts = $delayedCount;
 
         <!-- Stat cards -->
         <div class="stats-grid">
+            <?php renderSecurityLogCard($pdo, 'manager', (int)$_SESSION['user_id'], BASE_URL . '/app/manager/security-logs.php'); ?>
             <div class="stat-card">
                 <div class="stat-top">
                     <div><div class="stat-value"><?php echo (int)$activeCount; ?></div><div class="stat-label">Active Incidents</div></div>

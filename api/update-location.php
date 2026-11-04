@@ -17,8 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['ok' => false, 'error' => 'method']);
     exit;
 }
-
 $userId = (int)$_SESSION['user_id'];
+sessionTouch($pdo);
 session_write_close(); // don't block other requests from the same session
 
 $in  = json_decode(file_get_contents('php://input'), true) ?: [];

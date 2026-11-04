@@ -21,6 +21,7 @@ try {
             WHERE d2.unit_id = u.id AND d2.status IN ('en_route','on_site','returning'))
         LEFT JOIN clip_reports c ON c.id = d.clip_report_id
         ORDER BY u.unit_name ASC
+        TIMESTAMPDIFF(SECOND, CASE WHEN d.status='returning' THEN d.resolved_at ELSE d.departed_at END, NOW()) AS elapsed_secs
     ");
     $units = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {

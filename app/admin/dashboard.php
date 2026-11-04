@@ -3,7 +3,7 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 require_once __DIR__ . '/../../config/security_logs.php';
-renderSecurityLogCard($pdo, 'admin', (int)$_SESSION['user_id'], BASE_URL . '/app/admin/security-logs.php'); ?>
+
 requireRole('admin');
 
 $userCounts = $pdo->query("SELECT role, COUNT(*) AS total FROM users GROUP BY role")->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -56,6 +56,7 @@ function fmtAvgResponse($seconds) {
     </div>
 
     <div class="dash-layout">
+       <?php renderSecurityLogCard($pdo, 'admin', (int)$_SESSION['user_id'], BASE_URL . '/app/admin/security-logs.php'); ?>
         <div>
             <div class="card">
                 <div class="card-header"><h2>Incident Volume</h2><a href="<?php echo BASE_URL; ?>/app/admin/incidents.php">View records →</a></div>

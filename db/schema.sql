@@ -70,7 +70,37 @@ CREATE TABLE IF NOT EXISTS team_members (
   CONSTRAINT fk_team_members_team FOREIGN KEY (team_id)
     REFERENCES teams (id) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS user_activity_logs (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id     INT NULL,
+  email       VARCHAR(150) NULL,
+  role        VARCHAR(20)  NULL,
+  action      VARCHAR(60)  NOT NULL,
+  module      VARCHAR(40)  NOT NULL DEFAULT 'system',
+  description VARCHAR(255) NULL,
+  status      ENUM('success','failed') NOT NULL DEFAULT 'success',
+  ip_address  VARCHAR(45)  NULL,
+  user_agent  VARCHAR(255) NULL,
+  session_ref CHAR(64)     NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_user (user_id, id),
+  KEY idx_role (role, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id      INT NOT NULL,
+  email        VARCHAR(150) NOT NULL,
+  role         VARCHAR(20)  NOT NULL,
+  session_ref  CHAR(64)     NOT NULL,           -- sha256 of the PHP session id, never the raw id
+  ip_address   VARCHAR(45)  NULL,
+  user_agent   VARCHAR(255) NULL,
+  login_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  logout_at    DATETIME NULL,
+  UNIQUE KEY uq_ref (session_ref),
+  KEY idx_user (user_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- ---------------------------------------------------------------------
 -- 3. ptv_units  (every vehicle: Ambulance, PTV, Water Tanker, ...)
 -- ---------------------------------------------------------------------
