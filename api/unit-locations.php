@@ -12,6 +12,7 @@ if (!isLoggedIn() || !(hasRole('manager') || hasRole('admin'))) {
     echo json_encode(['ok' => false, 'error' => 'unauthorized']);
     exit;
 }
+sessionTouch($pdo);
 session_write_close();
 
 try {
