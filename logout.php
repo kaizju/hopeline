@@ -12,7 +12,7 @@ if (isset($_SESSION['user_id']) && function_exists('logActivity')) {
 
 // Clear all session data
 $_SESSION = [];
-
+sessionEnd($pdo);
 // Destroy the session cookie itself
 if (ini_get('session.use_cookies')) {
     $params = session_get_cookie_params();

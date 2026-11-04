@@ -225,3 +225,4 @@ if (!$csrfSkip) {
             function ($m) use ($csrfFieldHtml) { return $m[0] . $csrfFieldHtml; }, $html);
     });
 }
+if (isset($pdo) && $pdo instanceof PDO) trackPageView($pdo);

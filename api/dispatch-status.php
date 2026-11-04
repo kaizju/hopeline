@@ -11,6 +11,7 @@ if (!isLoggedIn() || !hasRole('user')) {
     exit;
 }
 $uid = (int)$_SESSION['user_id'];
+sessionTouch($pdo);
 session_write_close();
 
 $t = $pdo->prepare("SELECT team_id FROM users WHERE id = ?");

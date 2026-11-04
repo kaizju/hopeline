@@ -10,7 +10,7 @@ if (isLoggedIn()) {
         case 'user':    redirect('/app/responder/dashboard.php'); break;
     }
 }
-
+sessionStart($pdo, (int)$user['id'], $user['email'], $user['role']);
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
