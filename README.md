@@ -34,18 +34,23 @@ HopeLine is an emergency incident reporting and response coordination system. Ma
 
 ## Technologies
 
-| Area | Technology |
+| Technology | What HopeLine uses it for |
 | --- | --- |
-| Server-side application | PHP |
-| Database access | PDO with the MySQL driver |
-| Database | MariaDB 10.4+ or MySQL 8+, using InnoDB and `utf8mb4` |
-| Browser interface | HTML, CSS, and JavaScript |
-| Maps | Leaflet 1.9.4 and Leaflet Routing Machine (bundled in `assets/vendor/`) |
-| Map data and geocoding | OpenStreetMap tiles/attribution and Nominatim reverse geocoding |
-| Route and travel-time services | OSRM routing/table service endpoints |
-| Optional desktop shell | Electron 23.1.3 with Node.js/npm; PHP still runs as a separate local server process |
+| PHP | Server-side pages, role-based workflows, validation, and JSON API endpoints. |
+| PDO with MySQL driver | Prepared database queries and transactions for application data. |
+| MariaDB 10.4+ or MySQL 8+ | Stores users, incidents, dispatches, units, and audit records using InnoDB and `utf8mb4`. |
+| HTML, CSS, and JavaScript | Builds the browser interface and interactive forms, dashboards, and maps. |
+| Leaflet 1.9.4 and Leaflet Routing Machine | Displays interactive maps, unit markers, incident pins, and routes. The libraries are bundled in `assets/vendor/`. |
+| OpenStreetMap | Supplies map tiles and map data attribution. |
+| Nominatim | Reverse-geocodes GPS coordinates into a readable location for incident records. |
+| OSRM | Calculates road routes, travel times, and route table estimates for dispatch views. |
+| Browser Geolocation API | Collects a responder device's location, accuracy, heading, and speed when the responder grants permission. |
+| EXIF metadata (PHP EXIF extension) | Reads GPS coordinates and the capture time from uploaded incident photos when those details are present. If a photo has no GPS metadata, HopeLine can use the responder device's location instead. |
+| PHP Fileinfo and image inspection | Checks uploaded photo content and MIME type instead of trusting the file name or extension. |
+| PHP password and session APIs | Hash account passwords, verify them at sign-in, and manage authenticated sessions. |
+| Electron 23.1.3 with Node.js/npm (optional) | Provides a desktop launcher. PHP still runs as a separate local server process. |
 
-The web application does not require npm for its normal PHP/Apache setup. `package.json` is used for the optional Electron shell and its JavaScript dependency. The project uses browser geolocation for field location reporting. External map, geocoding, and routing services need network access and have their own usage policies and availability limits.
+The web application does not require npm for its normal PHP/Apache setup. `package.json` is used for the optional Electron shell and its JavaScript dependency. External map, geocoding, and routing services need network access and are subject to their own usage policies and availability limits.
 
 ## Requirements
 
