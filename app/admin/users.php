@@ -25,7 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare("INSERT INTO users (name, email, password, role, contact_no, is_verified) VALUES (?, ?, ?, ?, ?, 1)");
                 $stmt->execute([$name, $email, $hash, $role, $contact]);
                 if (function_exists('logActivity')) {
-                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_created', 'success');
+                   logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'success',
+    "Changed user #$userId role to $role", 'users');
                 }
                 $flash = "Account created for $name.";
             }
@@ -56,7 +57,8 @@ else {
             } else {
                 $pdo->prepare("UPDATE users SET archived_at = NOW() WHERE id = ?")->execute([$userId]);
                 if (function_exists('logActivity')) {
-                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_archived', 'success');
+                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'success',
+    "Changed user #$userId role to $role", 'users');
                 }
                 $flash = 'Account archived.';
             }
@@ -66,7 +68,8 @@ else {
             $userId = (int)($_POST['user_id'] ?? 0);
             $pdo->prepare("UPDATE users SET archived_at = NULL WHERE id = ?")->execute([$userId]);
             if (function_exists('logActivity')) {
-                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_restored', 'success');
+                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'success',
+    "Changed user #$userId role to $role", 'users');
             }
             $flash = 'Account restored.';
         }

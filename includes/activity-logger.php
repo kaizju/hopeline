@@ -96,6 +96,8 @@ function sessionTouch(PDO $pdo): void {            // at most once per 60 s
 }
 /* Automatic "Visited: ..." entries + report exports */
 function trackPageView(PDO $pdo): void {
+    if (!isLoggedIn() || session_status() !== PHP_SESSION_ACTIVE) return;
+    sessionTouch($pdo);
     if (empty($_SESSION['user_id']) || session_status() !== PHP_SESSION_ACTIVE) return;
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') return;
 
@@ -104,7 +106,7 @@ function trackPageView(PDO $pdo): void {
     if (strpos($script, '/api/') !== false || in_array($file, ['index', 'logout'], true)) return;
     if (($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '') === 'empty') return;   // background fetch()/polling, not a real visit
 
-    sessionTouch($pdo);
+    
     $uid   = (int)$_SESSION['user_id'];
     $email = $_SESSION['email'] ?? '';
 

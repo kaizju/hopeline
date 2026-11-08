@@ -2,6 +2,7 @@
 date_default_timezone_set('Asia/Manila');
 
 if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.gc_maxlifetime', 1800);
     session_start();
 }
 

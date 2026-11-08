@@ -157,8 +157,19 @@ function currentUserEmail() {
 }
 
 function requireLogin() {
-    if (!isLoggedIn()) {
-        redirect('/index.php');
+    global $pdo;
+    if (!isLoggedIn()) redirect('/index.php');
+    if (time() - ($_SESSION['_chk'] ?? 0) > 60) {      // re-check DB once a minute
+        $st = $pdo->prepare("SELECT role, is_verified, archived_at FROM users WHERE id = ?");
+        $st->execute([$_SESSION['user_id']]);
+        $u = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$u || !$u['is_verified'] || $u['archived_at'] !== null) {
+            sessionEnd($pdo);
+            $_SESSION = [];
+            redirect('/index.php');
+        }
+        $_SESSION['role'] = $u['role'];                // role changes apply immediately
+        $_SESSION['_chk'] = time();
     }
 }
 
