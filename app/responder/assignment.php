@@ -119,7 +119,8 @@ if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['erro
     $savedImage = saveIncidentImage($_FILES['incident_photo']);
     $photoPath = $savedImage['path'];
             $gps = exifGps($savedImage['absolute']); $gpsSrc = 'exif';
-            if (!$gps && is_numeric($_POST['client_lat'] ?? '') && is_numeric($_POST['client_lng'] ?? '')) {
+if (!$gps && is_numeric($_POST['client_lat'] ?? '') && is_numeric($_POST['client_lng'] ?? '')
+                && abs((float)$_POST['client_lat']) <= 90 && abs((float)$_POST['client_lng']) <= 180) {
                 $gps = ['lat' => (float)$_POST['client_lat'], 'lng' => (float)$_POST['client_lng'], 'taken' => null];
                 $gpsSrc = 'device';   // phone GPS at upload time (EXIF had no GPS)
             }
@@ -1019,13 +1020,23 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
         updateProgress();
     }
     window.addEventListener('hopegps:position', function (e) { onPosition(e.detail); });
-    var camForm = $('camForm'), camInput = $('camInput');
+var camForm = $('camForm'), camInput = $('camInput');
+function submitPhotoWithGps(form) {
+    var lat = form.elements.client_lat, lng = form.elements.client_lng;
+    var submit = function () { form.submit(); };
+    if (!navigator.geolocation || !window.isSecureContext) { submit(); return; }
+    // Ask for a fresh fix at capture time; if location is unavailable, submit
+    // anyway so the server can still read GPS embedded by the camera (EXIF).
+    navigator.geolocation.getCurrentPosition(function (pos) {
+        lat.value = pos.coords.latitude;
+        lng.value = pos.coords.longitude;
+        submit();
+    }, submit, { enableHighAccuracy: true, maximumAge: 10000, timeout: 8000 });
+}
 document.querySelectorAll('.js-cam').forEach(function (b) { b.addEventListener('click', function () { camInput.click(); }); });
 if (camInput) camInput.addEventListener('change', function () {
     if (!camInput.files.length) return;
-    var f = window.HopeGPS && window.HopeGPS.getLast && window.HopeGPS.getLast();
-    if (f) { camForm.elements.client_lat.value = f.lat; camForm.elements.client_lng.value = f.lng; }
-    camForm.submit();
+    submitPhotoWithGps(camForm);
 });
 var af = $('arriveForm');
 if (af) af.addEventListener('submit', function () {
@@ -1033,9 +1044,11 @@ if (af) af.addEventListener('submit', function () {
     if (f) { af.elements.client_lat.value = f.lat; af.elements.client_lng.value = f.lng; }
 });
 var sr = document.querySelector('.site-report');
-if (sr) sr.addEventListener('submit', function () {
-    var f = window.HopeGPS && window.HopeGPS.getLast && window.HopeGPS.getLast();
-    if (f) { sr.elements.client_lat.value = f.lat; sr.elements.client_lng.value = f.lng; }
+if (sr) sr.addEventListener('submit', function (event) {
+    if (!sr.elements.incident_photo.files.length || sr.dataset.gpsReady === '1') return;
+    event.preventDefault();
+    sr.dataset.gpsReady = '1';
+    submitPhotoWithGps(sr);
 });
 /* ---------- Hospital picker helpers ---------- */
 var DISPATCH_ID = <?php echo (int)$dispatch['id']; ?>;
