@@ -154,6 +154,11 @@ try {
    t.name AS team_name,
    d.incident_photo, d.incident_details, d.photo_lat, d.photo_lng, d.photo_location,
    d.photo_taken_at, d.photo_gps_source, d.site_outcome, d.hospital_name,d.hospital_arrived_at, d.hospital_accepted_at, d.declined_hospitals,
+           (SELECT dl.reason FROM delay_logs dl WHERE dl.dispatch_id=d.id AND dl.resolved_at IS NULL ORDER BY dl.started_at DESC LIMIT 1) AS active_delay_reason,
+           (SELECT dl.started_at FROM delay_logs dl WHERE dl.dispatch_id=d.id AND dl.resolved_at IS NULL ORDER BY dl.started_at DESC LIMIT 1) AS active_delay_started_at,
+           (SELECT dl.notes FROM delay_logs dl WHERE dl.dispatch_id=d.id AND dl.resolved_at IS NULL ORDER BY dl.started_at DESC LIMIT 1) AS active_delay_notes,
+           (SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, dl.started_at, COALESCE(dl.resolved_at,NOW()))),0) FROM delay_logs dl WHERE dl.dispatch_id=d.id) AS total_delay_minutes,
+           (SELECT COUNT(*) FROM delay_logs dl WHERE dl.dispatch_id=d.id) AS delay_count,
            (SELECT GROUP_CONCAT(u3.unit_name ORDER BY u3.unit_name SEPARATOR ', ')
               FROM dispatch d3 JOIN ptv_units u3 ON u3.id = d3.unit_id
               WHERE d3.clip_report_id = c.id AND d3.status IN ('assigned','en_route','on_site')) AS vehicles
@@ -244,6 +249,16 @@ try {
                     <div class="info-block"><div class="label">Resources Needed</div><div class="value"><?php echo htmlspecialchars($inc['problem_resources']); ?></div></div>
                     <div class="info-block"><div class="label">Reported</div><div class="value"><?php echo date('H:i', strtotime($inc['created_at'])); ?></div></div>
                 </div>
+<?php if ($inc['active_delay_reason']): $activeDelayMins = max(0, round((time() - strtotime($inc['active_delay_started_at'])) / 60)); ?>
+                <div class="active-delay-banner" style="margin:12px 0;padding:12px 14px;border-left:4px solid var(--high);background:rgba(217,117,43,.12);border-radius:8px;">
+                    <strong>⚠️ Delay: <?php echo htmlspecialchars($inc['active_delay_reason']); ?></strong>
+                    <span> +<?php echo $activeDelayMins; ?>m ongoing</span>
+                    <?php if ($inc['active_delay_notes']): ?><div><?php echo htmlspecialchars($inc['active_delay_notes']); ?></div><?php endif; ?>
+                    <?php if ($inc['predicted_eta_minutes'] !== null): ?><div>Adjusted ETA: <?php echo round((float)$inc['predicted_eta_minutes']) + (int)$inc['total_delay_minutes']; ?> min</div><?php endif; ?>
+                </div>
+<?php elseif ((int)$inc['delay_count'] > 0): ?>
+                <div class="delay-summary" style="margin:10px 0;color:var(--high);">⏱️ Total delay: +<?php echo (int)$inc['total_delay_minutes']; ?>m (<?php echo (int)$inc['delay_count']; ?> events)</div>
+<?php endif; ?>
 <?php if (!empty($inc['incident_photo'])): ?>
 <div style="display:flex;gap:12px;align-items:flex-start;margin:12px 0;">
     <a href="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" target="_blank">

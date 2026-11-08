@@ -5,17 +5,12 @@ if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.gc_maxlifetime', 1800);
     session_start();
 }
-
+$secrets = __DIR__ . '/secrets.php';
+if (file_exists($secrets)) { require $secrets; }
 define('ARRIVE_GEOFENCE_M', 300);
 define('BASE_URL', 'https://localhost/hopeline');
-<<<<<<< HEAD
-
-$host     = 'localhost';
-$dbname   = 'hopeline';
-=======
 $host = 'localhost';
 $dbname = 'hopeline';
->>>>>>> origin/main
 $username = 'root';
 $password = '';
 

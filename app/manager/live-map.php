@@ -14,14 +14,16 @@ try {
                d.incident_photo, d.photo_lat, d.photo_lng, d.photo_location,
                d.hospital_name, d.hospital_arrived_at,
                c.clip_ref, c.barangay, c.severity,
-               c.latitude AS dest_lat, c.longitude AS dest_lng
+               c.latitude AS dest_lat, c.longitude AS dest_lng,
+               (SELECT dl.reason FROM delay_logs dl WHERE dl.dispatch_id=d.id AND dl.resolved_at IS NULL ORDER BY dl.started_at DESC LIMIT 1) AS delay_reason,
+               (SELECT TIMESTAMPDIFF(MINUTE, dl.started_at, NOW()) FROM delay_logs dl WHERE dl.dispatch_id=d.id AND dl.resolved_at IS NULL ORDER BY dl.started_at DESC LIMIT 1) AS delay_duration_minutes,
+               TIMESTAMPDIFF(SECOND, CASE WHEN d.status='returning' THEN d.resolved_at ELSE d.departed_at END, NOW()) AS elapsed_secs
         FROM ptv_units u
         LEFT JOIN dispatch d ON d.id = (
             SELECT MAX(d2.id) FROM dispatch d2
             WHERE d2.unit_id = u.id AND d2.status IN ('en_route','on_site','returning'))
         LEFT JOIN clip_reports c ON c.id = d.clip_report_id
         ORDER BY u.unit_name ASC
-        TIMESTAMPDIFF(SECOND, CASE WHEN d.status='returning' THEN d.resolved_at ELSE d.departed_at END, NOW()) AS elapsed_secs
     ");
     $units = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -131,7 +133,7 @@ window.esc = window.esc || function (s) { return String(s == null ? '' : s).repl
             className: '',
             html: `<div style="
                 width:26px;height:26px;border-radius:50%;
-                background:${color};border:2.5px solid #fbf0d8;
+                background:${color};border:3px solid ${unit.delay_reason ? '#d9752b' : '#fbf0d8'};
                 box-shadow:0 2px 6px rgba(0,0,0,0.4);
                 display:flex;align-items:center;justify-content:center;">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#fbf0d8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -191,6 +193,7 @@ function elapsedLabel(u) {
             <div class="popup-row">Plate: ${esc(u.plate_no) || '—'}</div>
             ${u.clip_ref ? `<div class="popup-row">Incident: ${esc(u.clip_ref)} (${esc(u.barangay)})</div>` : ''}
             ${u.elapsed_secs != null ? `<div class="popup-row">${u.dispatch_status === 'returning' ? 'Returning' : 'En route'}: ${elapsedLabel(u)}</div>` : ''}
+            ${u.delay_reason ? `<div class="popup-row" style="color:#d9752b;font-weight:700">⚠️ Delay: ${esc(u.delay_reason)} (+${Number(u.delay_duration_minutes || 0)}m)</div>` : ''}
             ${u.hospital_name ? `<div class="popup-row">🏥 ${esc(u.hospital_name)}${u.hospital_arrived_at ? ' · arrived ' + esc(u.hospital_arrived_at.substr(11,5)) : ''}</div>` : ''}
             ${photoHtml}
             <a class="popup-btn" href="javascript:void(0)">View Incident</a>`;
@@ -337,6 +340,7 @@ activeRoutes[u.id] = { coords: route.coords, duration: route.duration,
         unitsListEl.innerHTML = filtered.map(u => {
            const lbl = elapsedLabel(u);
 const alert = lbl ? `<div class="unit-meta alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> ${u.dispatch_status === 'returning' ? 'Returning' : 'En route'} ${lbl}</div>` : '';
+const delayAlert = u.delay_reason ? `<div class="unit-meta" style="color:var(--high);font-weight:700">⚠️ ${esc(u.delay_reason)} (+${Number(u.delay_duration_minutes || 0)}m)</div>` : '';
             const dest = u.barangay ? `<div class="unit-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.35-7-10a7 7 0 0 1 14 0c0 5.65-7 10-7 10z"/></svg> ${u.barangay}</div>` : '';
             return `
             <div class="unit-card ${focusedUnitId === u.id ? 'focused' : ''}" data-id="${u.id}">
@@ -350,6 +354,7 @@ const alert = lbl ? `<div class="unit-meta alert"><svg viewBox="0 0 24 24" fill=
                     </div>
                     <div class="unit-sub">${u.driver_name || '—'} · ${u.plate_no || '—'}</div>
                     ${alert}
+                    ${delayAlert}
                     ${dest}
                 </div>
             </div>`;

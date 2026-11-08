@@ -20,11 +20,12 @@
         var gps = isFresh(u)
             ? '<span style="color:#3f7a5c">● GPS live (' + u.gps_age + 's ago)</span>'
             : '<span style="color:#b02029">● GPS offline</span>';
-        return '<div class="popup-title">' + u.unit_name + '</div>' +
-               '<div class="popup-row">Status: ' + u.status + '</div>' +
-               '<div class="popup-row">Driver: ' + (u.driver_name || '—') + '</div>' +
-               '<div class="popup-row">Plate: ' + (u.plate_no || '—') + '</div>' +
-               (u.clip_ref ? '<div class="popup-row">Incident: ' + u.clip_ref + ' (' + (u.barangay || '') + ')</div>' : '') +
+        return '<div class="popup-title">' + esc(u.unit_name) + '</div>' +
+               '<div class="popup-row">Status: ' + esc(u.status) + '</div>' +
+               '<div class="popup-row">Driver: ' + esc(u.driver_name || '—') + '</div>' +
+               '<div class="popup-row">Plate: ' + esc(u.plate_no || '—') + '</div>' +
+               (u.clip_ref ? '<div class="popup-row">Incident: ' + esc(u.clip_ref) + ' (' + esc(u.barangay || '') + ')</div>' : '') +
+               (u.has_active_delay ? '<div class="popup-row" style="color:#d9752b;font-weight:700">⚠️ Delay: ' + esc(u.delay_reason) + ' (+' + Number(u.delay_duration_minutes || 0) + 'm)</div>' : '') +
                (u.gps_speed != null ? '<div class="popup-row">Speed: ' + Math.round(u.gps_speed * 3.6) + ' km/h</div>' : '') +
                '<div class="popup-row">' + gps + '</div>';
     }
