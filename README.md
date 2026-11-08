@@ -2,15 +2,50 @@
 
 HopeLine is an emergency incident reporting and response coordination system. Managers can log incidents, assign response vehicles, and monitor active work on a live map. Responders can view assignments, share their location, report delays, and submit on-site updates. Administrators manage users, teams, response units, settings, reports, and audit records.
 
-## Main capabilities
+## Features
 
-- Role-based areas for administrators, managers, and responders
-- Incident intake for phone and walk-in reports, including map location and severity
-- Dispatch of one or more response units and tracking of dispatch status
-- Live map views for incidents and GPS-enabled response units
-- Responder assignment details, delay reporting, site photos, and closeout information
-- Incident history, analytics, exports, alerts, and activity/security logs
-- Login throttling, verified-account checks, and session activity tracking
+### Incident intake and dispatch
+
+- Record phone and walk-in emergency reports with caller details, incident type, severity, notes, and a map location.
+- Assign response units and crews to incidents, and track each dispatch through assigned, en route, on-site, returning, and completion states.
+- Track unit availability and show active incidents and responding units on map views.
+- Calculate and display estimated travel times; dispatch records can include site photos, GPS coordinates, and patient/outcome details.
+
+### Field response
+
+- Give responders a dashboard, current assignment view, and response history.
+- Collect responder GPS updates, including accuracy, heading, speed, and last update time, when the user grants location access.
+- Let responders report and clear delays with a reason and notes; managers can review active delay alerts and their effect on response times.
+- Save on-site updates and closeout details, including photos and location information.
+
+### Management and administration
+
+- Provide separate dashboards and pages for administrators, managers, and responders.
+- Manage user accounts, teams, response units, and system settings.
+- Review incident history, active incidents, alerts, and delay reports.
+- View analytics and export case or analytics data as CSV.
+- Keep activity, sign-in session, and security logs for review.
+
+### Account and access controls
+
+- Check verified account status at login and route users to the area for their role.
+- Apply login attempt throttling and regenerate the PHP session ID after successful authentication.
+- Track session activity and sign-in events.
+
+## Technologies
+
+| Area | Technology |
+| --- | --- |
+| Server-side application | PHP |
+| Database access | PDO with the MySQL driver |
+| Database | MariaDB 10.4+ or MySQL 8+, using InnoDB and `utf8mb4` |
+| Browser interface | HTML, CSS, and JavaScript |
+| Maps | Leaflet 1.9.4 and Leaflet Routing Machine (bundled in `assets/vendor/`) |
+| Map data and geocoding | OpenStreetMap tiles/attribution and Nominatim reverse geocoding |
+| Route and travel-time services | OSRM routing/table service endpoints |
+| Optional desktop shell | Electron 23.1.3 with Node.js/npm; PHP still runs as a separate local server process |
+
+The web application does not require npm for its normal PHP/Apache setup. `package.json` is used for the optional Electron shell and its JavaScript dependency. The project uses browser geolocation for field location reporting. External map, geocoding, and routing services need network access and have their own usage policies and availability limits.
 
 ## Requirements
 
