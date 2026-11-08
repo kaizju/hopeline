@@ -134,6 +134,21 @@ function postStr(string $k, int $max = 255): string {
     $v = $_POST[$k] ?? '';
     return is_string($v) ? mb_substr(trim($v), 0, $max) : '';
 }
+    function revalidateSessionUser(): bool {
+    global $pdo;
+    if (time() - ($_SESSION['_chk'] ?? 0) <= 60) return true;
+    $st = $pdo->prepare("SELECT role, is_verified, archived_at FROM users WHERE id = ?");
+    $st->execute([$_SESSION['user_id']]);
+    $u = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$u || !$u['is_verified'] || $u['archived_at'] !== null) {
+        sessionEnd($pdo);
+        $_SESSION = [];
+        return false;
+    }
+    $_SESSION['role'] = $u['role'];
+    $_SESSION['_chk'] = time();
+    return true;
+}
 function isLoggedIn() {
     if (!isset($_SESSION['user_id'])) return false;
     if (time() - ($_SESSION['_last'] ?? time()) > 1800) {   // 30 min idle
@@ -157,20 +172,7 @@ function currentUserEmail() {
 }
 
 function requireLogin() {
-    global $pdo;
-    if (!isLoggedIn()) redirect('/index.php');
-    if (time() - ($_SESSION['_chk'] ?? 0) > 60) {      // re-check DB once a minute
-        $st = $pdo->prepare("SELECT role, is_verified, archived_at FROM users WHERE id = ?");
-        $st->execute([$_SESSION['user_id']]);
-        $u = $st->fetch(PDO::FETCH_ASSOC);
-        if (!$u || !$u['is_verified'] || $u['archived_at'] !== null) {
-            sessionEnd($pdo);
-            $_SESSION = [];
-            redirect('/index.php');
-        }
-        $_SESSION['role'] = $u['role'];                // role changes apply immediately
-        $_SESSION['_chk'] = time();
-    }
+    if (!isLoggedIn() || !revalidateSessionUser()) redirect('/index.php');
 }
 
 function requireRole($role) {
@@ -187,25 +189,6 @@ function renderHeader($title) {
     $currentRole = $_SESSION['role'] ?? 'guest';
     $currentEmail = $_SESSION['email'] ?? '';
     $isLoggedIn = isset($_SESSION['user_id']);
-    function revalidateSessionUser(): bool {
-    global $pdo;
-    if (time() - ($_SESSION['_chk'] ?? 0) <= 60) return true;
-    $st = $pdo->prepare("SELECT role, is_verified, archived_at FROM users WHERE id = ?");
-    $st->execute([$_SESSION['user_id']]);
-    $u = $st->fetch(PDO::FETCH_ASSOC);
-    if (!$u || !$u['is_verified'] || $u['archived_at'] !== null) {
-        sessionEnd($pdo);
-        $_SESSION = [];
-        return false;
-    }
-    $_SESSION['role'] = $u['role'];
-    $_SESSION['_chk'] = time();
-    return true;
-}
-
-function requireLogin() {
-    if (!isLoggedIn() || !revalidateSessionUser()) redirect('/index.php');
-}
     ?>
     <!DOCTYPE html>
     <html lang="en">

@@ -12,7 +12,7 @@ function slAgo($secs): string {
     $s = max(0, (int)$secs);
     if ($s < 60)    return $s . 's ago';
     if ($s < 3600)  return floor($s / 60) . 'm ago';
-    if ($s < 86400) return floor($s / 3600) . 'h ago';
+    if ($s < 86400) { $h = floor($s / 3600); $m = floor(($s % 3600) / 60); return $h . 'h' . ($m ? " {$m}m" : '') . ' ago'; }
     return floor($s / 86400) . 'd ago';
 }
 function slDur($secs): string {
@@ -159,8 +159,10 @@ $modules = $mq->fetchAll(PDO::FETCH_COLUMN);
                 <td><?php echo slh($r['module']); ?></td>
                 <td style="white-space:normal;min-width:220px;"><?php echo slh($r['description']); ?></td>
                 <td class="clip-ref-cell"><?php echo slh($r['ip_address']); ?></td>
-                <td title="<?php echo slh($r['created_at']); ?>"><?php echo slAgo($r['age_s']); ?>
-                    <div class="audit-meta"><?php echo slh(date('M j, H:i:s', strtotime($r['created_at']))); ?></div></td>
+                <td title="<?php echo slh($r['created_at']); ?>">
+    <span class="js-ago" data-age="<?php echo (int)$r['age_s']; ?>"><?php echo slAgo($r['age_s']); ?></span>
+    <div class="audit-meta"><?php echo slh(date('M j, H:i:s', strtotime($r['created_at']))); ?></div>
+</td>
             </tr>
         <?php endforeach; ?>
         </tbody>
@@ -221,6 +223,23 @@ function renderSecurityLogCard(PDO $pdo, string $role, int $uid, string $href): 
                 <span class="audit-status status-<?php echo slh($r['status']); ?>"><?php echo slh($r['status']); ?></span>
             </div>
         <?php endforeach; endif; ?>
+        <script>
+(function () {
+    var t0 = Date.now();
+    function fmt(s) {
+        if (s < 60) return s + 's ago';
+        if (s < 3600) return Math.floor(s / 60) + 'm ago';
+        if (s < 86400) { var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h + 'h' + (m ? ' ' + m + 'm' : '') + ' ago'; }
+        return Math.floor(s / 86400) + 'd ago';
+    }
+    setInterval(function () {
+        var d = Math.floor((Date.now() - t0) / 1000);
+        document.querySelectorAll('.js-ago').forEach(function (el) {
+            el.textContent = fmt(parseInt(el.dataset.age, 10) + d);
+        });
+    }, 15000);
+})();
+</script>
     </div>
     <?php
 }

@@ -136,7 +136,6 @@ $statusText = ['assigned' => 'Awaiting departure', 'en_route' => 'En route', 'on
         <?php endif; ?>
 
         <div class="stats-grid">
-            <?php renderSecurityLogCard($pdo, 'user', (int)$_SESSION['user_id'], BASE_URL . '/app/responder/security-logs.php'); ?>
             <div class="stat-card">
     <div class="stat-value"><?php echo htmlspecialchars($teamName); ?></div>
     <div class="stat-label">Your Team · <?php echo htmlspecialchars($myVehicles); ?></div>
@@ -163,6 +162,7 @@ $statusText = ['assigned' => 'Awaiting departure', 'en_route' => 'En route', 'on
         </div>
 
         <div class="card">
+             <?php renderSecurityLogCard($pdo, 'user', (int)$_SESSION['user_id'], BASE_URL . '/app/responder/security-logs.php'); ?>
             <div class="card-header">
                 <h2>Recent Activity</h2>
                 <a href="<?php echo BASE_URL; ?>/app/responder/my-history.php">View all →</a>

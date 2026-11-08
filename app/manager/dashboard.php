@@ -63,7 +63,7 @@ $unreadAlerts = $delayedCount;
 
         <!-- Stat cards -->
         <div class="stats-grid">
-            <?php renderSecurityLogCard($pdo, 'manager', (int)$_SESSION['user_id'], BASE_URL . '/app/manager/security-logs.php'); ?>
+          
             <div class="stat-card">
                 <div class="stat-top">
                     <div><div class="stat-value"><?php echo (int)$activeCount; ?></div><div class="stat-label">Active Incidents</div></div>
@@ -111,6 +111,7 @@ $unreadAlerts = $delayedCount;
             <div>
                 <!-- Active incidents -->
                 <div class="card">
+                      <?php renderSecurityLogCard($pdo, 'manager', (int)$_SESSION['user_id'], BASE_URL . '/app/manager/security-logs.php'); ?>
                     <div class="card-header">
                         <h2>Active Incidents</h2>
                         <a href="<?php echo BASE_URL; ?>/app/manager/active-incidents.php">View all →</a>
