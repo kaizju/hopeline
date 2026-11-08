@@ -35,6 +35,20 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $flash = 'Photo too large. Server limit is ' . ini_get('post_max_size') . '.';
     }
     try {
+        if ($action === 'resolve_delay') {
+            $pdo->beginTransaction();
+            $check = $pdo->prepare("SELECT dl.id FROM delay_logs dl JOIN dispatch d ON d.id=dl.dispatch_id WHERE dl.id=? AND dl.dispatch_id=? AND d.team_id=? AND dl.resolved_at IS NULL FOR UPDATE");
+            $check->execute([(int)($_POST['delay_id'] ?? 0), $dispatchId, $myTeamId]);
+            $delayRow = $check->fetchColumn();
+            if ($delayRow) {
+                $pdo->prepare("UPDATE delay_logs SET resolved_at=NOW() WHERE id=? AND resolved_at IS NULL")->execute([$delayRow]);
+                $pdo->commit();
+                $flash = 'Delay cleared — you are moving again.';
+            } else {
+                $pdo->rollBack();
+                $flash = 'This delay is already cleared or no longer belongs to your dispatch.';
+            }
+        }
         if ($action === 'arrive' && defined('ARRIVE_GEOFENCE_M') && ARRIVE_GEOFENCE_M > 0) {
     $g = $pdo->prepare("SELECT u.current_lat ulat, u.current_lng ulng, c.latitude clat, c.longitude clng
         FROM dispatch d JOIN ptv_units u ON u.id = d.unit_id JOIN clip_reports c ON c.id = d.clip_report_id
@@ -237,6 +251,7 @@ $unitStatus = $unit['status'] ?? 'Available';
    Active dispatch for this unit
    --------------------------------------------------------------- */
 $dispatch = null;
+$activeDelay = null;
 if ($unit) {
     $dStmt = $pdo->prepare("
         SELECT d.*,
@@ -253,6 +268,11 @@ if ($unit) {
     ");
         $dStmt->execute([$myTeamId]);
     $dispatch = $dStmt->fetch(PDO::FETCH_ASSOC);
+    if ($dispatch) {
+        $delayStmt = $pdo->prepare("SELECT id, reason, started_at FROM delay_logs WHERE dispatch_id=? AND unit_id=? AND resolved_at IS NULL ORDER BY started_at DESC LIMIT 1");
+        $delayStmt->execute([$dispatch['id'], $unit['id']]);
+        $activeDelay = $delayStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
 }
 
 /* Navigation config handed to the JS below */
@@ -399,7 +419,19 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                     <input type="hidden" name="client_lat"><input type="hidden" name="client_lng">
                     <button type="submit" class="btn-action"><?php echo hl_ico('arrow'); ?> Mark as Arrived</button>
                 </form>
-                <a href="<?php echo BASE_URL; ?>/app/responder/report-delay.php" class="hud-link">Running late? Report a delay</a>
+                <?php if ($activeDelay): $delayMins = max(0, round((time() - strtotime($activeDelay['started_at'])) / 60)); ?>
+                    <div class="active-delay-banner" style="padding:10px 12px;background:rgba(217,117,43,.14);border-left:4px solid var(--high);border-radius:8px;color:var(--high);font-weight:700;">
+                        ⚠️ Delay in effect: <?php echo hle($activeDelay['reason']); ?> (+<?php echo $delayMins; ?>m)
+                        <form method="POST" style="margin-top:8px;">
+                            <input type="hidden" name="action" value="resolve_delay">
+                            <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
+                            <input type="hidden" name="delay_id" value="<?php echo (int)$activeDelay['id']; ?>">
+                            <button type="submit" class="btn-action">Clear delay — moving again</button>
+                        </form>
+                    </div>
+                <?php else: ?>
+                    <a href="<?php echo BASE_URL; ?>/app/responder/report-delay.php" class="hud-link">Running late? Report a delay</a>
+                <?php endif; ?>
 
             <?php elseif ($step === 'on_site'):
     $so = $dispatch['site_outcome']; $hasPhoto = !empty($dispatch['incident_photo']);

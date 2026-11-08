@@ -77,10 +77,19 @@
         if (!window.isSecureContext) { setState('insecure'); return; }
         if (!('geolocation' in navigator)) { setState('unavailable'); return; }
         stopWatch();
+        // Ask for a quick network/cached fix in parallel with the precise GPS
+        // watch. High-accuracy-only requests can take a long time to get the
+        // first fix, especially indoors; the watch will replace this with a
+        // more accurate position as soon as the device gets one.
+        navigator.geolocation.getCurrentPosition(onPosition, function () {}, {
+            enableHighAccuracy: false,
+            maximumAge: 15000,
+            timeout: 8000
+        });
         watchId = navigator.geolocation.watchPosition(onPosition, onError, {
             enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 20000
+            maximumAge: 5000,
+            timeout: 12000
         });
     }
     function stopWatch() {

@@ -51,7 +51,6 @@ if (!is_numeric($longitude) || abs((float)$longitude) > 180) $longitude = '';
 if ($latitude === '' || $longitude === '') $errors[] = 'Drop a map pin on the incident location.';
     if ($callerName === '')    $errors[] = 'Caller name is required.';
     if ($barangay === '')      $errors[] = 'Purok is required.';
-    if ($barangay !== ''     && !in_array($barangay, purokList(), true))     $errors[] = 'Invalid purok.';
 if ($incidentType !== '' && !in_array($incidentType, $validTypes, true)) $errors[] = 'Invalid incident type.';
 if (!in_array($severity, ['Critical','High','Moderate','Low'], true))    $errors[] = 'Severity is required.';
     
@@ -221,19 +220,19 @@ $stmt->execute([
                     <div class="field-row">
                         <div class="field">
     <label for="barangay">Purok <span class="optional" id="barangayAutoTag" style="display:none;">(auto-detected from pin)</span></label>
-    <select id="barangay" name="barangay" required>
-        <option value="">Select purok…</option>
-        <option>Kihare</option>
-        <option>Lower Kalanawan</option>
-        <option>Lower Pol-ton</option>
-        <option>Lower Sosohon</option>
-        <option>Mangima</option>
-        <option>Saint Joseph</option>
-        <option>Upper Kalanawan</option>
-        <option>Upper Pol-ton</option>
-        <option>Upper Sosohon</option>
-        <option>Mullberry Village</option>
-    </select>
+    <input type="text" id="barangay" name="barangay" list="purokOptions" maxlength="100" placeholder="Select or enter a purok / barangay" required>
+    <datalist id="purokOptions">
+        <option value="Kihare"></option>
+        <option value="Lower Kalanawan"></option>
+        <option value="Lower Pol-ton"></option>
+        <option value="Lower Sosohon"></option>
+        <option value="Mangima"></option>
+        <option value="Saint Joseph"></option>
+        <option value="Upper Kalanawan"></option>
+        <option value="Upper Pol-ton"></option>
+        <option value="Upper Sosohon"></option>
+        <option value="Mullberry Village"></option>
+    </datalist>
 </div>
                     <div class="field">
   <label>Report received via</label>
@@ -417,7 +416,9 @@ function findNearestBarangay(lat, lng) {
         const dist = haversineDistance(lat, lng, coords.lat, coords.lng);
         if (dist < minDist) { minDist = dist; nearest = name; }
     }
-    return nearest;
+    // Known Tankulan-area suggestions are only approximate; never label a
+    // pin in a more distant location as one of these by default.
+    return minDist <= 3 ? nearest : null;
 }
     // Approximate barangay centers for Manolo Fortich, Bukidnon.
     // ⚠️ PLACEHOLDER COORDINATES — verify against LGU/LDRRMO GIS data
@@ -580,31 +581,48 @@ Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].avai
             draggableWaypoints: false,
             fitSelectedRoutes: true,
             show: false
-        }).on('routesfound', function (e) {
-            const route = e.routes[0];
-            const distanceKm = route.summary.totalDistance / 1000;
+        }).on('routesfound', async function (e) {
+    const route = e.routes[0];
+    const distanceKm = route.summary.totalDistance / 1000;
+    const travelMinutes = (distanceKm / AVERAGE_SPEED_KMH) * 60;
 
-            const travelMinutes = (distanceKm / AVERAGE_SPEED_KMH) * 60;
-            const totalMinutes = travelMinutes + DISPATCH_DELAY_MIN;
+    // Fetch dynamic delays from backend
+    let weatherDelay = 0;
+    let rushDelay = 0;
+    let weatherCond = 'Clear';
 
-            etaPanel.classList.remove('eta-pending');
-            etaValueEl.innerHTML = formatEta(totalMinutes) + ' <span>estimated arrival</span>';
-            etaBreakdownEl.innerHTML =
-                'Distance: <strong>' + distanceKm.toFixed(2) + ' km</strong> · ' +
-                'Travel: <strong>' + travelMinutes.toFixed(1) + ' min</strong> @ ' + AVERAGE_SPEED_KMH + ' km/h · ' +
-                'Dispatch delay: <strong>+' + DISPATCH_DELAY_MIN + ' min</strong>';
+    try {
+        const res = await fetch(`../../api/delay-factors.php?lat=${destLat}&lng=${destLng}`);
+        const data = await res.json();
+        if (data.ok) {
+            weatherDelay = data.weather_delay_min;
+            rushDelay = data.rush_delay_min;
+            weatherCond = data.weather_condition;
+        }
+    } catch (err) {
+        console.warn('Delay factors offline, using standard ETA');
+    }
 
-            etaMinutesInput.value = totalMinutes.toFixed(1);
+    const totalMinutes = travelMinutes + DISPATCH_DELAY_MIN + weatherDelay + rushDelay;
+
+    etaPanel.classList.remove('eta-pending');
+    etaValueEl.innerHTML = formatEta(totalMinutes) + ' <span>estimated arrival</span>';
+    etaBreakdownEl.innerHTML =
+        'Distance: <strong>' + distanceKm.toFixed(2) + ' km</strong> · ' +
+        'Travel: <strong>' + travelMinutes.toFixed(1) + ' min</strong> · ' +
+        'Dispatch: <strong>+' + DISPATCH_DELAY_MIN + ' min</strong>' +
+        (weatherDelay > 0 ? ` · Weather (${weatherCond}): <strong>+${weatherDelay} min</strong>` : '') +
+        (rushDelay > 0 ? ` · Rush hour: <strong>+${rushDelay} min</strong>` : '');
+
+                etaMinutesInput.value = totalMinutes.toFixed(1);
             setSummary('sumEta', formatEta(totalMinutes));
             document.getElementById('sumEta').classList.add('eta-highlight');
         }).on('routingerror', function () {
             etaPanel.classList.add('eta-pending');
             etaValueEl.textContent = 'Route unavailable — check connection to OSRM.';
             etaBreakdownEl.innerHTML = '';
-            etaMinutesInput.value = '';
-            setSummary('sumEta', '');
         }).addTo(map);
-    }
+    } // <-- closed calculateRoute
 
         function dropPin(lat, lng, keepPurok) {
         if (marker) map.removeLayer(marker);
