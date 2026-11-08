@@ -1,2 +1,4 @@
 node_modules/
 config/config.php
+assets/uploads
+config/secrets.php
