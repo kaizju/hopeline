@@ -6,10 +6,13 @@ require_once __DIR__ . '/../../config/closeout.php';
 
 requireRole('admin');
 
-$flash = '';
+$flash = consumeFlash();
+$flashType = consumeFlashType();
+$postFlashType = 'success';
 $dispatchId = (int)($_POST['dispatch_id'] ?? 0);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
+    try {
 
     if ($action === 'force_cancel') {
     $id = (int)($_POST['clip_report_id'] ?? 0);
@@ -20,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cur = $st->fetchColumn();
         if ($cur === false || in_array($cur, ['resolved', 'cancelled'], true)) {
             $pdo->rollBack();
+            $postFlashType = 'error';
             $flash = 'Only pending or dispatched incidents can be cancelled.';
         } else {
             $act = "('assigned','en_route','on_site','returning')";
@@ -37,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (PDOException $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         error_log($e->getMessage());
+        $postFlashType = 'error';
         $flash = 'Cancel failed. Please try again.';
     }
 }
@@ -49,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $status = $stmt->fetchColumn();
 
         if (!in_array($status, ['resolved', 'cancelled'])) {
+            $postFlashType = 'error';
             $flash = "Only resolved or cancelled incidents can be archived.";
         } else {
             $pdo->prepare("UPDATE clip_reports SET archived_at = NOW() WHERE id = ?")->execute([$id]);
@@ -72,6 +78,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
        if ($action === 'save_closeout') {
        $flash = saveCloseout($pdo, $dispatchId);
    }
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('HopeLine incident action failed: ' . $e->getMessage());
+        $postFlashType = 'error';
+        $flash = 'Incident action failed. Check the incident details and try again.';
+    }
+    redirectAfterPost('incidents.php', $flash ?: 'No incident action was completed.', $postFlashType);
 }
 
 $view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
@@ -137,7 +150,7 @@ $unreadAlerts = 0;
       <?php echo exportPeriodForm(BASE_URL . '/app/admin/export-cases.php', array_diff_key($_GET, array_flip(['period','ref','from','to','page']))); ?>
     </div>
 
-    <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
+    <?php if ($flash): ?><div class="<?php echo $flashType === 'error' ? 'alert-banner alert-error' : 'flash'; ?>"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
 
     <div class="tabs">
         <a href="?view=active" class="tab <?php echo $view === 'active' ? 'active' : ''; ?>" style="text-decoration:none;">Active</a>

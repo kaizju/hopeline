@@ -134,6 +134,27 @@ function postStr(string $k, int $max = 255): string {
     $v = $_POST[$k] ?? '';
     return is_string($v) ? mb_substr(trim($v), 0, $max) : '';
 }
+
+function redirectAfterPost(string $location, string $message = '', string $type = 'success'): void {
+    if ($message !== '') {
+        $_SESSION['flash'] = $message;
+        $_SESSION['flash_type'] = $type === 'error' ? 'error' : 'success';
+    }
+    header('Location: ' . $location, true, 303);
+    exit;
+}
+
+function consumeFlash(): string {
+    $message = $_SESSION['flash'] ?? '';
+    unset($_SESSION['flash']);
+    return is_string($message) ? $message : '';
+}
+
+function consumeFlashType(): string {
+    $type = $_SESSION['flash_type'] ?? 'success';
+    unset($_SESSION['flash_type']);
+    return $type === 'error' ? 'error' : 'success';
+}
     function revalidateSessionUser(): bool {
     global $pdo;
     if (time() - ($_SESSION['_chk'] ?? 0) <= 60) return true;

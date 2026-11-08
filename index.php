@@ -11,7 +11,7 @@ if (isLoggedIn()) {
     }
 }
 
-$error = '';
+$error = consumeFlash();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email    = is_string($_POST['email'] ?? null) ? trim($_POST['email']) : '';
@@ -45,15 +45,16 @@ $_SESSION['_chk']  = time();
             logActivity($pdo, $user['id'], $user['email'], 'login', 'success');
 
             switch ($user['role']) {
-                case 'admin':   redirect('/app/admin/dashboard.php'); break;
-                case 'manager': redirect('/app/manager/dashboard.php'); break;
-                case 'user':    redirect('/app/responder/dashboard.php'); break;
+                case 'admin':   redirectAfterPost(BASE_URL . '/app/admin/dashboard.php'); break;
+                case 'manager': redirectAfterPost(BASE_URL . '/app/manager/dashboard.php'); break;
+                case 'user':    redirectAfterPost(BASE_URL . '/app/responder/dashboard.php'); break;
             }
         } else {
             $error = 'Invalid credentials or email not verified';
             logActivity($pdo, null, $email, 'login', 'failed');
         }
     }
+    redirectAfterPost(BASE_URL . '/index.php', $error, 'error');
 }
 
 renderHeader('Login');

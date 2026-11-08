@@ -7,11 +7,15 @@ require_once __DIR__ . '/../../config/closeout.php';
 requireRole('manager');   // must run BEFORE handling the POST
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_closeout') {
-    $_SESSION['flash'] = saveCloseout($pdo, (int)($_POST['dispatch_id'] ?? 0));
-    header('Location: ' . $_SERVER['REQUEST_URI']);   // keeps the current filters and page
-    exit;
+    try {
+        redirectAfterPost('incident-history.php', saveCloseout($pdo, (int)($_POST['dispatch_id'] ?? 0)));
+    } catch (Throwable $e) {
+        error_log('HopeLine case details could not be saved: ' . $e->getMessage());
+        redirectAfterPost('incident-history.php', 'Case details could not be saved. Refresh and try again.', 'error');
+    }
 }
-$flash = $_SESSION['flash'] ?? ''; unset($_SESSION['flash']);
+$flash = consumeFlash();
+$flashType = consumeFlashType();
 
 $dateFrom = $_GET['from'] ?? date('Y-m-01');
 $dateTo   = $_GET['to'] ?? date('Y-m-d');
@@ -19,7 +23,7 @@ $barangayFilter = $_GET['barangay'] ?? '';
 $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 15;
 $offset = ($page - 1) * $perPage;
-$history = []; $totalRows = 0; $barangays = purokList();
+$history = []; $totalRows = 0; $barangays = purokList(); $loadError = '';
 try {
     $in = "'" . implode("','", purokList()) . "'";
     $where = "WHERE c.created_at BETWEEN ? AND ? AND c.barangay IN ($in)";
@@ -61,7 +65,8 @@ try {
 
     $barangays = purokList();
 } catch (PDOException $e) {
-    error_log($e->getMessage());
+    error_log('HopeLine incident history could not be loaded: ' . $e->getMessage());
+    $loadError = 'Incident history could not be loaded. Refresh the page or contact an administrator.';
 }
 
 $totalPages = max(1, ceil($totalRows / $perPage));
@@ -86,8 +91,9 @@ function fmtDuration($seconds) {
 <?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
 
 <main class="main main-1320">
+    <?php if ($loadError): ?><div class="alert-banner alert-error"><?php echo htmlspecialchars($loadError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
     <div class="page-head">
-        <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
+        <?php if ($flash): ?><div class="<?php echo $flashType === 'error' ? 'alert-banner alert-error' : 'flash'; ?>"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
         <h1>Incident History</h1>
         <p>Full CLIP-to-arrival timeline for all logged incidents.</p>
     </div>

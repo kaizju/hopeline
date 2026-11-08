@@ -6,6 +6,8 @@ require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('manager');
 $validTypes = ['Medical Emergency','Fire','Vehicular Accident','Flood / Landslide','Violence / Assault','Other'];
+$flash = consumeFlash();
+$flashType = consumeFlashType();
 $errors  = [];
 $success = false;
 $vehicleStock = [];
@@ -89,9 +91,14 @@ $stmt->execute([
             $success = true;
             $lastClipRef = $clipRef;
         } catch (PDOException $e) {
-            $errors[] = 'Failed to save report: ' . $e->getMessage();
+            error_log('HopeLine incident report could not be saved: ' . $e->getMessage());
+            $errors[] = 'The report could not be saved. Check the details and try again.';
         }
     }
+    if ($success) {
+        redirectAfterPost('clip-report.php', 'Incident ' . $lastClipRef . ' logged successfully. You can now dispatch a unit from Active Incidents.');
+    }
+    redirectAfterPost('clip-report.php', implode(' ', $errors) ?: 'The incident report could not be submitted.', 'error');
 }
 ?>
 <!DOCTYPE html>
@@ -151,7 +158,9 @@ $stmt->execute([
         <span class="clip-ref-preview" id="clipRefPreview">Reference: generating on submit…</span>
     </div>
 
-    <?php if ($success): ?>
+    <?php if ($flash): ?>
+        <div class="alert-banner alert-<?php echo $flashType === 'error' ? 'error' : 'success'; ?>"><?php echo htmlspecialchars($flash, ENT_QUOTES, 'UTF-8'); ?></div>
+    <?php elseif ($success): ?>
         <div class="alert-banner alert-success">
             ✅ CLIP report <strong><?php echo htmlspecialchars($lastClipRef); ?></strong> logged successfully. You can now dispatch a unit from <strong>Active Incidents</strong>.
         </div>

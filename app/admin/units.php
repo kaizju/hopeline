@@ -5,7 +5,9 @@ require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('admin');
 
-$flash = '';
+$flash = consumeFlash();
+$flashType = consumeFlashType();
+$postFlashType = 'success';
 $defaultTypes = ['Ambulance','Patient Transport Vehicle (PTV)','Water Tanker','Fire Truck','Pick Up'];
 $dbTypes = $pdo->query("SELECT DISTINCT vehicle_type FROM ptv_units WHERE vehicle_type IS NOT NULL AND vehicle_type <> ''")->fetchAll(PDO::FETCH_COLUMN);
 $vehicleTypes = array_values(array_unique(array_merge($defaultTypes, $dbTypes)));
@@ -28,8 +30,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($unitName === '') {
+                $postFlashType = 'error';
                 $flash = 'Unit name is required.';
             } elseif ($vehicleType === '') {
+                $postFlashType = 'error';
                 $flash = 'Choose a vehicle type or enter a new one.';
             } else {
                 $stmt = $pdo->prepare("INSERT INTO ptv_units (unit_name, plate_no, vehicle_type, responder_id, status, current_lat, current_lng) VALUES (?, ?, ?, ?, 'Available', ?, ?)");
@@ -50,6 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $status = $_POST['status'] ?? '';
     $allowed = ['Available', 'Assigned', 'En Route', 'On Site', 'Returning', 'Offline'];
     if (!is_string($status) || !in_array($status, $allowed, true)) {
+        $postFlashType = 'error';
         $flash = 'Invalid status.';
     } else {
         $act = "('assigned','en_route','on_site','returning')";
@@ -103,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $active->execute([$unitId]);
     if ($active->fetchColumn() > 0) {
         $pdo->rollBack();
+        $postFlashType = 'error';
         $flash = "Can't archive — this unit has an active dispatch. Resolve or reassign it first.";
     } else {
         $pdo->prepare("UPDATE ptv_units SET archived_at = NOW(), responder_id = NULL, status = 'Offline' WHERE id = ?")->execute([$unitId]);
@@ -122,7 +128,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
        } catch (PDOException $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('HopeLine unit management error: ' . $e->getMessage());
+        $postFlashType = 'error';
+        $flash = 'Unit action failed. Check the selected unit and try again.';
     }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    redirectAfterPost('units.php', $flash ?: 'No unit action was completed.', $postFlashType);
 }
 
 $view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
@@ -177,7 +189,7 @@ $unreadAlerts = 0;
         <?php endif; ?>
     </div>
 
-    <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
+    <?php if ($flash): ?><div class="<?php echo $flashType === 'error' ? 'alert-banner alert-error' : 'flash'; ?>"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
 
     <div class="tabs">
         <a href="?view=active" class="tab <?php echo $view === 'active' ? 'active' : ''; ?>" style="text-decoration:none;">Active</a>

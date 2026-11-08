@@ -18,7 +18,9 @@ $unitStmt->execute([$myTeamId]);
 $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
 if (!$unit) $unit = ['id' => 0, 'unit_name' => 'No vehicle assigned', 'plate_no' => '', 'status' => 'Available'];
 
-$flash = '';
+$flash = consumeFlash();
+$flashType = consumeFlashType();
+$postFlashType = 'success';
 
 if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -39,6 +41,9 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
             logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'delay_reported', 'success');
         }
         $flash = 'Delay reported. The command center has been notified.';
+    } else {
+        $postFlashType = 'error';
+        $flash = 'This dispatch is no longer assigned to your team.';
     }
 }
 
@@ -47,9 +52,14 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
          $pdo->prepare("UPDATE delay_logs SET resolved_at = NOW() WHERE id = ? AND dispatch_id IN (SELECT id FROM dispatch WHERE team_id = ?)")->execute([$delayId, $myTeamId]);
             $flash = "Delay cleared — you're moving again.";
         }
-    } catch (PDOException $e) {
-        $flash = 'Action failed: ' . $e->getMessage();
+    } catch (Throwable $e) {
+        error_log('HopeLine responder delay action failed: ' . $e->getMessage());
+        $postFlashType = 'error';
+        $flash = 'Delay action failed. Refresh the page and try again.';
     }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    redirectAfterPost('report-delay.php', $flash ?: 'No delay action was completed.', $postFlashType);
 }
 
 $dispatch = null;
@@ -95,7 +105,7 @@ $unreadAlerts = 0;
         <p>Let the command center know if something's slowing you down.</p>
     </div>
 
-    <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
+    <?php if ($flash): ?><div class="<?php echo $flashType === 'error' ? 'alert-banner alert-error' : 'flash'; ?>"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
 
     <?php if (!$unit): ?>
         <div class="empty-state">No PTV unit linked to your account. Contact your admin.</div>

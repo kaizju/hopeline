@@ -5,7 +5,9 @@ require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('admin');
 
-$flash = '';
+$flash = consumeFlash();
+$flashType = consumeFlashType();
+$postFlashType = 'success';
 $validRoles = ['admin', 'manager', 'user'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -17,10 +19,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $role = in_array($_POST['role'] ?? '', $validRoles, true) ? $_POST['role'] : 'user';
 
             if ($name === '' || $email === '' || $password === '') {
+                $postFlashType = 'error';
                 $flash = 'Name, email, and password are required.';
             } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $postFlashType = 'error';
                 $flash = 'Enter a valid email address.';
             } elseif (strlen($password) < 12) {
+                $postFlashType = 'error';
                 $flash = 'Use a password with at least 12 characters.';
             } else {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
@@ -36,8 +41,8 @@ logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_created', 'suc
         if ($action === 'update_role') {
             $userId = (int)($_POST['user_id'] ?? 0);
             $role = $_POST['role'] ?? '';
-            if (!in_array($role, $validRoles, true))              { $flash = 'Invalid role.'; }
-elseif ($userId === (int)$_SESSION['user_id'])        { $flash = "You can't change your own role."; }
+            if (!in_array($role, $validRoles, true))              { $postFlashType = 'error'; $flash = 'Invalid role.'; }
+elseif ($userId === (int)$_SESSION['user_id'])        { $postFlashType = 'error'; $flash = "You can't change your own role."; }
 else {
    $pdo->prepare("UPDATE users SET role = ? WHERE id = ?")->execute([$role, $userId]);
 logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'success',
@@ -58,6 +63,7 @@ logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'suc
         if ($action === 'archive_user') {
             $userId = (int)($_POST['user_id'] ?? 0);
             if ($userId === (int)$_SESSION['user_id']) {
+                $postFlashType = 'error';
                 $flash = "You can't archive your own account while logged in.";
             } else {
                 $pdo->prepare("UPDATE users SET archived_at = NOW() WHERE id = ?")->execute([$userId]);
@@ -80,8 +86,12 @@ logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'suc
         }
     } catch (PDOException $e) {
         error_log('HopeLine user management error: ' . $e->getMessage());
+        $postFlashType = 'error';
         $flash = 'Action failed. Check that the account details are valid and try again.';
     }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    redirectAfterPost('users.php', $flash ?: 'No user action was completed.', $postFlashType);
 }
 
 $roleFilter = $_GET['role'] ?? '';
@@ -119,7 +129,7 @@ $unreadAlerts = 0;
         <button class="btn-primary" onclick="document.getElementById('createModal').classList.add('show')">+ Create Account</button>
     </div>
 
-    <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
+    <?php if ($flash): ?><div class="<?php echo $flashType === 'error' ? 'alert-banner alert-error' : 'flash'; ?>"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
 
     <div class="tabs">
         <a href="?view=active<?php echo $roleFilter ? '&role='.urlencode($roleFilter) : ''; ?><?php echo $search ? '&q='.urlencode($search) : ''; ?>" class="tab <?php echo $view === 'active' ? 'active' : ''; ?>" style="text-decoration:none;">Active</a>
