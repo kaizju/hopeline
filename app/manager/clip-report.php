@@ -17,7 +17,7 @@ foreach ($pdo->query("SELECT vehicle_type, COUNT(*) AS total, SUM(status = 'Avai
                       GROUP BY vehicle_type ORDER BY vehicle_type") as $r) {
     $vehicleStock[$r['vehicle_type']] = ['total' => (int)$r['total'], 'available' => (int)$r['available']];
 }
-$vehicleFleet = array_map(function ($s) { return $s['available']; }, $vehicleStock);
+$vehicleFleet = array_map(function ($s) { return $s['total']; }, $vehicleStock);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $callerName    = postStr('caller_name', 150);
 $callerContact = postStr('caller_contact', 20);
@@ -36,16 +36,12 @@ if (!is_numeric($longitude) || abs((float)$longitude) > 180) $longitude = '';
     // Fleet caps — must match VEHICLE_FLEET in the JS below.
     
 
-    // Keep only known vehicles, clamp qty to [0, available], drop zeros.
-        $resources = [];
-    $vehicleRejected = false;
-    foreach ($vehicleFleet as $vehicleName => $available) {
+    // Save requested vehicle types even when those vehicles are currently busy.
+    $resources = [];
+    foreach ($vehicleFleet as $vehicleName => $total) {
         $qty = max(0, (int) ($resourcesRaw[$vehicleName] ?? 0));
-        if ($qty > $available) {
-            $vehicleRejected = true;
-            $errors[] = $available === 0        
-                ? $vehicleName . ' has no available unit right now.'
-                : 'Only ' . $available . ' ' . $vehicleName . ' available (requested ' . $qty . ').';
+        if ($qty > $total) {
+            $errors[] = 'Only ' . $total . ' ' . $vehicleName . ' registered (requested ' . $qty . ').';
             continue;
         }
         if ($qty > 0) $resources[$vehicleName] = $qty;
@@ -56,10 +52,8 @@ if ($latitude === '' || $longitude === '') $errors[] = 'Drop a map pin on the in
 if ($incidentType !== '' && !in_array($incidentType, $validTypes, true)) $errors[] = 'Invalid incident type.';
 if (!in_array($severity, ['Critical','High','Moderate','Low'], true))    $errors[] = 'Severity is required.';
     
-        if (empty($resources) && !$vehicleRejected) {
-        $errors[] = array_sum($vehicleFleet) > 0
-            ? 'Please select at least one available vehicle for this incident.'
-            : 'No units are available right now, so this report cannot be logged. Free up a unit in Unit Management or wait for a dispatch to return.';
+        if (empty($resources) && array_sum($vehicleFleet) > 0) {
+        $errors[] = 'Select at least one vehicle type needed for this incident.';
     }
 
     if (empty($errors)) {
@@ -443,18 +437,17 @@ function findNearestBarangay(lat, lng) {
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // in option.innerHTML:  esc(vehicleName) in resource-name, and name="resources[' + esc(vehicleName) + ']"
     // ---------- Vehicle fleet + Problem resource grid ----------
-    // Total units LDRRMO has on hand for each vehicle type. Keep this in
-    // sync with $vehicleFleet in the PHP block above.
+    // Total registered units by type; requests can be saved while units are busy.
     const VEHICLE_STOCK = <?php echo json_encode($vehicleStock, JSON_HEX_TAG | JSON_HEX_AMP); ?>;
 const VEHICLE_FLEET = {};
-Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].available);
+Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].total);
 
     const resourceGrid = document.getElementById('resourceGrid');
 
     Object.keys(VEHICLE_FLEET).forEach(vehicleName => {
         const avail = VEHICLE_STOCK[vehicleName].available;
         const total = VEHICLE_STOCK[vehicleName].total;
-        const max = avail;
+        const max = total;
         const option = document.createElement('div');
         option.className = 'resource-option' + (avail === 0 ? ' unavailable' : '');
         option.dataset.value = vehicleName;
@@ -466,18 +459,18 @@ Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].avai
                              '<span class="resource-available"><span><strong>' + avail + '</strong> of ' + total + ' available' + (avail === 0 ? ' · none free' : '') + '</span></span>' +
             '</div>' +
             '<div class="qty-control">' +
-                '<button type="button" class="qty-btn qty-minus" aria-label="Decrease"' + (avail === 0 ? ' disabled' : '') + '>−</button>' +
+                '<button type="button" class="qty-btn qty-minus" aria-label="Decrease"' + (total === 0 ? ' disabled' : '') + '>−</button>' +
                 '<input type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input" name="resources[' + vehicleName + ']" value="0" readonly>' +
-                '<button type="button" class="qty-btn qty-plus" aria-label="Increase"' + (avail === 0 ? ' disabled' : '') + '>+</button>' +
+                '<button type="button" class="qty-btn qty-plus" aria-label="Increase"' + (total === 0 ? ' disabled' : '') + '>+</button>' +
             '</div>';
 
         resourceGrid.appendChild(option);
     });
     if (!Object.keys(VEHICLE_STOCK).some(k => VEHICLE_STOCK[k].available > 0)) {
-        document.getElementById('submitBtn').disabled = true;
         const note = document.createElement('div');
-        note.className = 'alert-banner alert-error';
-        note.textContent = 'No units are available right now, so a CLIP report cannot be logged. Free up a unit in Unit Management or wait for a dispatch to return.';
+        note.className = 'alert-banner';
+        note.style.cssText = 'background:rgba(217,117,43,.14);border:1px solid #d9752b;color:var(--high)';
+        note.textContent = 'No response units are free right now. You can still log this report; it will remain pending until a unit can be dispatched.';
         resourceGrid.before(note);
     }
     function setVehicleQty(vehicleName, qty) {

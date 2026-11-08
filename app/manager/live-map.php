@@ -414,6 +414,11 @@ const delayAlert = u.delay_reason ? `<div class="unit-meta" style="color:var(--h
         document.getElementById('lastUpdated').textContent = 'Updated just now';
     }, 5000);
 </script>
+     <script>
+         window.LIVEMAP_INCIDENT_API = <?php echo json_encode(BASE_URL . '/api/incident-pins.php'); ?>;
+         window.LIVEMAP_IMG_BASE = <?php echo json_encode(BASE_URL . '/'); ?>;
+     </script>
+     <script src="<?php echo BASE_URL; ?>/assets/js/live-map-incidents.js"></script>
      <script>window.LIVEMAP_GPS_API = '<?php echo BASE_URL; ?>/api/unit-locations.php';</script>
      <script src="<?php echo BASE_URL; ?>/assets/js/live-map-gps.js"></script>
 </body>

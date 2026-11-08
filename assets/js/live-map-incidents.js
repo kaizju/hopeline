@@ -1,7 +1,8 @@
 (function () {
     'use strict';
-    var API = window.LIVEMAP_INCIDENT_API, scope = 'all', pins = {};
+    var API = window.LIVEMAP_INCIDENT_API, scope = 'all', pins = {}, didFitIncidents = false;
     var layer = L.layerGroup().addTo(map);   // `map` comes from live-map.php
+    var typeFilter = document.getElementById('incidentTypeFilter');
     var ICONS = { 'Fire': '🔥', 'Medical Emergency': '🚑', 'Vehicular Accident': '🚗',
                   'Flood / Landslide': '🌊', 'Violence / Assault': '⚠️', 'Other': '❓' };
     var SEV = { Critical: '#e5484d', High: '#d9752b', Moderate: '#d4ab2b', Low: '#3f7a5c' };
@@ -44,6 +45,9 @@
     }
 
     function sync(list) {
+        list = list.filter(function (i) {
+            return !typeFilter || typeFilter.value === 'all' || typeFilter.value === i.incident_type;
+        });
         var seen = {};
         list.forEach(function (i) {
             seen[i.id] = true;
@@ -57,15 +61,30 @@
         Object.keys(pins).forEach(function (id) {
             if (!seen[id]) { layer.removeLayer(pins[id]); delete pins[id]; }
         });
+
+        if (!didFitIncidents && list.length) {
+            var points = list.map(function (i) { return [parseFloat(i.latitude), parseFloat(i.longitude)]; });
+            if (typeof markers !== 'undefined') {
+                Object.keys(markers).forEach(function (id) { points.push(markers[id].getLatLng()); });
+            }
+            if (points.length) {
+                map.fitBounds(L.latLngBounds(points).pad(0.2));
+                didFitIncidents = true;
+            }
+        }
     }
     function poll() {
+        if (!API) { console.error('Live Map incident pin API is not configured.'); return; }
         fetch(API + '?scope=' + scope, { credentials: 'same-origin', cache: 'no-store' })
-            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (r) {
+                if (!r.ok) throw new Error('Incident pin request failed (' + r.status + ').');
+                return r.json();
+            })
             .then(function (d) { if (d && d.ok) sync(d.incidents); })
-            .catch(function () {});
+            .catch(function (e) { console.warn('Could not refresh Live Map incident pins.', e); });
     }
 
-    
+    if (typeFilter) typeFilter.addEventListener('change', poll);
 
     poll();
     setInterval(poll, 10000);
