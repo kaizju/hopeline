@@ -17,8 +17,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if (($_POST['action'] ?? '') === 'resolve_delay') {
             $delayId = (int)($_POST['delay_id'] ?? 0);
-            $pdo->prepare("UPDATE delay_logs SET resolved_at = NOW() WHERE id = ?")->execute([$delayId]);
-            $flash = 'Delay marked as resolved.';
+            $resolve = $pdo->prepare("UPDATE delay_logs SET resolved_at = NOW() WHERE id = ? AND resolved_at IS NULL");
+            $resolve->execute([$delayId]);
+            if ($resolve->rowCount()) {
+                $flash = 'Delay marked as resolved.';
+            } else {
+                $postFlashType = 'error';
+                $flash = 'This delay was already resolved or no longer exists.';
+            }
         }
 
         if (($_POST['action'] ?? '') === 'log_manual_delay') {

@@ -73,10 +73,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($action === 'archive_team') {
             $id = (int)($_POST['team_id'] ?? 0);
-            $pdo->prepare("UPDATE teams SET archived_at = NOW(), leader_id = NULL WHERE id = ?")->execute([$id]);
-            $pdo->prepare("UPDATE users SET team_id = NULL WHERE team_id = ?")->execute([$id]);
-            if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'team_archived', 'success');
-            $flash = 'Team archived. Its leader is now unassigned.';
+            $pdo->beginTransaction();
+            $team = $pdo->prepare("SELECT id FROM teams WHERE id = ? AND archived_at IS NULL FOR UPDATE");
+            $team->execute([$id]);
+            if (!$team->fetchColumn()) {
+                $pdo->rollBack();
+                $postFlashType = 'error';
+                $flash = 'Team not found or already archived.';
+            } else {
+                $active = $pdo->prepare("SELECT id FROM dispatch WHERE team_id = ? AND status IN ('assigned','en_route','on_site','returning') FOR UPDATE");
+                $active->execute([$id]);
+                if ($active->fetchColumn()) {
+                    $pdo->rollBack();
+                    $postFlashType = 'error';
+                    $flash = 'This team has an active dispatch. Resolve or reassign it before archiving the team.';
+                } else {
+                    $pdo->prepare("UPDATE teams SET archived_at = NOW(), leader_id = NULL WHERE id = ?")->execute([$id]);
+                    $pdo->prepare("UPDATE users SET team_id = NULL WHERE team_id = ?")->execute([$id]);
+                    $pdo->commit();
+                    if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'team_archived', 'success');
+                    $flash = 'Team archived. Its leader is now unassigned.';
+                }
+            }
         }
         if ($action === 'restore_team') {
             $pdo->prepare("UPDATE teams SET archived_at = NULL WHERE id = ?")->execute([(int)($_POST['team_id'] ?? 0)]);

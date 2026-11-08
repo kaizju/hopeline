@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $pdo->beginTransaction();
 
-    $t = $pdo->prepare("SELECT name FROM teams WHERE id = ? AND archived_at IS NULL");
+    $t = $pdo->prepare("SELECT name FROM teams WHERE id = ? AND archived_at IS NULL FOR UPDATE");
     $t->execute([$teamId]);
     $teamName = $t->fetchColumn();
 

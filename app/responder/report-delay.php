@@ -49,8 +49,13 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'resolve_delay') {
             $delayId = (int)($_POST['delay_id'] ?? 0);
-         $pdo->prepare("UPDATE delay_logs SET resolved_at = NOW() WHERE id = ? AND dispatch_id IN (SELECT id FROM dispatch WHERE team_id = ?)")->execute([$delayId, $myTeamId]);
+            $resolve = $pdo->prepare("UPDATE delay_logs SET resolved_at = NOW() WHERE id = ? AND resolved_at IS NULL AND dispatch_id IN (SELECT id FROM dispatch WHERE team_id = ?)");
+            $resolve->execute([$delayId, $myTeamId]);
             $flash = "Delay cleared — you're moving again.";
+        }
+        if ($action === 'resolve_delay' && !$resolve->rowCount()) {
+            $postFlashType = 'error';
+            $flash = 'This delay was already cleared or no longer belongs to your team.';
         }
     } catch (Throwable $e) {
         error_log('HopeLine responder delay action failed: ' . $e->getMessage());

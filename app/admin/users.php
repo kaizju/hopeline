@@ -66,12 +66,53 @@ logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'suc
                 $postFlashType = 'error';
                 $flash = "You can't archive your own account while logged in.";
             } else {
-                $pdo->prepare("UPDATE users SET archived_at = NOW() WHERE id = ?")->execute([$userId]);
-                if (function_exists('logActivity')) {
-                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_archived', 'success',
-    "Archived user #$userId", 'users');
+                $pdo->beginTransaction();
+                $targetStmt = $pdo->prepare("SELECT id, team_id FROM users WHERE id = ? AND archived_at IS NULL FOR UPDATE");
+                $targetStmt->execute([$userId]);
+                $targetUser = $targetStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$targetUser) {
+                    $pdo->rollBack();
+                    $postFlashType = 'error';
+                    $flash = 'User not found or already archived.';
+                } else {
+                    $ledTeams = $pdo->prepare("SELECT id FROM teams WHERE leader_id = ? AND archived_at IS NULL FOR UPDATE");
+                    $ledTeams->execute([$userId]);
+                    if ($ledTeams->fetchColumn()) {
+                        $pdo->rollBack();
+                        $postFlashType = 'error';
+                        $flash = 'This user leads an active team. Reassign the team leader before archiving the account.';
+                    } else {
+                        $teamId = (int)($targetUser['team_id'] ?? 0);
+                        if ($teamId > 0) {
+                            $teamLock = $pdo->prepare("SELECT id FROM teams WHERE id = ? FOR UPDATE");
+                            $teamLock->execute([$teamId]);
+                        }
+                        $unitLocks = $pdo->prepare("SELECT id FROM ptv_units WHERE responder_id = ? FOR UPDATE");
+                        $unitLocks->execute([$userId]);
+                        $unitLocks->fetchAll(PDO::FETCH_COLUMN);
+
+                        $teamClause = $teamId > 0 ? 'd.team_id = ? OR ' : '';
+                        $activeSql = "SELECT d.id FROM dispatch d LEFT JOIN ptv_units u ON u.id = d.unit_id
+                                      WHERE d.status IN ('assigned','en_route','on_site','returning')
+                                        AND ($teamClause u.responder_id = ?) FOR UPDATE";
+                        $active = $pdo->prepare($activeSql);
+                        $active->execute($teamId > 0 ? [$teamId, $userId] : [$userId]);
+                        if ($active->fetchColumn()) {
+                            $pdo->rollBack();
+                            $postFlashType = 'error';
+                            $flash = 'This user is assigned to an active dispatch. Resolve or reassign it before archiving the account.';
+                        } else {
+                            $pdo->prepare("UPDATE users SET archived_at = NOW(), team_id = NULL WHERE id = ?")->execute([$userId]);
+                            $pdo->prepare("UPDATE ptv_units SET responder_id = NULL WHERE responder_id = ?")->execute([$userId]);
+                            $pdo->commit();
+                            if (function_exists('logActivity')) {
+                                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_archived', 'success',
+                                    "Archived user #$userId", 'users');
+                            }
+                            $flash = 'Account archived and detached from its team and units.';
+                        }
+                    }
                 }
-                $flash = 'Account archived.';
             }
         }
 
@@ -84,7 +125,8 @@ logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'suc
             }
             $flash = 'Account restored.';
         }
-    } catch (PDOException $e) {
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('HopeLine user management error: ' . $e->getMessage());
         $postFlashType = 'error';
         $flash = 'Action failed. Check that the account details are valid and try again.';
