@@ -79,6 +79,12 @@ function sessionStart(PDO $pdo, int $uid, string $email, string $role): void {
     } catch (PDOException $e) { error_log($e->getMessage()); }
 }
 
+function sessionEnd(PDO $pdo): void {
+    try {
+        $pdo->prepare("UPDATE user_sessions SET logout_at = NOW() WHERE session_ref = ? AND logout_at IS NULL")
+            ->execute([sessionRef()]);
+    } catch (PDOException $e) { error_log($e->getMessage()); }
+}
 function sessionTouch(PDO $pdo): void {            // at most once per 60 s
     if (empty($_SESSION['user_id']) || session_status() !== PHP_SESSION_ACTIVE) return;
     if (time() - ($_SESSION['_touch'] ?? 0) < 60) return;
@@ -88,14 +94,6 @@ function sessionTouch(PDO $pdo): void {            // at most once per 60 s
             ->execute([sessionRef()]);
     } catch (PDOException $e) { error_log($e->getMessage()); }
 }
-
-function sessionEnd(PDO $pdo): void {
-    try {
-        $pdo->prepare("UPDATE user_sessions SET logout_at = NOW() WHERE session_ref = ? AND logout_at IS NULL")
-            ->execute([sessionRef()]);
-    } catch (PDOException $e) { error_log($e->getMessage()); }
-}
-
 /* Automatic "Visited: ..." entries + report exports */
 function trackPageView(PDO $pdo): void {
     if (empty($_SESSION['user_id']) || session_status() !== PHP_SESSION_ACTIVE) return;

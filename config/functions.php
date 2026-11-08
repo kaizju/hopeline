@@ -135,7 +135,13 @@ function postStr(string $k, int $max = 255): string {
     return is_string($v) ? mb_substr(trim($v), 0, $max) : '';
 }
 function isLoggedIn() {
-    return isset($_SESSION['user_id']);
+    if (!isset($_SESSION['user_id'])) return false;
+    if (time() - ($_SESSION['_last'] ?? time()) > 1800) {   // 30 min idle
+        $_SESSION = [];   // row stays open, so Sessions tab shows "Expired"
+        return false;
+    }
+    $_SESSION['_last'] = time();
+    return true;
 }
 
 function hasRole($role) {
@@ -226,7 +232,3 @@ if (!$csrfSkip) {
     });
 }
 if (isset($pdo) && $pdo instanceof PDO) trackPageView($pdo);
-
-$isApi = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/api/') !== false
-      || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
-if (!$isApi && isset($pdo) && $pdo instanceof PDO) trackPageView($pdo);

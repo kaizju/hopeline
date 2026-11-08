@@ -3,7 +3,7 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 require_once __DIR__ . '/../../config/security_logs.php';
-renderSecurityLogCard($pdo, 'user', (int)$_SESSION['user_id'], BASE_URL . '/app/responder/security-logs.php');
+
 requireRole('user');
 
 $me = $pdo->prepare("SELECT team_id FROM users WHERE id = ?");

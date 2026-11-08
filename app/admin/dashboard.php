@@ -56,9 +56,9 @@ function fmtAvgResponse($seconds) {
     </div>
 
     <div class="dash-layout">
-       <?php renderSecurityLogCard($pdo, 'admin', (int)$_SESSION['user_id'], BASE_URL . '/app/admin/security-logs.php'); ?>
-        <div>
-            <div class="card">
+    <div>
+        <?php renderSecurityLogCard($pdo, 'admin', (int)$_SESSION['user_id'], BASE_URL . '/app/admin/security-logs.php'); ?>
+        <div class="card">
                 <div class="card-header"><h2>Incident Volume</h2><a href="<?php echo BASE_URL; ?>/app/admin/incidents.php">View records →</a></div>
                 <div class="breakdown-row"><div class="breakdown-label"><span>Total incidents logged (all time)</span><span class="n"><?php echo $totalIncidents; ?></span></div></div>
                 <div class="breakdown-row"><div class="breakdown-label"><span>Reported today</span><span class="n"><?php echo $todayIncidents; ?></span></div></div>

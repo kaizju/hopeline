@@ -6,17 +6,12 @@ require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/config/functions.php';
 require_once __DIR__ . '/includes/activity-logger.php';
 
-if (isset($_SESSION['user_id']) && function_exists('logActivity')) {
-    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'logout', 'success');
-}
-
-// Clear all session data
 if (isset($_SESSION['user_id'])) {
     logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'logout', 'success');
-    sessionEnd($pdo);          // before clearing
+    sessionEnd($pdo);
 }
 $_SESSION = [];
-sessionEnd($pdo);
+
 // Destroy the session cookie itself
 if (ini_get('session.use_cookies')) {
     $params = session_get_cookie_params();
