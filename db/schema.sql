@@ -1,10 +1,10 @@
 -- =====================================================================
--- HopeLine — full schema + demo data  (UPDATED to match current code)
+-- HopeLine full schema and demo data
 -- Target: MariaDB 10.4+ / MySQL 8 (XAMPP), InnoDB, utf8mb4
--- Import into an empty database:  mysql -u root < hopeline_schema.sql
+-- Import into an empty database:  mysql -u root < db/schema.sql
 --
 -- Already have a database with data? Don't re-import this file.
--- Run hopeline_migration.sql instead (adds only what is missing).
+-- Apply the appropriate scripts in db/migrations/ instead.
 --
 -- DEMO LOGINS (passwords are bcrypt-hashed below)
 --   admin@hopeline.local     Admin@123       (role: admin)
@@ -288,7 +288,7 @@ CREATE OR REPLACE VIEW activity_logs AS
   FROM activity_log;
 
 -- ---------------------------------------------------------------------
--- 8. settings  (setting_value is TEXT so the barangay list can't be cut off)
+-- 8. settings (used for ETA speed, delay threshold and the barangay list)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS settings (
   setting_key   VARCHAR(100) NOT NULL,
@@ -296,6 +296,12 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at    DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (setting_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Defaults used by app/admin/settings.php. Existing configured values are kept.
+INSERT IGNORE INTO settings (setting_key, setting_value) VALUES
+  ('default_avg_speed_kmh', '40'),
+  ('delay_threshold_minutes', '15'),
+  ('barangay_list', 'Agusan Canyon\nAlae\nDahilayan\nDamilag\nDalirig\nDiclum\nGuilang-guilang\nKalugmanan\nLindaban\nLingion\nLunocan\nMaluko\nMambatangan\nMampayag\nMinsuro\nSan Miguel\nSankanan\nSantiago\nTankulan (Poblacion)\nTicala');
 
 
 -- =====================================================================
