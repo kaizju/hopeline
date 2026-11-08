@@ -8,9 +8,14 @@ if (session_status() === PHP_SESSION_NONE) {
 
 define('ARRIVE_GEOFENCE_M', 300);
 define('BASE_URL', 'https://localhost/hopeline');
+<<<<<<< HEAD
 
 $host     = 'localhost';
 $dbname   = 'hopeline';
+=======
+$host = 'localhost';
+$dbname = 'hopeline';
+>>>>>>> origin/main
 $username = 'root';
 $password = '';
 
