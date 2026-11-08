@@ -54,7 +54,10 @@ ob_start();
 </a>
 
 <div class="nav-section-label">System</div>
-<a class="nav-item <?php echo navActive('change-password', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/account/change-password.php">Change Password</a>
+<a class="nav-item <?php echo navActive('change-password', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/account/change-password.php">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m10.85 12.15 8.65-8.65M17 6l3 3M14 9l2 2"/></svg>
+    Change Password
+</a>
 <a class="nav-item <?php echo navActive('audit-trail', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/admin/audit-trail.php">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V6a3 3 0 0 1 6 0v5"/><rect x="5" y="11" width="14" height="10" rx="2"/></svg>
     Audit Trail
