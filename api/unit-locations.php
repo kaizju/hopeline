@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/functions.php';
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 
-if (!isLoggedIn() || !(hasRole('manager') || hasRole('admin'))) {
+if (!isLoggedIn() || !revalidateSessionUser() || !hasRole('user')) {
     http_response_code(401);
     echo json_encode(['ok' => false, 'error' => 'unauthorized']);
     exit;

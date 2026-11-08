@@ -89,7 +89,10 @@ function renderSecurityLogs(PDO $pdo, string $role, int $uid): void {
     $st->execute($params);
     $rows  = $st->fetchAll(PDO::FETCH_ASSOC);
     $pages = max(1, (int)ceil($total / $per));
-    $modules = $pdo->query("SELECT DISTINCT module FROM user_activity_logs ORDER BY module")->fetchAll(PDO::FETCH_COLUMN);
+    [$mScope, $mParams] = slScope($role, $uid, 'l');
+$mq = $pdo->prepare("SELECT DISTINCT l.module FROM user_activity_logs l WHERE $mScope ORDER BY l.module");
+$mq->execute($mParams);
+$modules = $mq->fetchAll(PDO::FETCH_COLUMN);
     $cur = sessionRef();
 
     $qs = function (array $extra = []) use ($tab, $f) {
@@ -179,7 +182,7 @@ function renderSecurityLogs(PDO $pdo, string $role, int $uid): void {
                 <td class="clip-ref-cell"><?php echo slh($r['ip_address']); ?></td>
                 <td><?php echo slh(slDevice($r['user_agent'])); ?></td>
                 <td><span class="status-badge <?php echo $cls; ?>"><?php echo $lbl; ?></span>
-                    <?php if ($cur && hash_equals($r['session_ref'], $cur)): ?><div class="audit-meta">This session</div><?php endif; ?></td>
+                    <?php if ($cur && $r['session_ref'] && hash_equals((string)$r['session_ref'], $cur)): ?><div class="audit-meta">This session</div><?php endif; ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

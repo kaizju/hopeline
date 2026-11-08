@@ -187,6 +187,25 @@ function renderHeader($title) {
     $currentRole = $_SESSION['role'] ?? 'guest';
     $currentEmail = $_SESSION['email'] ?? '';
     $isLoggedIn = isset($_SESSION['user_id']);
+    function revalidateSessionUser(): bool {
+    global $pdo;
+    if (time() - ($_SESSION['_chk'] ?? 0) <= 60) return true;
+    $st = $pdo->prepare("SELECT role, is_verified, archived_at FROM users WHERE id = ?");
+    $st->execute([$_SESSION['user_id']]);
+    $u = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$u || !$u['is_verified'] || $u['archived_at'] !== null) {
+        sessionEnd($pdo);
+        $_SESSION = [];
+        return false;
+    }
+    $_SESSION['role'] = $u['role'];
+    $_SESSION['_chk'] = time();
+    return true;
+}
+
+function requireLogin() {
+    if (!isLoggedIn() || !revalidateSessionUser()) redirect('/index.php');
+}
     ?>
     <!DOCTYPE html>
     <html lang="en">

@@ -79,7 +79,7 @@ $alerts['overdue'] = $st->fetchAll(PDO::FETCH_ASSOC);
     // 5. Failed logins in the last 24 hours, grouped by email
     $alerts['logins'] = $pdo->query("
         SELECT COALESCE(email, 'unknown') AS email, COUNT(*) AS attempts, MAX(created_at) AS last_at
-        FROM activity_log
+        FROM user_activity_logs
         WHERE action = 'login' AND status = 'failed' AND created_at > NOW() - INTERVAL 24 HOUR
         GROUP BY email
         ORDER BY attempts DESC, last_at DESC

@@ -17,7 +17,7 @@ $avgResponse = $pdo->query("
     WHERE d.arrived_at IS NOT NULL
 ")->fetchColumn();
 
-$recentAudit = $pdo->query("SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 6")->fetchAll(PDO::FETCH_ASSOC);
+$recentAudit = $pdo->query("SELECT * FROM user_activity_logs ORDER BY created_at DESC LIMIT 6")->fetchAll(PDO::FETCH_ASSOC);
 
 $totalUsers = array_sum($userCounts);
 $totalUnits = array_sum($unitCounts);

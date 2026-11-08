@@ -34,6 +34,8 @@ function activityMeta(string $action): array {
         'team_archived'              => ['teams', 'Archived a team'],
         'team_restored'              => ['teams', 'Restored a team'],
         'settings_updated'           => ['settings', 'Updated system settings'],
+        'role_changed'               => ['users', 'Changed a user role'],
+        'user_status_changed'        => ['users', 'Activated/deactivated a user'],
     ];
     return $map[$action] ?? ['system', ucfirst(str_replace('_', ' ', $action))];
 }
