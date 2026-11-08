@@ -21,6 +21,7 @@ try {
             WHERE d2.unit_id = u.id AND d2.status IN ('en_route','on_site','returning'))
         LEFT JOIN clip_reports c ON c.id = d.clip_report_id
         ORDER BY u.unit_name ASC
+        TIMESTAMPDIFF(SECOND, CASE WHEN d.status='returning' THEN d.resolved_at ELSE d.departed_at END, NOW()) AS elapsed_secs
     ");
     $units = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -158,14 +159,15 @@ window.esc = window.esc || function (s) { return String(s == null ? '' : s).repl
         });
     }
 
-    function elapsedSince(dateStr) {
-        if (!dateStr) return null;
-        const start = new Date(dateStr.replace(' ', 'T'));
-        const diffSec = Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000));
-        const m = Math.floor(diffSec / 60);
-        const s = diffSec % 60;
-        return m + 'm ' + String(s).padStart(2, '0') + 's';
-    }
+    const PAGE_LOADED_AT = Date.now();
+unitsData.forEach(u => { u._t0 = PAGE_LOADED_AT; });
+
+function elapsedLabel(u) {
+    if (u.elapsed_secs == null) return null;
+    const diff = Math.max(0, Math.floor(Number(u.elapsed_secs) + (Date.now() - u._t0) / 1000));
+    const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60), s = diff % 60;
+    return h ? h + 'h ' + m + 'm' : m + 'm ' + String(s).padStart(2, '0') + 's';
+}
 
     function renderMarkers() {
     unitsData.forEach(u => {
@@ -188,7 +190,7 @@ window.esc = window.esc || function (s) { return String(s == null ? '' : s).repl
             <div class="popup-row">Driver: ${esc(u.driver_name) || '—'}</div>
             <div class="popup-row">Plate: ${esc(u.plate_no) || '—'}</div>
             ${u.clip_ref ? `<div class="popup-row">Incident: ${esc(u.clip_ref)} (${esc(u.barangay)})</div>` : ''}
-            ${u.departed_at ? `<div class="popup-row">En route: ${elapsedSince(u.departed_at)}</div>` : ''}
+            ${u.elapsed_secs != null ? `<div class="popup-row">${u.dispatch_status === 'returning' ? 'Returning' : 'En route'}: ${elapsedLabel(u)}</div>` : ''}
             ${u.hospital_name ? `<div class="popup-row">🏥 ${esc(u.hospital_name)}${u.hospital_arrived_at ? ' · arrived ' + esc(u.hospital_arrived_at.substr(11,5)) : ''}</div>` : ''}
             ${photoHtml}
             <a class="popup-btn" href="javascript:void(0)">View Incident</a>`;
@@ -279,14 +281,15 @@ const incident = (u.photo_lat != null && u.photo_lng != null)
 if (!incident) return;
 const from = u.dispatch_status === 'en_route' ? PTV_BASE : incident;
 const to   = u.dispatch_status === 'en_route' ? incident : PTV_BASE;
-        const startStr = u.dispatch_status === 'en_route' ? u.departed_at : u.resolved_at;
-        if (!startStr) return;
+        
 
         const route = await fetchRoute(from, to);
         if (!route) return;
 
-        activeRoutes[u.id] = { coords: route.coords, duration: route.duration,
-            startTime: new Date(startStr.replace(' ', 'T')).getTime() };
+        if (u.elapsed_secs == null) return;
+// ...after fetchRoute:
+activeRoutes[u.id] = { coords: route.coords, duration: route.duration,
+    startTime: u._t0 - Number(u.elapsed_secs) * 1000 };
 
         if (routeLines[u.id]) map.removeLayer(routeLines[u.id]);
         routeLines[u.id] = L.polyline(route.coords, {
@@ -332,7 +335,8 @@ const to   = u.dispatch_status === 'en_route' ? incident : PTV_BASE;
         }
 
         unitsListEl.innerHTML = filtered.map(u => {
-            const alert = u.departed_at ? `<div class="unit-meta alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> En route ${elapsedSince(u.departed_at)}</div>` : '';
+           const lbl = elapsedLabel(u);
+const alert = lbl ? `<div class="unit-meta alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> ${u.dispatch_status === 'returning' ? 'Returning' : 'En route'} ${lbl}</div>` : '';
             const dest = u.barangay ? `<div class="unit-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.35-7-10a7 7 0 0 1 14 0c0 5.65-7 10-7 10z"/></svg> ${u.barangay}</div>` : '';
             return `
             <div class="unit-card ${focusedUnitId === u.id ? 'focused' : ''}" data-id="${u.id}">

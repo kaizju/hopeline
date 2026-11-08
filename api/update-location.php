@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/functions.php';
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 
-if (!isLoggedIn() || !hasRole('user')) {
+if (!isLoggedIn() || !revalidateSessionUser() || !hasRole('user')) {
     http_response_code(401);
     echo json_encode(['ok' => false, 'error' => 'unauthorized']);
     exit;
@@ -17,8 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['ok' => false, 'error' => 'method']);
     exit;
 }
-
 $userId = (int)$_SESSION['user_id'];
+sessionTouch($pdo);
 session_write_close(); // don't block other requests from the same session
 
 $in  = json_decode(file_get_contents('php://input'), true) ?: [];
@@ -51,4 +51,12 @@ try {
     error_log($e->getMessage());
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => 'db']);
+}
+function isLoggedIn() {
+    if (!isset($_SESSION['user_id'])) return false;
+    if (time() - ($_SESSION['_last'] ?? time()) > 1800) { $_SESSION = []; return false; }
+    $bg = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/api/') !== false
+       || ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '') === 'empty';
+    if (!$bg) $_SESSION['_last'] = time();
+    return true;
 }

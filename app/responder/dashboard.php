@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
+require_once __DIR__ . '/../../config/security_logs.php';
 
 requireRole('user');
 
@@ -161,6 +162,7 @@ $statusText = ['assigned' => 'Awaiting departure', 'en_route' => 'En route', 'on
         </div>
 
         <div class="card">
+             <?php renderSecurityLogCard($pdo, 'user', (int)$_SESSION['user_id'], BASE_URL . '/app/responder/security-logs.php'); ?>
             <div class="card-header">
                 <h2>Recent Activity</h2>
                 <a href="<?php echo BASE_URL; ?>/app/responder/my-history.php">View all →</a>

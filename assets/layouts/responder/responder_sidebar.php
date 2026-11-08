@@ -47,8 +47,6 @@ $headerIcon = '
 ob_start();
 ?>
 <script>window.HOPEGPS_CONFIG = { endpoint: '<?php echo BASE_URL; ?>/api/update-location.php', csrf: <?php echo json_encode(csrfToken()); ?> };</script>
-     <script>window.HOPEGPS_CONFIG = { endpoint: '<?php echo BASE_URL; ?>/api/update-location.php' };</script>
-     <script src="<?php echo BASE_URL; ?>/assets/js/gps-tracker.js"></script>
 <div class="nav-section-label">Overview</div>
 <a class="nav-item <?php echo navActive('dashboard', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/responder/dashboard.php">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
@@ -69,6 +67,10 @@ ob_start();
 <a class="nav-item <?php echo navActive('my-history', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/responder/my-history.php">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
     My Dispatch History
+</a>
+<a class="nav-item <?php echo navActive('security-logs', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/responder/security-logs.php">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    Security Logs
 </a>
 <?php
 $navHtml = ob_get_clean();

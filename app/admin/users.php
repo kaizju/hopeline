@@ -24,9 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 $stmt = $pdo->prepare("INSERT INTO users (name, email, password, role, contact_no, is_verified) VALUES (?, ?, ?, ?, ?, 1)");
                 $stmt->execute([$name, $email, $hash, $role, $contact]);
-                if (function_exists('logActivity')) {
-                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_created', 'success');
-                }
+$newId = (int)$pdo->lastInsertId();
+logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_created', 'success',
+    "Created account #$newId ($email) as $role", 'users');
                 $flash = "Account created for $name.";
             }
         }
@@ -37,13 +37,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!in_array($role, $validRoles, true))              { $flash = 'Invalid role.'; }
 elseif ($userId === (int)$_SESSION['user_id'])        { $flash = "You can't change your own role."; }
 else {
-        }}
+   $pdo->prepare("UPDATE users SET role = ? WHERE id = ?")->execute([$role, $userId]);
+logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'success',
+    "Changed user #$userId role to $role", 'users');
+    $flash = 'Role updated.';
+}}
 
         if ($action === 'toggle_active') {
             $userId = (int)($_POST['user_id'] ?? 0);
             $newState = (int)($_POST['new_state'] ?? 0);
             $pdo->prepare("UPDATE users SET is_verified = ? WHERE id = ?")->execute([$newState, $userId]);
             $flash = $newState ? 'Account reactivated.' : 'Account deactivated.';
+            logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_status_changed', 'success',
+    ($newState ? 'Activated' : 'Deactivated') . " user #$userId", 'users');
         }
 
         // ---- Archive (replaces Delete) ----
@@ -54,7 +60,8 @@ else {
             } else {
                 $pdo->prepare("UPDATE users SET archived_at = NOW() WHERE id = ?")->execute([$userId]);
                 if (function_exists('logActivity')) {
-                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_archived', 'success');
+                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_archived', 'success',
+    "Archived user #$userId", 'users');
                 }
                 $flash = 'Account archived.';
             }
@@ -64,7 +71,8 @@ else {
             $userId = (int)($_POST['user_id'] ?? 0);
             $pdo->prepare("UPDATE users SET archived_at = NULL WHERE id = ?")->execute([$userId]);
             if (function_exists('logActivity')) {
-                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_restored', 'success');
+                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_restored', 'success',
+    "Restored user #$userId", 'users');
             }
             $flash = 'Account restored.';
         }

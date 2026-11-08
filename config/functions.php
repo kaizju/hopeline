@@ -134,8 +134,29 @@ function postStr(string $k, int $max = 255): string {
     $v = $_POST[$k] ?? '';
     return is_string($v) ? mb_substr(trim($v), 0, $max) : '';
 }
+    function revalidateSessionUser(): bool {
+    global $pdo;
+    if (time() - ($_SESSION['_chk'] ?? 0) <= 60) return true;
+    $st = $pdo->prepare("SELECT role, is_verified, archived_at FROM users WHERE id = ?");
+    $st->execute([$_SESSION['user_id']]);
+    $u = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$u || !$u['is_verified'] || $u['archived_at'] !== null) {
+        sessionEnd($pdo);
+        $_SESSION = [];
+        return false;
+    }
+    $_SESSION['role'] = $u['role'];
+    $_SESSION['_chk'] = time();
+    return true;
+}
 function isLoggedIn() {
-    return isset($_SESSION['user_id']);
+    if (!isset($_SESSION['user_id'])) return false;
+    if (time() - ($_SESSION['_last'] ?? time()) > 1800) {   // 30 min idle
+        $_SESSION = [];   // row stays open, so Sessions tab shows "Expired"
+        return false;
+    }
+    $_SESSION['_last'] = time();
+    return true;
 }
 
 function hasRole($role) {
@@ -151,9 +172,7 @@ function currentUserEmail() {
 }
 
 function requireLogin() {
-    if (!isLoggedIn()) {
-        redirect('/index.php');
-    }
+    if (!isLoggedIn() || !revalidateSessionUser()) redirect('/index.php');
 }
 
 function requireRole($role) {
@@ -225,3 +244,4 @@ if (!$csrfSkip) {
             function ($m) use ($csrfFieldHtml) { return $m[0] . $csrfFieldHtml; }, $html);
     });
 }
+if (isset($pdo) && $pdo instanceof PDO) trackPageView($pdo);

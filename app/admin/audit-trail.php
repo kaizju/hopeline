@@ -18,15 +18,15 @@ if ($actionFilter !== '') { $where .= " AND action = ?"; $params[] = $actionFilt
 if ($statusFilter !== '') { $where .= " AND status = ?"; $params[] = $statusFilter; }
 if ($search !== '') { $where .= " AND email LIKE ?"; $params[] = "%$search%"; }
 
-$totalStmt = $pdo->prepare("SELECT COUNT(*) FROM activity_log $where");
+$totalStmt = $pdo->prepare("SELECT COUNT(*) FROM user_activity_logs $where");
 $totalStmt->execute($params);
 $totalRows = $totalStmt->fetchColumn();
 
-$stmt = $pdo->prepare("SELECT * FROM activity_log $where ORDER BY created_at DESC LIMIT $perPage OFFSET $offset");
+$stmt = $pdo->prepare("SELECT * FROM user_activity_logs $where ORDER BY created_at DESC LIMIT $perPage OFFSET $offset");
 $stmt->execute($params);
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$actionTypes = $pdo->query("SELECT DISTINCT action FROM activity_log ORDER BY action")->fetchAll(PDO::FETCH_COLUMN);
+$actionTypes = $pdo->query("SELECT DISTINCT action FROM user_activity_logs ORDER BY action")->fetchAll(PDO::FETCH_COLUMN);
 $totalPages = max(1, ceil($totalRows / $perPage));
 $unreadAlerts = 0;
 ?>

@@ -18,11 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
 
     // Rate limit: 5 failed attempts per email/IP within 15 minutes
-    $n = $pdo->prepare("SELECT COUNT(*) FROM activity_log
-                        WHERE action = 'login' AND status = 'failed'
-                          AND (email = ? OR ip_address = ?)
-                          AND created_at > NOW() - INTERVAL 15 MINUTE");
-    $n->execute([$email, $_SERVER['REMOTE_ADDR']]);
+    $n = $pdo->prepare("SELECT COUNT(*) FROM user_activity_logs
+                    WHERE action = 'login' AND status = 'failed'
+                      AND (email = ? OR ip_address = ?)
+                      AND created_at > NOW() - INTERVAL 15 MINUTE");
+$n->execute([$email, $_SERVER['REMOTE_ADDR']]);
 
     if ($n->fetchColumn() >= 5) {
         $error = 'Too many attempts. Try again in 15 minutes.';
@@ -37,7 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['email']   = $user['email'];
             $_SESSION['role']    = $user['role'];
+            $_SESSION['_last'] = time();
+$_SESSION['_chk']  = time();
 
+            // Record the session only now, when $user exists
+            sessionStart($pdo, (int)$user['id'], $user['email'], $user['role']);
             logActivity($pdo, $user['id'], $user['email'], 'login', 'success');
 
             switch ($user['role']) {

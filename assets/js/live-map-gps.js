@@ -30,6 +30,7 @@
     }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
     function applyUnit(u) {
+        u._t0 = Date.now();
         var existing = null;
         for (var i = 0; i < unitsData.length; i++) if (String(unitsData[i].id) === String(u.id)) { existing = unitsData[i]; break; }
         if (!existing) { unitsData.push(u); existing = u; } else { Object.assign(existing, u); }

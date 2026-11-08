@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
+require_once __DIR__ . '/../../config/security_logs.php';
 
 requireRole('admin');
 
@@ -16,7 +17,7 @@ $avgResponse = $pdo->query("
     WHERE d.arrived_at IS NOT NULL
 ")->fetchColumn();
 
-$recentAudit = $pdo->query("SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 6")->fetchAll(PDO::FETCH_ASSOC);
+$recentAudit = $pdo->query("SELECT * FROM user_activity_logs ORDER BY created_at DESC LIMIT 6")->fetchAll(PDO::FETCH_ASSOC);
 
 $totalUsers = array_sum($userCounts);
 $totalUnits = array_sum($unitCounts);
@@ -55,8 +56,9 @@ function fmtAvgResponse($seconds) {
     </div>
 
     <div class="dash-layout">
-        <div>
-            <div class="card">
+    <div>
+        <?php renderSecurityLogCard($pdo, 'admin', (int)$_SESSION['user_id'], BASE_URL . '/app/admin/security-logs.php'); ?>
+        <div class="card">
                 <div class="card-header"><h2>Incident Volume</h2><a href="<?php echo BASE_URL; ?>/app/admin/incidents.php">View records →</a></div>
                 <div class="breakdown-row"><div class="breakdown-label"><span>Total incidents logged (all time)</span><span class="n"><?php echo $totalIncidents; ?></span></div></div>
                 <div class="breakdown-row"><div class="breakdown-label"><span>Reported today</span><span class="n"><?php echo $todayIncidents; ?></span></div></div>

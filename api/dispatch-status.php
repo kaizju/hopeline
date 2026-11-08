@@ -5,12 +5,13 @@ require_once __DIR__ . '/../config/functions.php';
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 
-if (!isLoggedIn() || !hasRole('user')) {
+if (!isLoggedIn() || !revalidateSessionUser() || !hasRole('user')) {
     http_response_code(401);
-    echo json_encode(['ok' => false]);
+    echo json_encode(['ok' => false, 'error' => 'unauthorized']);
     exit;
 }
 $uid = (int)$_SESSION['user_id'];
+sessionTouch($pdo);
 session_write_close();
 
 $t = $pdo->prepare("SELECT team_id FROM users WHERE id = ?");
