@@ -50,7 +50,7 @@ if (!is_numeric($longitude) || abs((float)$longitude) > 180) $longitude = '';
     }
 if ($latitude === '' || $longitude === '') $errors[] = 'Drop a map pin on the incident location.';
     if ($callerName === '')    $errors[] = 'Caller name is required.';
-    if ($barangay === '')      $errors[] = 'Purok is required.';
+    if (!in_array($barangay, purokList(), true)) $errors[] = 'Select a valid Purok from the list.';
 if ($incidentType !== '' && !in_array($incidentType, $validTypes, true)) $errors[] = 'Invalid incident type.';
 if (!in_array($severity, ['Critical','High','Moderate','Low'], true))    $errors[] = 'Severity is required.';
     
@@ -220,19 +220,12 @@ $stmt->execute([
                     <div class="field-row">
                         <div class="field">
     <label for="barangay">Purok <span class="optional" id="barangayAutoTag" style="display:none;">(auto-detected from pin)</span></label>
-    <input type="text" id="barangay" name="barangay" list="purokOptions" maxlength="100" placeholder="Select or enter a purok / barangay" required>
-    <datalist id="purokOptions">
-        <option value="Kihare"></option>
-        <option value="Lower Kalanawan"></option>
-        <option value="Lower Pol-ton"></option>
-        <option value="Lower Sosohon"></option>
-        <option value="Mangima"></option>
-        <option value="Saint Joseph"></option>
-        <option value="Upper Kalanawan"></option>
-        <option value="Upper Pol-ton"></option>
-        <option value="Upper Sosohon"></option>
-        <option value="Mullberry Village"></option>
-    </datalist>
+    <select id="barangay" name="barangay" required>
+        <option value="">Select a Purok</option>
+        <?php foreach (purokList() as $purok): ?>
+            <option value="<?php echo htmlspecialchars($purok, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($purok, ENT_QUOTES, 'UTF-8'); ?></option>
+        <?php endforeach; ?>
+    </select>
 </div>
                     <div class="field">
   <label>Report received via</label>

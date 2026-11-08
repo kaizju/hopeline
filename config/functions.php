@@ -186,7 +186,7 @@ function requireRole($role) {
 }
 function purokList() {
     return ['Kihare','Lower Kalanawan','Lower Pol-ton','Lower Sosohon','Mangima',
-            'Saint Joseph','Upper Kalanawan','Upper Pol-ton','Upper Sosohon'];
+            'Saint Joseph','Upper Kalanawan','Upper Pol-ton','Upper Sosohon','Mullberry Village'];
 }
 function renderHeader($title) {
     $currentRole = $_SESSION['role'] ?? 'guest';
