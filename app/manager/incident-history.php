@@ -47,8 +47,9 @@ try {
        TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at) AS total_response_seconds,
        TIMESTAMPDIFF(SECOND, c.created_at, d.dispatched_at) AS dispatch_wait_seconds,
        TIMESTAMPDIFF(SECOND, d.dispatched_at, d.departed_at) AS turnout_seconds,
-       (SELECT COUNT(*) FROM delay_logs dl JOIN dispatch dd ON dd.id = dl.dispatch_id
-         WHERE dd.clip_report_id = c.id) AS delay_count
+       (SELECT COUNT(*) FROM delay_logs dl JOIN dispatch dd ON dd.id=dl.dispatch_id WHERE dd.clip_report_id=c.id) AS delay_count,
+       (SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, dl.started_at, dl.resolved_at)),0) FROM delay_logs dl JOIN dispatch dd ON dd.id=dl.dispatch_id WHERE dd.clip_report_id=c.id) AS total_delay_minutes,
+       (SELECT dl.reason FROM delay_logs dl JOIN dispatch dd ON dd.id=dl.dispatch_id WHERE dd.clip_report_id=c.id GROUP BY dl.reason ORDER BY COUNT(*) DESC, MIN(dl.started_at) ASC LIMIT 1) AS primary_delay_reason
        FROM clip_reports c
        LEFT JOIN dispatch d ON d.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id)
        $where
@@ -156,7 +157,7 @@ function fmtDuration($seconds) {
                 <td><?php echo $h['arrived_at'] ? date('H:i', strtotime($h['arrived_at'])) : '—'; ?></td>
                 <td><?php echo fmtDuration($h['travel_seconds']); ?></td>
                 <td><?php echo fmtDuration($h['total_response_seconds']); ?></td>
-                <td class="<?php echo $h['delay_count'] > 0 ? 'delay-flag' : 'no-delay'; ?>"><?php echo $h['delay_count']; ?></td>
+                <td class="<?php echo $h['delay_count'] > 0 ? 'delay-flag' : 'no-delay'; ?>"><?php echo (int)$h['delay_count'] > 0 ? '+' . (int)$h['total_delay_minutes'] . 'm · ' . htmlspecialchars($h['primary_delay_reason'] ?: 'Delay') : '—'; ?></td>
                 <td><?php echo htmlspecialchars($h['hospital_name'] ?? '—'); ?></td>
                 <td><?php echo $h['hospital_arrived_at'] ? date('H:i', strtotime($h['hospital_arrived_at'])) : '—'; ?></td>
                 <td>

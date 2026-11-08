@@ -84,3 +84,5 @@ render_sidebar_shell([
     'status_text'         => 'Status: ' . $unitStatus,
     'status_color'        => $statusColor,
 ]);
+?>
+<script src="<?php echo BASE_URL; ?>/assets/js/gps-tracker.js" defer></script>
