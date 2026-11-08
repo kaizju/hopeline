@@ -12,7 +12,7 @@ if (!isLoggedIn() || !revalidateSessionUser() || !hasRole('user')) {
     echo json_encode(['ok' => false, 'error' => 'unauthorized']);
     exit;
 }
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);
     echo json_encode(['ok' => false, 'error' => 'method']);
     exit;
@@ -51,12 +51,4 @@ try {
     error_log($e->getMessage());
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => 'db']);
-}
-function isLoggedIn() {
-    if (!isset($_SESSION['user_id'])) return false;
-    if (time() - ($_SESSION['_last'] ?? time()) > 1800) { $_SESSION = []; return false; }
-    $bg = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/api/') !== false
-       || ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '') === 'empty';
-    if (!$bg) $_SESSION['_last'] = time();
-    return true;
 }

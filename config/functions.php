@@ -149,13 +149,16 @@ function postStr(string $k, int $max = 255): string {
     $_SESSION['_chk'] = time();
     return true;
 }
-function isLoggedIn() {
+function isLoggedIn(): bool {
     if (!isset($_SESSION['user_id'])) return false;
     if (time() - ($_SESSION['_last'] ?? time()) > 1800) {   // 30 min idle
         $_SESSION = [];   // row stays open, so Sessions tab shows "Expired"
         return false;
     }
-    $_SESSION['_last'] = time();
+    // Polling and background API calls must not keep an unattended session alive.
+    $backgroundRequest = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/api/') !== false
+        || ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '') === 'empty';
+    if (!$backgroundRequest) $_SESSION['_last'] = time();
     return true;
 }
 

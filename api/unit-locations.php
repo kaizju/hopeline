@@ -7,13 +7,15 @@ require_once __DIR__ . '/../config/functions.php';
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 
-function isLoggedIn() {
-    if (!isset($_SESSION['user_id'])) return false;
-    if (time() - ($_SESSION['_last'] ?? time()) > 1800) { $_SESSION = []; return false; }
-    $bg = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/api/') !== false
-       || ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '') === 'empty';
-    if (!$bg) $_SESSION['_last'] = time();
-    return true;
+if (!isLoggedIn() || !revalidateSessionUser()) {
+    http_response_code(401);
+    echo json_encode(['ok' => false, 'error' => 'unauthorized']);
+    exit;
+}
+if (!hasRole('manager') && !hasRole('admin')) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'error' => 'forbidden']);
+    exit;
 }
 sessionTouch($pdo);
 session_write_close();
