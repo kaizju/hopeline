@@ -1,5 +1,7 @@
 <?php
 date_default_timezone_set('Asia/Manila');
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
 
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.gc_maxlifetime', 1800);

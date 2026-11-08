@@ -345,18 +345,18 @@ activeRoutes[u.id] = { coords: route.coords, duration: route.duration,
            const lbl = elapsedLabel(u);
 const alert = lbl ? `<div class="unit-meta alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> ${u.dispatch_status === 'returning' ? 'Returning' : 'En route'} ${lbl}</div>` : '';
 const delayAlert = u.delay_reason ? `<div class="unit-meta" style="color:var(--high);font-weight:700">⚠️ ${esc(u.delay_reason)} (+${Number(u.delay_duration_minutes || 0)}m)</div>` : '';
-            const dest = u.barangay ? `<div class="unit-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.35-7-10a7 7 0 0 1 14 0c0 5.65-7 10-7 10z"/></svg> ${u.barangay}</div>` : '';
+            const dest = u.barangay ? `<div class="unit-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.35-7-10a7 7 0 0 1 14 0c0 5.65-7 10-7 10z"/></svg> ${esc(u.barangay)}</div>` : '';
             return `
-            <div class="unit-card ${focusedUnitId === u.id ? 'focused' : ''}" data-id="${u.id}">
+            <div class="unit-card ${focusedUnitId === u.id ? 'focused' : ''}" data-id="${Number(u.id)}">
                 <div class="unit-icon" style="background:${statusIconBg(u.status)}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-2"/><circle cx="6.5" cy="18.5" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/></svg>
                 </div>
                 <div class="unit-info">
                     <div class="unit-top">
-                        <span class="unit-name">${u.unit_name}</span>
-                        <span class="status-pill" style="background:${statusIconBg(u.status)}22; color:${statusIconBg(u.status)}">${u.status}</span>
+                        <span class="unit-name">${esc(u.unit_name)}</span>
+                        <span class="status-pill" style="background:${statusIconBg(u.status)}22; color:${statusIconBg(u.status)}">${esc(u.status)}</span>
                     </div>
-                    <div class="unit-sub">${u.driver_name || '—'} · ${u.plate_no || '—'}</div>
+                    <div class="unit-sub">${esc(u.driver_name || "—")} · ${esc(u.plate_no || "—")}</div>
                     ${alert}
                     ${delayAlert}
                     ${dest}

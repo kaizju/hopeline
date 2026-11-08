@@ -116,15 +116,9 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
            $details = isset($_POST['incident_details']) ? trim($_POST['incident_details']) : null;
 $photoPath = null; $gps = null; $gpsSrc = null; $geoText = null; $takenAt = null;
 if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
-    $ext = strtolower(pathinfo($_FILES['incident_photo']['name'], PATHINFO_EXTENSION));
-    if (in_array($ext, ['jpg','jpeg','png','webp']) && @getimagesize($_FILES['incident_photo']['tmp_name'])) {
-        $uploadDir = __DIR__ . '/../../assets/uploads/incidents/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-        $filename = 'incident_' . $dispatchId . '_' . time() . '.' . $ext;
-        if (move_uploaded_file($_FILES['incident_photo']['tmp_name'], $uploadDir . $filename)) {
-            $photoPath = 'assets/uploads/incidents/' . $filename;
-
-            $gps = exifGps($uploadDir . $filename); $gpsSrc = 'exif';
+    $savedImage = saveIncidentImage($_FILES['incident_photo']);
+    $photoPath = $savedImage['path'];
+            $gps = exifGps($savedImage['absolute']); $gpsSrc = 'exif';
             if (!$gps && is_numeric($_POST['client_lat'] ?? '') && is_numeric($_POST['client_lng'] ?? '')) {
                 $gps = ['lat' => (float)$_POST['client_lat'], 'lng' => (float)$_POST['client_lng'], 'taken' => null];
                 $gpsSrc = 'device';   // phone GPS at upload time (EXIF had no GPS)
@@ -134,8 +128,6 @@ if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['erro
                 $geoText = $geo['address'] ?? null;
                 $takenAt = $gps['taken'] ?: date('Y-m-d H:i:s');
             } else { $gps = null; $gpsSrc = null; }
-        }
-    }
 }
 $sql = "UPDATE dispatch SET incident_details=COALESCE(?, incident_details)";
 $params = [$details];
@@ -153,7 +145,7 @@ if (!$photoPath && !$had->fetchColumn()) {
     if ($fe !== null && $fe !== UPLOAD_ERR_OK && !empty($_FILES['incident_photo']['name'])) {
         $why = in_array($fe, [1, 2], true) ? ' (photo too large for the server)' : ' (upload error ' . $fe . ')';
     } elseif (!empty($_FILES['incident_photo']['name']) && !$photoPath) {
-        $why = ' (must be a JPG/PNG/WebP image, and assets/uploads/incidents must be writable)';
+        $why = ' (must be a valid JPG/PNG/WebP image no larger than 5 MB)';
     }
     $postFlashType = 'error';
     $flash = 'A site photo is required.' . $why;

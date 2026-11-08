@@ -45,6 +45,7 @@ try {
 
     echo json_encode(['ok' => true, 'units' => $units]);
 } catch (PDOException $e) {
+    error_log('HopeLine unit locations could not be loaded: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => 'db']);
 }

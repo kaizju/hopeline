@@ -24,9 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $postFlashType = 'error';
                 $flash = 'Enter a valid email address.';
-            } elseif (strlen($password) < 12) {
+            } elseif (($passwordError = passwordPolicyError($password)) !== null) {
                 $postFlashType = 'error';
-                $flash = 'Use a password with at least 12 characters.';
+                $flash = $passwordError;
             } else {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 $stmt = $pdo->prepare("INSERT INTO users (name, email, password, role, contact_no, is_verified) VALUES (?, ?, ?, ?, ?, 1)");
@@ -257,7 +257,7 @@ $unreadAlerts = 0;
             <input type="hidden" name="action" value="create_user">
             <div class="field"><label>Full Name</label><input type="text" name="name" required></div>
             <div class="field"><label>Email</label><input type="email" name="email" required></div>
-            <div class="field"><label>Password</label><input type="password" name="password" minlength="12" autocomplete="new-password" required><small>Use at least 12 characters.</small></div>
+            <div class="field"><label>Password</label><input type="password" name="password" minlength="12" autocomplete="new-password" required><small>At least 12 characters, including uppercase, lowercase, number, and symbol.</small></div>
             <div class="field"><label>Contact Number</label><input type="text" name="contact_no"></div>
             <div class="field">
                 <label>Role</label>

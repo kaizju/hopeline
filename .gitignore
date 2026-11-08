@@ -1,4 +1,8 @@
 node_modules/
 config/config.php
-assets/uploads
+assets/uploads/*
+!assets/uploads/incidents/
+assets/uploads/incidents/*
+!assets/uploads/incidents/.htaccess
+!assets/uploads/incidents/index.html
 config/secrets.php

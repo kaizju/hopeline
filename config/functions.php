@@ -135,6 +135,45 @@ function postStr(string $k, int $max = 255): string {
     return is_string($v) ? mb_substr(trim($v), 0, $max) : '';
 }
 
+function passwordPolicyError(string $password): ?string {
+    $length = function_exists('mb_strlen') ? mb_strlen($password, 'UTF-8') : strlen($password);
+    if ($length < 12) return 'Use at least 12 characters.';
+    if (!preg_match('/[a-z]/', $password) || !preg_match('/[A-Z]/', $password)
+        || !preg_match('/[0-9]/', $password) || !preg_match('/[^a-zA-Z0-9]/', $password)) {
+        return 'Include an uppercase letter, a lowercase letter, a number, and a symbol.';
+    }
+    return null;
+}
+
+/** Validate and store an uploaded incident photo as a non-executable random file. */
+function saveIncidentImage(array $upload): array {
+    if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('Choose a valid image no larger than 5 MB.');
+    }
+    if (empty($upload['tmp_name']) || !is_uploaded_file($upload['tmp_name'])
+        || (int)($upload['size'] ?? 0) < 1 || (int)$upload['size'] > 5 * 1024 * 1024) {
+        throw new RuntimeException('Choose a valid image no larger than 5 MB.');
+    }
+    $info = @getimagesize($upload['tmp_name']);
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($upload['tmp_name']);
+    $types = [IMAGETYPE_JPEG => ['jpg', 'image/jpeg'], IMAGETYPE_PNG => ['png', 'image/png'], IMAGETYPE_WEBP => ['webp', 'image/webp']];
+    $imageType = $info['2'] ?? null;
+    if (!isset($types[$imageType]) || $mime !== $types[$imageType][1]) {
+        throw new RuntimeException('Choose a valid JPG, PNG, or WebP image.');
+    }
+
+    $dir = __DIR__ . '/../assets/uploads/incidents/';
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        throw new RuntimeException('The image could not be saved.');
+    }
+    $filename = 'incident_' . bin2hex(random_bytes(16)) . '.' . $types[$imageType][0];
+    $target = $dir . $filename;
+    if (!move_uploaded_file($upload['tmp_name'], $target)) {
+        throw new RuntimeException('The image could not be saved.');
+    }
+    return ['path' => 'assets/uploads/incidents/' . $filename, 'absolute' => $target];
+}
+
 function redirectAfterPost(string $location, string $message = '', string $type = 'success'): void {
     if ($message !== '') {
         $_SESSION['flash'] = $message;
@@ -202,7 +241,8 @@ function requireLogin() {
 function requireRole($role) {
     requireLogin();
     if (!hasRole($role)) {
-        die("Access denied. Required role: $role");
+        http_response_code(403);
+        exit('Access denied.');
     }
 }
 function purokList() {
