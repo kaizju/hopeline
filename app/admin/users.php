@@ -13,13 +13,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if ($action === 'create_user') {
             $name = postStr('name', 150); $email = postStr('email', 150); $contact = postStr('contact_no', 20);
-            $email = trim($_POST['email'] ?? '');
-            $password = $_POST['password'] ?? '';
+            $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
             $role = in_array($_POST['role'] ?? '', $validRoles, true) ? $_POST['role'] : 'user';
-            $contact = trim($_POST['contact_no'] ?? '');
 
             if ($name === '' || $email === '' || $password === '') {
                 $flash = 'Name, email, and password are required.';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $flash = 'Enter a valid email address.';
+            } elseif (strlen($password) < 12) {
+                $flash = 'Use a password with at least 12 characters.';
             } else {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 $stmt = $pdo->prepare("INSERT INTO users (name, email, password, role, contact_no, is_verified) VALUES (?, ?, ?, ?, ?, 1)");
@@ -77,7 +79,8 @@ logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'suc
             $flash = 'Account restored.';
         }
     } catch (PDOException $e) {
-        $flash = 'Action failed: ' . $e->getMessage();
+        error_log('HopeLine user management error: ' . $e->getMessage());
+        $flash = 'Action failed. Check that the account details are valid and try again.';
     }
 }
 
@@ -90,7 +93,7 @@ $params = [];
 if ($roleFilter !== '') { $where .= " AND role = ?"; $params[] = $roleFilter; }
 if ($search !== '') { $where .= " AND (name LIKE ? OR email LIKE ?)"; $params[] = "%$search%"; $params[] = "%$search%"; }
 
-$stmt = $pdo->prepare("SELECT * FROM users $where ORDER BY created_at DESC");
+$stmt = $pdo->prepare("SELECT id, name, email, role, contact_no, is_verified, archived_at, created_at FROM users $where ORDER BY created_at DESC");
 $stmt->execute($params);
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -202,7 +205,7 @@ $unreadAlerts = 0;
             <input type="hidden" name="action" value="create_user">
             <div class="field"><label>Full Name</label><input type="text" name="name" required></div>
             <div class="field"><label>Email</label><input type="email" name="email" required></div>
-            <div class="field"><label>Password</label><input type="password" name="password" required></div>
+            <div class="field"><label>Password</label><input type="password" name="password" minlength="12" autocomplete="new-password" required><small>Use at least 12 characters.</small></div>
             <div class="field"><label>Contact Number</label><input type="text" name="contact_no"></div>
             <div class="field">
                 <label>Role</label>

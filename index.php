@@ -14,8 +14,8 @@ if (isLoggedIn()) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email    = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+    $email    = is_string($_POST['email'] ?? null) ? trim($_POST['email']) : '';
+    $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
 
     // Rate limit: 5 failed attempts per email/IP within 15 minutes
     $n = $pdo->prepare("SELECT COUNT(*) FROM user_activity_logs
@@ -27,7 +27,7 @@ $n->execute([$email, $_SERVER['REMOTE_ADDR']]);
     if ($n->fetchColumn() >= 5) {
         $error = 'Too many attempts. Try again in 15 minutes.';
     } else {
-        $stmt = $pdo->prepare("SELECT * FROM users
+        $stmt = $pdo->prepare("SELECT id, email, password, role FROM users
                                WHERE email = ? AND is_verified = 1 AND archived_at IS NULL");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
