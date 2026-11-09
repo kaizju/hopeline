@@ -16,7 +16,10 @@ $delayThreshold = 15;
 try {
     $v = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'delay_threshold_minutes'")->fetchColumn();
     if ($v !== false && (int)$v > 0) $delayThreshold = (int)$v;
-} catch (PDOException $e) {}
+} catch (PDOException $e) {
+    error_log('HopeLine alert threshold could not be loaded: ' . $e->getMessage());
+    $settingsError = 'The configured delay threshold could not be loaded; the default threshold is being used.';
+}
 $gpsStaleMinutes   = 5;   // responder phone hasn't reported
 $unassignedMinutes = 10;  // incident waiting for a unit
 
@@ -86,7 +89,8 @@ $alerts['overdue'] = $st->fetchAll(PDO::FETCH_ASSOC);
         LIMIT 10
     ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $loadError = $e->getMessage();
+    error_log('HopeLine alerts could not be loaded: ' . $e->getMessage());
+    $loadError = 'Some alerts could not be loaded. Refresh the page or contact an administrator.';
 }
 
 $counts = array_map('count', $alerts);
@@ -120,8 +124,11 @@ $tabs = [
         <p><?php echo $total; ?> item<?php echo $total === 1 ? '' : 's'; ?> need attention right now. Refreshes every 30 seconds.</p>
     </div>
 
+    <?php if (!empty($settingsError)): ?>
+        <div class="alert-banner alert-error"><?php echo h($settingsError); ?></div>
+    <?php endif; ?>
     <?php if (!empty($loadError)): ?>
-        <div class="alert-banner alert-error">Some alerts could not be loaded: <?php echo h($loadError); ?></div>
+        <div class="alert-banner alert-error"><?php echo h($loadError); ?></div>
     <?php endif; ?>
 
     <div class="stats-grid">

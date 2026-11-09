@@ -63,6 +63,7 @@ body.assign-page #gpsPill { display: none; }
 .hud-card .tl-time { font-size: 11px; }
 
 .hud-toast { margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; background: rgba(63,122,92,.28); border: 1px solid #3f7a5c; color: var(--macadamia); transition: opacity .4s, max-height .4s, margin .4s, padding .4s; max-height: 80px; overflow: hidden; }
+.hud-toast.error { background: rgba(176,32,41,.2); border-color: #b02029; }
 .hud-toast.hide { opacity: 0; max-height: 0; margin: 0; padding-top: 0; padding-bottom: 0; border-width: 0; }
 
 .hud-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

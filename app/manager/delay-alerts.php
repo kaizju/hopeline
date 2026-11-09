@@ -6,15 +6,25 @@ require_once __DIR__ . '/../../config/functions.php';
 requireRole('manager');
 
 
-$flash = '';
+$flash = consumeFlash();
+$flashType = consumeFlashType();
+$postFlashType = 'success';
+$delays = [];
+$activeDispatches = [];
 
 // ---- Handle: resolve delay / log manual delay ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if (($_POST['action'] ?? '') === 'resolve_delay') {
             $delayId = (int)($_POST['delay_id'] ?? 0);
-            $pdo->prepare("UPDATE delay_logs SET resolved_at = NOW() WHERE id = ?")->execute([$delayId]);
-            $flash = 'Delay marked as resolved.';
+            $resolve = $pdo->prepare("UPDATE delay_logs SET resolved_at = NOW() WHERE id = ? AND resolved_at IS NULL");
+            $resolve->execute([$delayId]);
+            if ($resolve->rowCount()) {
+                $flash = 'Delay marked as resolved.';
+            } else {
+                $postFlashType = 'error';
+                $flash = 'This delay was already resolved or no longer exists.';
+            }
         }
 
         if (($_POST['action'] ?? '') === 'log_manual_delay') {
@@ -27,9 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$dispatchId, $unitId, $reason, $notes, $_SESSION['user_id']]);
             $flash = 'Manual delay logged.';
         }
-    } catch (PDOException $e) {
-        $flash = 'Action failed: ' . $e->getMessage();
+    } catch (Throwable $e) {
+        error_log('HopeLine delay alert action failed: ' . $e->getMessage());
+        $postFlashType = 'error';
+        $flash = 'Delay action failed. Refresh the page and try again.';
     }
+    redirectAfterPost('delay-alerts.php', $flash ?: 'No delay action was completed.', $postFlashType);
 }
 
 // ---- Fetch data ----
@@ -52,7 +65,8 @@ try {
         WHERE d.status IN ('assigned','en_route','on_site')
     ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-  
+    error_log('HopeLine delay alerts could not be loaded: ' . $e->getMessage());
+    $loadError = 'Delay records could not be loaded. Refresh the page or contact an administrator.';
 }
 
 $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === null));
@@ -71,6 +85,7 @@ $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === 
 <?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
 
 <main class="main main-1100">
+    <?php if (!empty($loadError)): ?><div class="alert-banner alert-error"><?php echo htmlspecialchars($loadError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
     <div class="page-head page-head--flex">
         <div>
             <h1>Delay Alerts</h1>
@@ -82,7 +97,7 @@ $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === 
         </button>
     </div>
 
-    <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
+    <?php if ($flash): ?><div class="<?php echo $flashType === 'error' ? 'alert-banner alert-error' : 'flash'; ?>"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
 
     <div class="tabs">
         <div class="tab active" data-filter="all">All</div>

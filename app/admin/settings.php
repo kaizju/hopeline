@@ -27,20 +27,26 @@ foreach ($defaults as $key => $val) {
     }
 }
 
-$flash = '';
+$flash = consumeFlash();
+$flashType = consumeFlashType();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    foreach (['default_avg_speed_kmh', 'delay_threshold_minutes', 'barangay_list'] as $key) {
-        if (isset($_POST[$key])) {
-            $value = trim($_POST[$key]);
-            $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)
-                ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
-            $stmt->execute([$key, $value]);
+    try {
+        foreach (['default_avg_speed_kmh', 'delay_threshold_minutes', 'barangay_list'] as $key) {
+            if (isset($_POST[$key]) && is_string($_POST[$key])) {
+                $value = trim($_POST[$key]);
+                $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)
+                    ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+                $stmt->execute([$key, $value]);
+            }
         }
+        if (function_exists('logActivity')) {
+            logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'settings_updated', 'success');
+        }
+        redirectAfterPost('settings.php', 'Settings saved.');
+    } catch (Throwable $e) {
+        error_log('HopeLine settings update failed: ' . $e->getMessage());
+        redirectAfterPost('settings.php', 'Settings could not be saved. Check the values and try again.', 'error');
     }
-    if (function_exists('logActivity')) {
-        logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'settings_updated', 'success');
-    }
-    $flash = 'Settings saved.';
 }
 
 $rows = $pdo->query("SELECT setting_key, setting_value FROM settings")->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -65,7 +71,7 @@ $unreadAlerts = 0;
         <p>Configuration used across ETA prediction and CLIP intake.</p>
     </div>
 
-    <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
+    <?php if ($flash): ?><div class="<?php echo $flashType === 'error' ? 'alert-banner alert-error' : 'flash'; ?>"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
 
     <form method="POST">
         <div class="card">

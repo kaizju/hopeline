@@ -5,7 +5,9 @@ require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('admin');
 
-$flash = '';
+$flash = consumeFlash();
+$flashType = consumeFlashType();
+$postFlashType = 'success';
 $validRoles = ['admin', 'manager', 'user'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -13,13 +15,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if ($action === 'create_user') {
             $name = postStr('name', 150); $email = postStr('email', 150); $contact = postStr('contact_no', 20);
-            $email = trim($_POST['email'] ?? '');
-            $password = $_POST['password'] ?? '';
+            $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
             $role = in_array($_POST['role'] ?? '', $validRoles, true) ? $_POST['role'] : 'user';
-            $contact = trim($_POST['contact_no'] ?? '');
 
             if ($name === '' || $email === '' || $password === '') {
+                $postFlashType = 'error';
                 $flash = 'Name, email, and password are required.';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $postFlashType = 'error';
+                $flash = 'Enter a valid email address.';
+            } elseif (($passwordError = passwordPolicyError($password)) !== null) {
+                $postFlashType = 'error';
+                $flash = $passwordError;
             } else {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 $stmt = $pdo->prepare("INSERT INTO users (name, email, password, role, contact_no, is_verified) VALUES (?, ?, ?, ?, ?, 1)");
@@ -34,8 +41,8 @@ logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_created', 'suc
         if ($action === 'update_role') {
             $userId = (int)($_POST['user_id'] ?? 0);
             $role = $_POST['role'] ?? '';
-            if (!in_array($role, $validRoles, true))              { $flash = 'Invalid role.'; }
-elseif ($userId === (int)$_SESSION['user_id'])        { $flash = "You can't change your own role."; }
+            if (!in_array($role, $validRoles, true))              { $postFlashType = 'error'; $flash = 'Invalid role.'; }
+elseif ($userId === (int)$_SESSION['user_id'])        { $postFlashType = 'error'; $flash = "You can't change your own role."; }
 else {
    $pdo->prepare("UPDATE users SET role = ? WHERE id = ?")->execute([$role, $userId]);
 logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'success',
@@ -56,14 +63,56 @@ logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'suc
         if ($action === 'archive_user') {
             $userId = (int)($_POST['user_id'] ?? 0);
             if ($userId === (int)$_SESSION['user_id']) {
+                $postFlashType = 'error';
                 $flash = "You can't archive your own account while logged in.";
             } else {
-                $pdo->prepare("UPDATE users SET archived_at = NOW() WHERE id = ?")->execute([$userId]);
-                if (function_exists('logActivity')) {
-                    logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_archived', 'success',
-    "Archived user #$userId", 'users');
+                $pdo->beginTransaction();
+                $targetStmt = $pdo->prepare("SELECT id, team_id FROM users WHERE id = ? AND archived_at IS NULL FOR UPDATE");
+                $targetStmt->execute([$userId]);
+                $targetUser = $targetStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$targetUser) {
+                    $pdo->rollBack();
+                    $postFlashType = 'error';
+                    $flash = 'User not found or already archived.';
+                } else {
+                    $ledTeams = $pdo->prepare("SELECT id FROM teams WHERE leader_id = ? AND archived_at IS NULL FOR UPDATE");
+                    $ledTeams->execute([$userId]);
+                    if ($ledTeams->fetchColumn()) {
+                        $pdo->rollBack();
+                        $postFlashType = 'error';
+                        $flash = 'This user leads an active team. Reassign the team leader before archiving the account.';
+                    } else {
+                        $teamId = (int)($targetUser['team_id'] ?? 0);
+                        if ($teamId > 0) {
+                            $teamLock = $pdo->prepare("SELECT id FROM teams WHERE id = ? FOR UPDATE");
+                            $teamLock->execute([$teamId]);
+                        }
+                        $unitLocks = $pdo->prepare("SELECT id FROM ptv_units WHERE responder_id = ? FOR UPDATE");
+                        $unitLocks->execute([$userId]);
+                        $unitLocks->fetchAll(PDO::FETCH_COLUMN);
+
+                        $teamClause = $teamId > 0 ? 'd.team_id = ? OR ' : '';
+                        $activeSql = "SELECT d.id FROM dispatch d LEFT JOIN ptv_units u ON u.id = d.unit_id
+                                      WHERE d.status IN ('assigned','en_route','on_site','returning')
+                                        AND ($teamClause u.responder_id = ?) FOR UPDATE";
+                        $active = $pdo->prepare($activeSql);
+                        $active->execute($teamId > 0 ? [$teamId, $userId] : [$userId]);
+                        if ($active->fetchColumn()) {
+                            $pdo->rollBack();
+                            $postFlashType = 'error';
+                            $flash = 'This user is assigned to an active dispatch. Resolve or reassign it before archiving the account.';
+                        } else {
+                            $pdo->prepare("UPDATE users SET archived_at = NOW(), team_id = NULL WHERE id = ?")->execute([$userId]);
+                            $pdo->prepare("UPDATE ptv_units SET responder_id = NULL WHERE responder_id = ?")->execute([$userId]);
+                            $pdo->commit();
+                            if (function_exists('logActivity')) {
+                                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'user_archived', 'success',
+                                    "Archived user #$userId", 'users');
+                            }
+                            $flash = 'Account archived and detached from its team and units.';
+                        }
+                    }
                 }
-                $flash = 'Account archived.';
             }
         }
 
@@ -76,9 +125,15 @@ logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'role_changed', 'suc
             }
             $flash = 'Account restored.';
         }
-    } catch (PDOException $e) {
-        $flash = 'Action failed: ' . $e->getMessage();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('HopeLine user management error: ' . $e->getMessage());
+        $postFlashType = 'error';
+        $flash = 'Action failed. Check that the account details are valid and try again.';
     }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    redirectAfterPost('users.php', $flash ?: 'No user action was completed.', $postFlashType);
 }
 
 $roleFilter = $_GET['role'] ?? '';
@@ -90,7 +145,7 @@ $params = [];
 if ($roleFilter !== '') { $where .= " AND role = ?"; $params[] = $roleFilter; }
 if ($search !== '') { $where .= " AND (name LIKE ? OR email LIKE ?)"; $params[] = "%$search%"; $params[] = "%$search%"; }
 
-$stmt = $pdo->prepare("SELECT * FROM users $where ORDER BY created_at DESC");
+$stmt = $pdo->prepare("SELECT id, name, email, role, contact_no, is_verified, archived_at, created_at FROM users $where ORDER BY created_at DESC");
 $stmt->execute($params);
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -116,7 +171,7 @@ $unreadAlerts = 0;
         <button class="btn-primary" onclick="document.getElementById('createModal').classList.add('show')">+ Create Account</button>
     </div>
 
-    <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
+    <?php if ($flash): ?><div class="<?php echo $flashType === 'error' ? 'alert-banner alert-error' : 'flash'; ?>"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
 
     <div class="tabs">
         <a href="?view=active<?php echo $roleFilter ? '&role='.urlencode($roleFilter) : ''; ?><?php echo $search ? '&q='.urlencode($search) : ''; ?>" class="tab <?php echo $view === 'active' ? 'active' : ''; ?>" style="text-decoration:none;">Active</a>
@@ -202,7 +257,7 @@ $unreadAlerts = 0;
             <input type="hidden" name="action" value="create_user">
             <div class="field"><label>Full Name</label><input type="text" name="name" required></div>
             <div class="field"><label>Email</label><input type="email" name="email" required></div>
-            <div class="field"><label>Password</label><input type="password" name="password" required></div>
+            <div class="field"><label>Password</label><input type="password" name="password" minlength="12" autocomplete="new-password" required><small>At least 12 characters, including uppercase, lowercase, number, and symbol.</small></div>
             <div class="field"><label>Contact Number</label><input type="text" name="contact_no"></div>
             <div class="field">
                 <label>Role</label>

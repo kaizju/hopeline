@@ -202,6 +202,7 @@ $modules = $mq->fetchAll(PDO::FETCH_COLUMN);
 /** Compact "last 5 events" card for the dashboards. */
 function renderSecurityLogCard(PDO $pdo, string $role, int $uid, string $href): void {
     $rows = [];
+    $loadError = false;
     try {
         [$scope, $params] = slScope($role, $uid, 'l');
         $st = $pdo->prepare("SELECT l.*, u.name, GREATEST(0, TIMESTAMPDIFF(SECOND, l.created_at, NOW())) AS age_s
@@ -209,11 +210,15 @@ function renderSecurityLogCard(PDO $pdo, string $role, int $uid, string $href): 
                              WHERE $scope ORDER BY l.id DESC LIMIT 5");
         $st->execute($params);
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) { error_log($e->getMessage()); }
+    } catch (PDOException $e) {
+        error_log('HopeLine security activity card could not be loaded: ' . $e->getMessage());
+        $loadError = true;
+    }
     ?>
     <div class="card">
         <div class="card-header"><h2>Security Activity</h2><a href="<?php echo slh($href); ?>">View all →</a></div>
-        <?php if (!$rows): ?><div class="empty-mini">No activity recorded yet.</div>
+        <?php if ($loadError): ?><div class="alert-banner alert-error">Security activity could not be loaded. Refresh the page or contact an administrator.</div>
+        <?php elseif (!$rows): ?><div class="empty-mini">No activity recorded yet.</div>
         <?php else: foreach ($rows as $r): ?>
             <div class="audit-row">
                 <div>

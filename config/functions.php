@@ -134,6 +134,66 @@ function postStr(string $k, int $max = 255): string {
     $v = $_POST[$k] ?? '';
     return is_string($v) ? mb_substr(trim($v), 0, $max) : '';
 }
+
+function passwordPolicyError(string $password): ?string {
+    $length = function_exists('mb_strlen') ? mb_strlen($password, 'UTF-8') : strlen($password);
+    if ($length < 12) return 'Use at least 12 characters.';
+    if (!preg_match('/[a-z]/', $password) || !preg_match('/[A-Z]/', $password)
+        || !preg_match('/[0-9]/', $password) || !preg_match('/[^a-zA-Z0-9]/', $password)) {
+        return 'Include an uppercase letter, a lowercase letter, a number, and a symbol.';
+    }
+    return null;
+}
+
+/** Validate and store an uploaded incident photo as a non-executable random file. */
+function saveIncidentImage(array $upload): array {
+    if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('Choose a valid image no larger than 5 MB.');
+    }
+    if (empty($upload['tmp_name']) || !is_uploaded_file($upload['tmp_name'])
+        || (int)($upload['size'] ?? 0) < 1 || (int)$upload['size'] > 5 * 1024 * 1024) {
+        throw new RuntimeException('Choose a valid image no larger than 5 MB.');
+    }
+    $info = @getimagesize($upload['tmp_name']);
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($upload['tmp_name']);
+    $types = [IMAGETYPE_JPEG => ['jpg', 'image/jpeg'], IMAGETYPE_PNG => ['png', 'image/png'], IMAGETYPE_WEBP => ['webp', 'image/webp']];
+    $imageType = $info['2'] ?? null;
+    if (!isset($types[$imageType]) || $mime !== $types[$imageType][1]) {
+        throw new RuntimeException('Choose a valid JPG, PNG, or WebP image.');
+    }
+
+    $dir = __DIR__ . '/../assets/uploads/incidents/';
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        throw new RuntimeException('The image could not be saved.');
+    }
+    $filename = 'incident_' . bin2hex(random_bytes(16)) . '.' . $types[$imageType][0];
+    $target = $dir . $filename;
+    if (!move_uploaded_file($upload['tmp_name'], $target)) {
+        throw new RuntimeException('The image could not be saved.');
+    }
+    return ['path' => 'assets/uploads/incidents/' . $filename, 'absolute' => $target];
+}
+
+function redirectAfterPost(string $location, string $message = '', string $type = 'success'): void {
+    if ($message !== '') {
+        $_SESSION['flash'] = $message;
+        $_SESSION['flash_type'] = $type === 'error' ? 'error' : 'success';
+    }
+    header('Location: ' . $location, true, 303);
+    exit;
+}
+
+function consumeFlash(): string {
+    $message = $_SESSION['flash'] ?? '';
+    unset($_SESSION['flash']);
+    return is_string($message) ? $message : '';
+}
+
+function consumeFlashType(): string {
+    $type = $_SESSION['flash_type'] ?? 'success';
+    unset($_SESSION['flash_type']);
+    return $type === 'error' ? 'error' : 'success';
+}
     function revalidateSessionUser(): bool {
     global $pdo;
     if (time() - ($_SESSION['_chk'] ?? 0) <= 60) return true;
@@ -149,13 +209,16 @@ function postStr(string $k, int $max = 255): string {
     $_SESSION['_chk'] = time();
     return true;
 }
-function isLoggedIn() {
+function isLoggedIn(): bool {
     if (!isset($_SESSION['user_id'])) return false;
     if (time() - ($_SESSION['_last'] ?? time()) > 1800) {   // 30 min idle
         $_SESSION = [];   // row stays open, so Sessions tab shows "Expired"
         return false;
     }
-    $_SESSION['_last'] = time();
+    // Polling and background API calls must not keep an unattended session alive.
+    $backgroundRequest = strpos($_SERVER['SCRIPT_NAME'] ?? '', '/api/') !== false
+        || ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '') === 'empty';
+    if (!$backgroundRequest) $_SESSION['_last'] = time();
     return true;
 }
 
@@ -178,12 +241,13 @@ function requireLogin() {
 function requireRole($role) {
     requireLogin();
     if (!hasRole($role)) {
-        die("Access denied. Required role: $role");
+        http_response_code(403);
+        exit('Access denied.');
     }
 }
 function purokList() {
     return ['Kihare','Lower Kalanawan','Lower Pol-ton','Lower Sosohon','Mangima',
-            'Saint Joseph','Upper Kalanawan','Upper Pol-ton','Upper Sosohon'];
+            'Saint Joseph','Upper Kalanawan','Upper Pol-ton','Upper Sosohon','Mullberry Village'];
 }
 function renderHeader($title) {
     $currentRole = $_SESSION['role'] ?? 'guest';

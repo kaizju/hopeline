@@ -24,15 +24,8 @@ function saveCloseout(PDO $pdo, int $dispatchId): string {
 
     $photoPath = null;
     if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
-        $ext = strtolower(pathinfo($_FILES['incident_photo']['name'], PATHINFO_EXTENSION));
-        if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true) && @getimagesize($_FILES['incident_photo']['tmp_name'])) {
-            $dir = __DIR__ . '/../assets/uploads/incidents/';
-            if (!is_dir($dir)) mkdir($dir, 0755, true);
-            $name = 'incident_' . $dispatchId . '_' . time() . '.' . $ext;
-            if (move_uploaded_file($_FILES['incident_photo']['tmp_name'], $dir . $name)) {
-                $photoPath = 'assets/uploads/incidents/' . $name;
-            }
-        }
+        $savedImage = saveIncidentImage($_FILES['incident_photo']);
+        $photoPath = $savedImage['path'];
     }
 
     $sql = "UPDATE dispatch SET patient_name=?, patient_age_group=?, patient_sex=?, victim_count=?,

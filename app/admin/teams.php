@@ -4,7 +4,9 @@ require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 requireRole('admin');
 
-$flash = '';
+$flash = consumeFlash();
+$flashType = consumeFlashType();
+$postFlashType = 'success';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     try {
@@ -24,8 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($name === '') {
+                $postFlashType = 'error';
                 $flash = 'Team name is required.';
             } elseif ($leaderId <= 0) {
+                $postFlashType = 'error';
                 $flash = 'Please choose a team leader.';
             } else {
                 // leader must be an active responder and not leading another active team
@@ -36,8 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $busyName = $busy->fetchColumn();
 
                 if (!$chk->fetchColumn()) {
+                    $postFlashType = 'error';
                     $flash = 'Selected leader is not a valid responder.';
                 } elseif ($busyName) {
+                    $postFlashType = 'error';
                     $flash = 'That responder already leads ' . $busyName . '.';
                 } else {
                     $pdo->beginTransaction();
@@ -67,20 +73,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($action === 'archive_team') {
             $id = (int)($_POST['team_id'] ?? 0);
-            $pdo->prepare("UPDATE teams SET archived_at = NOW(), leader_id = NULL WHERE id = ?")->execute([$id]);
-            $pdo->prepare("UPDATE users SET team_id = NULL WHERE team_id = ?")->execute([$id]);
-            if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'team_archived', 'success');
-            $flash = 'Team archived. Its leader is now unassigned.';
+            $pdo->beginTransaction();
+            $team = $pdo->prepare("SELECT id FROM teams WHERE id = ? AND archived_at IS NULL FOR UPDATE");
+            $team->execute([$id]);
+            if (!$team->fetchColumn()) {
+                $pdo->rollBack();
+                $postFlashType = 'error';
+                $flash = 'Team not found or already archived.';
+            } else {
+                $active = $pdo->prepare("SELECT id FROM dispatch WHERE team_id = ? AND status IN ('assigned','en_route','on_site','returning') FOR UPDATE");
+                $active->execute([$id]);
+                if ($active->fetchColumn()) {
+                    $pdo->rollBack();
+                    $postFlashType = 'error';
+                    $flash = 'This team has an active dispatch. Resolve or reassign it before archiving the team.';
+                } else {
+                    $pdo->prepare("UPDATE teams SET archived_at = NOW(), leader_id = NULL WHERE id = ?")->execute([$id]);
+                    $pdo->prepare("UPDATE users SET team_id = NULL WHERE team_id = ?")->execute([$id]);
+                    $pdo->commit();
+                    if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'team_archived', 'success');
+                    $flash = 'Team archived. Its leader is now unassigned.';
+                }
+            }
         }
         if ($action === 'restore_team') {
             $pdo->prepare("UPDATE teams SET archived_at = NULL WHERE id = ?")->execute([(int)($_POST['team_id'] ?? 0)]);
             if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'team_restored', 'success');
             $flash = 'Team restored. Edit it to assign a leader.';
         }
-    } catch (PDOException $e) {
+    } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        $flash = 'Action failed: ' . $e->getMessage();
+        error_log('HopeLine team management error: ' . $e->getMessage());
+        $postFlashType = 'error';
+        $flash = 'Team action failed. Check the team details and try again.';
     }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    redirectAfterPost('teams.php', $flash ?: 'No team action was completed.', $postFlashType);
 }
 
 $view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
@@ -125,7 +154,7 @@ $unreadAlerts = 0;
         <?php if ($view === 'active'): ?><button class="btn-primary" onclick="openTeam(null)">+ Add Team</button><?php endif; ?>
     </div>
 
-    <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
+    <?php if ($flash): ?><div class="<?php echo $flashType === 'error' ? 'alert-banner alert-error' : 'flash'; ?>"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
 
     <div class="tabs">
         <a href="?view=active" class="tab <?php echo $view === 'active' ? 'active' : ''; ?>" style="text-decoration:none;">Active</a>

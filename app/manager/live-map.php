@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../config/functions.php';
 requireRole('manager');
 
 $units = [];
+$loadErrors = [];
 try {
     $stmt = $pdo->query("
         SELECT u.id, u.unit_name, u.plate_no, u.driver_name, u.status,
@@ -28,6 +29,7 @@ try {
     $units = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     error_log('live-map query failed: ' . $e->getMessage());
+    $loadErrors[] = 'Live unit data could not be loaded. Refresh the page or contact an administrator.';
 }
 $donePins = [];
 try {
@@ -43,6 +45,7 @@ try {
     ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     error_log('live-map pins failed: ' . $e->getMessage());
+    $loadErrors[] = 'Completed incident map pins could not be loaded.';
 }
 
 ?>
@@ -59,6 +62,7 @@ try {
 <?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
 
 <div class="main main-fullscreen">
+    <?php foreach ($loadErrors as $loadError): ?><div class="alert-banner alert-error"><?php echo htmlspecialchars($loadError, ENT_QUOTES, 'UTF-8'); ?></div><?php endforeach; ?>
     <div class="topbar">
         <div>
             <h1>Live Map</h1>
@@ -341,18 +345,18 @@ activeRoutes[u.id] = { coords: route.coords, duration: route.duration,
            const lbl = elapsedLabel(u);
 const alert = lbl ? `<div class="unit-meta alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> ${u.dispatch_status === 'returning' ? 'Returning' : 'En route'} ${lbl}</div>` : '';
 const delayAlert = u.delay_reason ? `<div class="unit-meta" style="color:var(--high);font-weight:700">⚠️ ${esc(u.delay_reason)} (+${Number(u.delay_duration_minutes || 0)}m)</div>` : '';
-            const dest = u.barangay ? `<div class="unit-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.35-7-10a7 7 0 0 1 14 0c0 5.65-7 10-7 10z"/></svg> ${u.barangay}</div>` : '';
+            const dest = u.barangay ? `<div class="unit-meta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.35-7-10a7 7 0 0 1 14 0c0 5.65-7 10-7 10z"/></svg> ${esc(u.barangay)}</div>` : '';
             return `
-            <div class="unit-card ${focusedUnitId === u.id ? 'focused' : ''}" data-id="${u.id}">
+            <div class="unit-card ${focusedUnitId === u.id ? 'focused' : ''}" data-id="${Number(u.id)}">
                 <div class="unit-icon" style="background:${statusIconBg(u.status)}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-2"/><circle cx="6.5" cy="18.5" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/></svg>
                 </div>
                 <div class="unit-info">
                     <div class="unit-top">
-                        <span class="unit-name">${u.unit_name}</span>
-                        <span class="status-pill" style="background:${statusIconBg(u.status)}22; color:${statusIconBg(u.status)}">${u.status}</span>
+                        <span class="unit-name">${esc(u.unit_name)}</span>
+                        <span class="status-pill" style="background:${statusIconBg(u.status)}22; color:${statusIconBg(u.status)}">${esc(u.status)}</span>
                     </div>
-                    <div class="unit-sub">${u.driver_name || '—'} · ${u.plate_no || '—'}</div>
+                    <div class="unit-sub">${esc(u.driver_name || "—")} · ${esc(u.plate_no || "—")}</div>
                     ${alert}
                     ${delayAlert}
                     ${dest}
@@ -410,6 +414,11 @@ const delayAlert = u.delay_reason ? `<div class="unit-meta" style="color:var(--h
         document.getElementById('lastUpdated').textContent = 'Updated just now';
     }, 5000);
 </script>
+     <script>
+         window.LIVEMAP_INCIDENT_API = <?php echo json_encode(BASE_URL . '/api/incident-pins.php'); ?>;
+         window.LIVEMAP_IMG_BASE = <?php echo json_encode(BASE_URL . '/'); ?>;
+     </script>
+     <script src="<?php echo BASE_URL; ?>/assets/js/live-map-incidents.js"></script>
      <script>window.LIVEMAP_GPS_API = '<?php echo BASE_URL; ?>/api/unit-locations.php';</script>
      <script src="<?php echo BASE_URL; ?>/assets/js/live-map-gps.js"></script>
 </body>

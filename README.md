@@ -67,10 +67,12 @@ The repository also includes an Electron launcher, but its PHP and document-root
    ```
 
    The schema creates and selects the `hopeline` database. It contains demo accounts listed below.
-4. Review `config/config.php`. Its defaults use database `hopeline`, user `root`, and an empty password. Update the credentials for your local database. If the site is served at a different URL, update `BASE_URL` there as well.
+4. Review the database settings in `config/config.php`. Local XAMPP defaults are database `hopeline`, user `root`, and an empty password. Override these with environment variables or the ignored `config/secrets.php` file if your local database differs. Set the base URL to match how Apache serves the project.
 5. Open `http://localhost/hopeline/` in your browser. The current `BASE_URL` setting is `https://localhost/hopeline`; use the matching HTTP or HTTPS URL for your Apache configuration.
 
 For an existing database, do not re-import the full schema. Apply the relevant SQL file from `db/migrations/` instead.
+
+For deployments, supply `HOPELINE_DB_HOST`, `HOPELINE_DB_NAME`, `HOPELINE_DB_USER`, `HOPELINE_DB_PASSWORD`, and `HOPELINE_BASE_URL` as environment variables, or set the matching `$host`, `$dbname`, `$username`, `$password`, and `$baseUrl` variables in the ignored `config/secrets.php` file. Environment variables take precedence. Keep production secrets out of version control and serve the application over HTTPS.
 
 ## Demo accounts
 
@@ -82,6 +84,8 @@ For an existing database, do not re-import the full schema. Apply the relevant S
 | Responder | `user2@hopeline.local` | `Responder@123` |
 
 These accounts are for local demonstration only. Change their passwords and configure secure database credentials before deploying the system for real use. Do not commit secrets or production data.
+
+Passwords for newly created accounts must contain at least 12 characters and are stored using PHP's `password_hash()` API. Existing demo account passwords are pre-hashed in the SQL seed data; replace them before deployment.
 
 ## Project layout
 

@@ -27,11 +27,14 @@ function stepClass($target, $current) {
 /* ---------------------------------------------------------------
    POST handling — unchanged from the previous version
    --------------------------------------------------------------- */
-$flash = '';
+$flash = consumeFlash();
+$flashType = consumeFlashType();
+$postFlashType = 'success';
 if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $dispatchId = (int)($_POST['dispatch_id'] ?? 0);
     $action = $_POST['action'] ?? '';
         if (empty($_POST) && !empty($_SERVER['CONTENT_LENGTH'])) {
+        $postFlashType = 'error';
         $flash = 'Photo too large. Server limit is ' . ini_get('post_max_size') . '.';
     }
     try {
@@ -46,6 +49,7 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $flash = 'Delay cleared — you are moving again.';
             } else {
                 $pdo->rollBack();
+                $postFlashType = 'error';
                 $flash = 'This delay is already cleared or no longer belongs to your dispatch.';
             }
         }
@@ -61,7 +65,7 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $k = M_PI / 180;
         $a = sin(($g['clat'] - $ulat) * $k / 2) ** 2 + cos($ulat * $k) * cos($g['clat'] * $k) * sin(($g['clng'] - $ulng) * $k / 2) ** 2;
         $m = 6371000 * 2 * atan2(sqrt($a), sqrt(1 - $a));
-        if ($m > ARRIVE_GEOFENCE_M) { $flash = 'You are still ' . round($m) . ' m from the incident.'; $action = ''; }
+        if ($m > ARRIVE_GEOFENCE_M) { $postFlashType = 'error'; $flash = 'You are still ' . round($m) . ' m from the incident.'; $action = ''; }
     }
 }
         if (in_array($action, ['depart', 'arrive', 'return_to_base'], true)) {
@@ -80,6 +84,7 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$rows) {
         $pdo->rollBack();
+        $postFlashType = 'error';
         $flash = 'This dispatch has changed. Your screen was refreshed.';
     } else {
         $ids   = array_column($rows, 'id');
@@ -111,15 +116,9 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
            $details = isset($_POST['incident_details']) ? trim($_POST['incident_details']) : null;
 $photoPath = null; $gps = null; $gpsSrc = null; $geoText = null; $takenAt = null;
 if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['error'] === UPLOAD_ERR_OK) {
-    $ext = strtolower(pathinfo($_FILES['incident_photo']['name'], PATHINFO_EXTENSION));
-    if (in_array($ext, ['jpg','jpeg','png','webp']) && @getimagesize($_FILES['incident_photo']['tmp_name'])) {
-        $uploadDir = __DIR__ . '/../../assets/uploads/incidents/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-        $filename = 'incident_' . $dispatchId . '_' . time() . '.' . $ext;
-        if (move_uploaded_file($_FILES['incident_photo']['tmp_name'], $uploadDir . $filename)) {
-            $photoPath = 'assets/uploads/incidents/' . $filename;
-
-            $gps = exifGps($uploadDir . $filename); $gpsSrc = 'exif';
+    $savedImage = saveIncidentImage($_FILES['incident_photo']);
+    $photoPath = $savedImage['path'];
+            $gps = exifGps($savedImage['absolute']); $gpsSrc = 'exif';
             if (!$gps && is_numeric($_POST['client_lat'] ?? '') && is_numeric($_POST['client_lng'] ?? '')) {
                 $gps = ['lat' => (float)$_POST['client_lat'], 'lng' => (float)$_POST['client_lng'], 'taken' => null];
                 $gpsSrc = 'device';   // phone GPS at upload time (EXIF had no GPS)
@@ -129,8 +128,6 @@ if (!empty($_FILES['incident_photo']['name']) && $_FILES['incident_photo']['erro
                 $geoText = $geo['address'] ?? null;
                 $takenAt = $gps['taken'] ?: date('Y-m-d H:i:s');
             } else { $gps = null; $gpsSrc = null; }
-        }
-    }
 }
 $sql = "UPDATE dispatch SET incident_details=COALESCE(?, incident_details)";
 $params = [$details];
@@ -148,8 +145,9 @@ if (!$photoPath && !$had->fetchColumn()) {
     if ($fe !== null && $fe !== UPLOAD_ERR_OK && !empty($_FILES['incident_photo']['name'])) {
         $why = in_array($fe, [1, 2], true) ? ' (photo too large for the server)' : ' (upload error ' . $fe . ')';
     } elseif (!empty($_FILES['incident_photo']['name']) && !$photoPath) {
-        $why = ' (must be a JPG/PNG/WebP image, and assets/uploads/incidents must be writable)';
+        $why = ' (must be a valid JPG/PNG/WebP image no larger than 5 MB)';
     }
+    $postFlashType = 'error';
     $flash = 'A site photo is required.' . $why;
 } else {
     $pdo->prepare($sql)->execute($params);
@@ -163,9 +161,11 @@ if (!$photoPath && !$had->fetchColumn()) {
         $row = $q->fetch(PDO::FETCH_ASSOC);
 
     if (!$row) {
+        $postFlashType = 'error';
         $flash = 'This dispatch has changed. Your screen was refreshed.';
 
     } elseif (empty($row['incident_photo']) && in_array($action, ['choose_minor','choose_hospital'], true)) {
+        $postFlashType = 'error';
         $flash = 'Take the site photo first.';
 
     } elseif ($action === 'choose_minor') {
@@ -177,6 +177,7 @@ if (!$photoPath && !$had->fetchColumn()) {
         $name = mb_substr(trim($_POST['hospital_name'] ?? ''), 0, 150);
         $hl = $_POST['hospital_lat'] ?? ''; $hg = $_POST['hospital_lng'] ?? '';
         if ($name === '' || !is_numeric($hl) || !is_numeric($hg)) {
+            $postFlashType = 'error';
             $flash = 'Invalid hospital.';
         } else {
             $pdo->prepare("UPDATE dispatch SET site_outcome='hospital', outcome_at=COALESCE(outcome_at,NOW()),
@@ -211,6 +212,7 @@ if (!$photoPath && !$had->fetchColumn()) {
 
     } else { // return_to_command
         if (empty($row['hospital_accepted_at'])) {
+            $postFlashType = 'error';
             $flash = 'Locked: confirm that the hospital accepted the patient first.';
         } else {
             $pdo->beginTransaction();
@@ -235,16 +237,15 @@ if (!$photoPath && !$had->fetchColumn()) {
         }
     }
 }
-   } catch (PDOException $e) {
+   } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    $flash = 'Action failed: ' . $e->getMessage();
+    error_log('HopeLine responder assignment action failed: ' . $e->getMessage());
+    $postFlashType = 'error';
+    $flash = 'Assignment update failed. Refresh the page and try again.';
 }
 
-    $_SESSION['flash'] = $flash;
-    redirect('/app/responder/assignment.php');
+    redirectAfterPost('assignment.php', $flash ?: 'No assignment action was completed.', $postFlashType);
 }
-$flash = $_SESSION['flash'] ?? '';
-unset($_SESSION['flash']);
 $unitStatus = $unit['status'] ?? 'Available';
     
 /* ---------------------------------------------------------------
@@ -390,7 +391,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
     <!-- ============ Floating status tracker ============ -->
     <div class="hud-top">
         <div class="hud-card">
-            <?php if ($flash): ?><div class="hud-toast" id="hudToast"><?php echo hle($flash); ?></div><?php endif; ?>
+            <?php if ($flash): ?><div class="hud-toast<?php echo $flashType === 'error' ? ' error' : ''; ?>" id="hudToast"><?php echo hle($flash); ?></div><?php endif; ?>
 
             <div class="timeline" aria-label="Dispatch progress">
                 <?php foreach ($steps as $i => $s): ?>
@@ -710,7 +711,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
         fetch('<?php echo BASE_URL; ?>/api/dispatch-status.php', { credentials: 'same-origin', cache: 'no-store' })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) { if (d && d.ok && d.key !== current) location.reload(); })
-            .catch(function () {});
+            .catch(function (err) { console.warn('Could not refresh the dispatch status.', err); });
     }
     setInterval(check, 5000);
     document.addEventListener('visibilitychange', function () {

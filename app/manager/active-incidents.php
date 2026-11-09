@@ -13,8 +13,9 @@ require_once __DIR__ . '/../../config/functions.php';
 requireRole('manager');
 
 // Show + clear flash from the previous request
-$flash = $_SESSION['flash'] ?? '';
-unset($_SESSION['flash']);
+$flash = consumeFlash();
+$flashType = consumeFlashType();
+$postFlashType = 'success';
 function outcomeStage($i) {
     if ($i['dispatch_status'] !== 'on_site') return null;
     if (empty($i['incident_photo'])) return ['Waiting for site photo', 'warn'];
@@ -35,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $pdo->beginTransaction();
 
-    $t = $pdo->prepare("SELECT name FROM teams WHERE id = ? AND archived_at IS NULL");
+    $t = $pdo->prepare("SELECT name FROM teams WHERE id = ? AND archived_at IS NULL FOR UPDATE");
     $t->execute([$teamId]);
     $teamName = $t->fetchColumn();
 
@@ -49,12 +50,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $already->execute([$clipId]);
     if (!$teamName) {
         $pdo->rollBack();
+        $postFlashType = 'error';
         $msg = 'Team not found.';
         } elseif ($already->fetchColumn() > 0) {
         $pdo->rollBack();
+        $postFlashType = 'error';
         $msg = 'This incident is already assigned to a team.';
     } elseif ($busy->fetchColumn() > 0) {
         $pdo->rollBack();
+        $postFlashType = 'error';
         $msg = $teamName . ' is already on another dispatch.';
     } else {
         $picked = []; $missing = [];
@@ -70,6 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$picked) {
             $pdo->rollBack();
+            $postFlashType = 'error';
             $msg = 'No available vehicle for the types this incident needs.';
         } else {
             $ins = $pdo->prepare("INSERT INTO dispatch (clip_report_id, unit_id, team_id, dispatched_by, status, predicted_eta_minutes)
@@ -103,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!$active) {
                 $pdo->rollBack();
+                $postFlashType = 'error';
                 $msg = 'Can\'t resolve yet — the PTV hasn\'t arrived on site.';
             } else {
                 $pdo->prepare("UPDATE clip_reports SET status='resolved' WHERE id=?")->execute([$clipId]);
@@ -116,16 +122,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } catch (PDOException $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        $msg = 'Action failed: ' . $e->getMessage();
+        error_log('HopeLine dispatch action failed: ' . $e->getMessage());
+        $postFlashType = 'error';
+        $msg = 'Action failed. Refresh the page and try again.';
     }
         if ($action === 'cancel_incident') {
             $clipId = (int)($_POST['clip_report_id'] ?? 0);
+            try {
             $pdo->beginTransaction();
             $st = $pdo->prepare("SELECT status FROM clip_reports WHERE id = ? FOR UPDATE");
             $st->execute([$clipId]);
             $cur = $st->fetchColumn();
             if ($cur === false || in_array($cur, ['resolved', 'cancelled'], true)) {
                 $pdo->rollBack();
+                $postFlashType = 'error';
                 $msg = 'Only pending or dispatched incidents can be cancelled.';
             } else {
                 $act = "('assigned','en_route','on_site','returning')";
@@ -140,13 +150,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (function_exists('logActivity')) logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'incident_cancelled', 'success');
                 $msg = 'Incident cancelled and its vehicles released.';
             }
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                error_log('HopeLine incident cancellation failed: ' . $e->getMessage());
+                $postFlashType = 'error';
+                $msg = 'Incident cancellation failed. Refresh the page and try again.';
+            }
         }
     // Post/Redirect/Get: this is what stops reload from re-submitting
-    $_SESSION['flash'] = $msg;
-    header('Location: active-incidents.php');
-    exit;
+    redirectAfterPost('active-incidents.php', $msg ?: 'No incident action was completed.', $postFlashType);
 }
-$teams = []; $busyTeams = [];
+$incidents = []; $teams = []; $busyTeams = []; $loadError = '';
 // ---- Fetch data ----
 try {
         $incidents = $pdo->query("
@@ -177,7 +191,8 @@ try {
      $teams = $pdo->query("SELECT t.id, t.name FROM teams t WHERE t.archived_at IS NULL ORDER BY t.name")->fetchAll(PDO::FETCH_ASSOC);
     $busyTeams = array_map('intval', $pdo->query("SELECT DISTINCT team_id FROM dispatch WHERE team_id IS NOT NULL AND status IN ('assigned','en_route','on_site','returning')")->fetchAll(PDO::FETCH_COLUMN));
 } catch (PDOException $e) {
-
+    error_log('HopeLine active incidents could not be loaded: ' . $e->getMessage());
+    $loadError = 'Active incidents could not be loaded. Refresh the page or contact an administrator.';
 }
 
 
@@ -195,12 +210,13 @@ try {
 <?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
 
 <main class="main">
+    <?php if ($loadError): ?><div class="alert-banner alert-error"><?php echo htmlspecialchars($loadError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
     <div class="page-head">
         <h1>Active Incidents</h1>
         <p>All pending and in-progress incidents, sorted by severity.</p>
     </div>
 
-    <?php if ($flash): ?><div class="flash"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
+    <?php if ($flash): ?><div class="<?php echo $flashType === 'error' ? 'alert-banner alert-error' : 'flash'; ?>"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
 
     <div class="toolbar">
         <input type="text" id="searchBox" placeholder="Search CLIP ref, caller, barangay...">
@@ -339,7 +355,7 @@ var r = await fetch(location.href, { credentials: 'same-origin', cache: 'no-stor
         var doc = new DOMParser().parseFromString(await r.text(), 'text/html');
         var fresh = doc.getElementById('incidentList');
         if (fresh) { document.getElementById('incidentList').innerHTML = fresh.innerHTML; applyFilters(); }
-    } catch (e) {}
+    } catch (e) { console.warn('Could not refresh active incidents.', e); }
 }, 5000);
     const searchBox = document.getElementById('searchBox');
     const sevFilter = document.getElementById('severityFilter');

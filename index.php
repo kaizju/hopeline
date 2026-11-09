@@ -11,11 +11,11 @@ if (isLoggedIn()) {
     }
 }
 
-$error = '';
+$error = consumeFlash();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email    = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+    $email    = is_string($_POST['email'] ?? null) ? trim($_POST['email']) : '';
+    $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
 
     // Rate limit: 5 failed attempts per email/IP within 15 minutes
     $n = $pdo->prepare("SELECT COUNT(*) FROM user_activity_logs
@@ -27,7 +27,7 @@ $n->execute([$email, $_SERVER['REMOTE_ADDR']]);
     if ($n->fetchColumn() >= 5) {
         $error = 'Too many attempts. Try again in 15 minutes.';
     } else {
-        $stmt = $pdo->prepare("SELECT * FROM users
+        $stmt = $pdo->prepare("SELECT id, email, password, role FROM users
                                WHERE email = ? AND is_verified = 1 AND archived_at IS NULL");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -45,15 +45,16 @@ $_SESSION['_chk']  = time();
             logActivity($pdo, $user['id'], $user['email'], 'login', 'success');
 
             switch ($user['role']) {
-                case 'admin':   redirect('/app/admin/dashboard.php'); break;
-                case 'manager': redirect('/app/manager/dashboard.php'); break;
-                case 'user':    redirect('/app/responder/dashboard.php'); break;
+                case 'admin':   redirectAfterPost(BASE_URL . '/app/admin/dashboard.php'); break;
+                case 'manager': redirectAfterPost(BASE_URL . '/app/manager/dashboard.php'); break;
+                case 'user':    redirectAfterPost(BASE_URL . '/app/responder/dashboard.php'); break;
             }
         } else {
             $error = 'Invalid credentials or email not verified';
             logActivity($pdo, null, $email, 'login', 'failed');
         }
     }
+    redirectAfterPost(BASE_URL . '/index.php', $error, 'error');
 }
 
 renderHeader('Login');
