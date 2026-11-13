@@ -1,3 +1,4 @@
+<![CDATA[
 <?php
 session_start();
 
@@ -5,7 +6,7 @@ require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
 requireRole('manager');
-$validTypes = ['Medical Emergency','Fire','Vehicular Accident','Flood / Landslide','Violence / Assault','Other'];
+$validTypes = ['Medical Emergency','Vehicular Accident'];
 $flash = consumeFlash();
 $flashType = consumeFlashType();
 $errors  = [];
@@ -250,7 +251,7 @@ $stmt->execute([
                     <div class="card-title"><div class="step-num">I</div><h2>Incident</h2></div>
                   <div class="card-sub">What kind of incident is being reported?</div>
 
-<div class="incident-grid">
+<div class="incident-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
     <div class="incident-option">
         <input type="radio" name="incident_type" id="inc_medical" value="Medical Emergency" required>
         <label for="inc_medical">
@@ -259,38 +260,10 @@ $stmt->execute([
         </label>
     </div>
     <div class="incident-option">
-        <input type="radio" name="incident_type" id="inc_fire" value="Fire">
-        <label for="inc_fire">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s5 5.5 5 10a5 5 0 0 1-10 0c0-1.5 1-2.5 1-2.5s.5 1.5 1.5 1.5c1.5 0 1-2 0-4C8.5 5 12 2 12 2z"/></svg>
-            Fire
-        </label>
-    </div>
-    <div class="incident-option">
         <input type="radio" name="incident_type" id="inc_vehicular" value="Vehicular Accident">
         <label for="inc_vehicular">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M3 17V9l2-5h14l2 5v8"/></svg>
             Vehicular Accident
-        </label>
-    </div>
-    <div class="incident-option">
-        <input type="radio" name="incident_type" id="inc_flood" value="Flood / Landslide">
-        <label for="inc_flood">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s2-3 5-3 4 2 7 2 5-3 5-3M2 18s2-3 5-3 4 2 7 2 5-3 5-3"/></svg>
-            Flood / Landslide
-        </label>
-    </div>
-    <div class="incident-option">
-        <input type="radio" name="incident_type" id="inc_assault" value="Violence / Assault">
-        <label for="inc_assault">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-            Violence / Assault
-        </label>
-    </div>
-    <div class="incident-option">
-        <input type="radio" name="incident_type" id="inc_other" value="Other">
-        <label for="inc_other">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
-            Other
         </label>
     </div>
 </div><!-- /.incident-grid -->
@@ -684,16 +657,12 @@ Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].tota
     // to what's available in VEHICLE_FLEET automatically).
     const suggestionMap = {
         'Medical Emergency':   { 'Ambulance': 1, 'Patient Transport Vehicle (PTV)': 1 },
-        'Fire':                { 'Fire Truck': 1, 'Water Tanker': 1 },
         'Vehicular Accident':  { 'Ambulance': 1, 'Patient Transport Vehicle (PTV)': 1 },
-        'Flood / Landslide':   { 'Water Tanker': 1, 'Pick Up': 1 },
-        'Violence / Assault':  { 'Ambulance': 1, 'Pick Up': 1 },
-        'Other':               {}
     };
 
     document.querySelectorAll('input[name="incident_type"]').forEach(radio => {
         radio.addEventListener('change', () => {
-            const sevDefault = {'Fire':'Critical','Medical Emergency':'High','Vehicular Accident':'High','Flood / Landslide':'High','Violence / Assault':'High','Other':'Moderate'};
+            const sevDefault = {'Medical Emergency':'High','Vehicular Accident':'High'};
 const sv = document.getElementById('sev_' + (sevDefault[radio.value] || 'Moderate').toLowerCase());
 if (sv) sv.checked = true;
             document.querySelectorAll('.resource-option').forEach(opt => {
@@ -779,3 +748,5 @@ if (sv) sv.checked = true;
 
 </body>
 </html>
+
+]]>

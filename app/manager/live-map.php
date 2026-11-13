@@ -212,8 +212,8 @@ const donePinLayer = L.layerGroup().addTo(map);
 const typeFilter = document.getElementById('incidentTypeFilter');
 
 // Fill the dropdown with the incident types that exist in the data
-['Medical Emergency','Fire','Vehicular Accident','Flood / Landslide','Violence / Assault','Other']
-    .forEach(t => typeFilter.add(new Option(t, t)));
+const ALLOWED_TYPES = ['Medical Emergency', 'Vehicular Accident'];
+ALLOWED_TYPES.forEach(t => typeFilter.add(new Option(t, t)));
 const TYPE_ICONS = { 'Fire':'🔥', 'Medical Emergency':'🚑', 'Vehicular Accident':'🚗',
                      'Flood / Landslide':'🌊', 'Violence / Assault':'⚠️', 'Other':'❓' };
 const SEV_COLORS = { Critical:'#e5484d', High:'#d9752b', Moderate:'#d4ab2b', Low:'#3f7a5c' };
@@ -228,6 +228,7 @@ function renderDonePins() {
     donePinLayer.clearLayers();
     donePins.forEach(p => {
         if (p.photo_lat == null || p.photo_lng == null) return;
+        if (!ALLOWED_TYPES.includes(p.incident_type)) return;
         if (typeFilter.value !== 'all' && p.incident_type !== typeFilter.value) return;
         const lat = parseFloat(p.photo_lat), lng = parseFloat(p.photo_lng);
         const html = `
