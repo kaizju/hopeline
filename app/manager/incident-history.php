@@ -4,8 +4,12 @@ require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 require_once __DIR__ . '/../../config/closeout.php';
 
-requireRole('manager');   // must run BEFORE handling the POST
+requireLogin();
+if (($_SESSION['role'] ?? '') === 'user') redirect('/app/responder/dashboard.php');
+requireRole(['admin', 'manager']);   // must run BEFORE handling the POST
+$isAdmin = (($_SESSION['role'] ?? '') === 'admin');
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isAdmin) { http_response_code(403); exit('Read-only for admin.'); }
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_closeout') {
     try {
         redirectAfterPost('incident-history.php', saveCloseout($pdo, (int)($_POST['dispatch_id'] ?? 0)));
@@ -88,7 +92,11 @@ function fmtDuration($seconds) {
 </head>
 <body>
 
-<?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
+<?php
+$unreadAlerts = 0;
+if ($isAdmin) require_once __DIR__ . '/../../assets/layouts/admin/admin_sidebar.php';
+else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
+?>
 
 <main class="main main-1320">
     <?php if ($loadError): ?><div class="alert-banner alert-error"><?php echo htmlspecialchars($loadError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
@@ -144,7 +152,7 @@ function fmtDuration($seconds) {
                 <th>Hospital</th>
                 <th>Hospital Arrival</th>
 <th>Photo</th>
-<th>Case Details</th>
+<?php if (!$isAdmin): ?><th>Case Details</th><?php endif; ?>
 <th>Status</th>
             </tr>
         </thead>
@@ -175,14 +183,14 @@ function fmtDuration($seconds) {
                         </a>
                     <?php else: ?>Ã¢â‚¬â€<?php endif; ?>
                 </td>
-                <td><?php if (canEditCloseout($h)) closeoutButton($h); else echo 'Ã¢â‚¬â€'; ?></td>
+                <?php if (!$isAdmin): ?><td><?php if (canEditCloseout($h)) closeoutButton($h); else echo '—'; ?></td><?php endif; ?>
                 <td><span class="status-badge <?php echo $h['status'] === 'resolved' ? 'status-resolved' : ''; ?>"><?php echo statusLabel($h['status']); ?></span></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
     </div>
-<?php foreach ($history as $h) if (canEditCloseout($h)) closeoutModal($h); ?>
+<?php if (!$isAdmin): foreach ($history as $h) if (canEditCloseout($h)) closeoutModal($h); endif; ?>
     <div class="pagination">
         <?php for ($p = 1; $p <= $totalPages; $p++): ?>
             <a href="?from=<?php echo urlencode($dateFrom); ?>&to=<?php echo urlencode($dateTo); ?>&barangay=<?php echo urlencode($barangayFilter); ?>&page=<?php echo $p; ?>"

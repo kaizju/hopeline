@@ -240,7 +240,8 @@ function requireLogin() {
 
 function requireRole($role) {
     requireLogin();
-    if (!hasRole($role)) {
+    $allowedRoles = is_array($role) ? $role : [$role];
+    if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], $allowedRoles, true)) {
         http_response_code(403);
         exit('Access denied.');
     }

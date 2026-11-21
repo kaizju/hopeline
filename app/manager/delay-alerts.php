@@ -3,7 +3,10 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-requireRole('manager');
+requireLogin();
+if (($_SESSION['role'] ?? '') === 'user') redirect('/app/responder/dashboard.php');
+requireRole(['admin', 'manager']);
+$isAdmin = (($_SESSION['role'] ?? '') === 'admin');
 
 
 $flash = consumeFlash();
@@ -14,6 +17,7 @@ $activeDispatches = [];
 
 // ---- Handle: resolve delay / log manual delay ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($isAdmin) { http_response_code(403); exit('Read-only for admin.'); }
     try {
         if (($_POST['action'] ?? '') === 'resolve_delay') {
             $delayId = (int)($_POST['delay_id'] ?? 0);
@@ -88,7 +92,11 @@ $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === 
 </head>
 <body>
 
-<?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
+<?php
+$unreadAlerts = 0;
+if ($isAdmin) require_once __DIR__ . '/../../assets/layouts/admin/admin_sidebar.php';
+else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
+?>
 
 <main class="main main-1100">
     <?php if (!empty($loadError)): ?><div class="alert-banner alert-error"><?php echo htmlspecialchars($loadError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
@@ -97,10 +105,10 @@ $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === 
             <h1>Delay Alerts</h1>
             <p><?php echo $activeDelayCount; ?> active delay<?php echo $activeDelayCount === 1 ? '' : 's'; ?> right now.</p>
         </div>
-        <button class="btn-primary" onclick="document.getElementById('manualDelayModal').classList.add('show')">
+        <?php if (!$isAdmin): ?><button class="btn-primary" onclick="document.getElementById('manualDelayModal').classList.add('show')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
             Log Manual Delay
-        </button>
+        </button><?php endif; ?>
     </div>
 
     <?php if ($flash): ?><div class="<?php echo $flashType === 'error' ? 'alert-banner alert-error' : 'flash'; ?>"><?php echo htmlspecialchars($flash); ?></div><?php endif; ?>
@@ -139,11 +147,11 @@ $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === 
                 <div class="delay-side">
                     <div class="delay-duration"><strong><?php echo $duration; ?></strong><br>started <?php echo date('H:i', strtotime($d['started_at'])); ?></div>
                     <?php if ($isActive): ?>
-                        <form method="POST">
+                            <?php if (!$isAdmin): ?><form method="POST">
                             <input type="hidden" name="action" value="resolve_delay">
                             <input type="hidden" name="delay_id" value="<?php echo $d['id']; ?>">
                             <button type="submit" class="btn-resolve">Mark Resolved</button>
-                        </form>
+                            </form><?php endif; ?>
                     <?php endif; ?>
                 </div>
             </div>
@@ -153,7 +161,7 @@ $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === 
 </main>
 
 <!-- Manual delay modal -->
-<div class="modal-overlay" id="manualDelayModal">
+<?php if (!$isAdmin): ?><div class="modal-overlay" id="manualDelayModal">
     <div class="modal">
         <h3>Log Manual Delay</h3>
         <form method="POST">
@@ -191,7 +199,7 @@ $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === 
             </div>
         </form>
     </div>
-</div>
+</div><?php endif; ?>
 
 <script>
     document.querySelectorAll('.tab').forEach(tab => {

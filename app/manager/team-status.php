@@ -3,7 +3,13 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-requireRole('manager');
+requireLogin();
+if (($_SESSION['role'] ?? '') === 'user') redirect('/app/responder/dashboard.php');
+requireRole(['admin', 'manager']);
+$isAdmin = (($_SESSION['role'] ?? '') === 'admin');
+if ($isAdmin && strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== 'fetch' && function_exists('logActivity')) {
+    logActivity($pdo, currentUserId(), currentUserEmail(), 'ops_viewed', 'success');
+}
 
 $teams = [];
 $loadError = '';
@@ -70,7 +76,11 @@ foreach ($teams as $team) {
     </style>
 </head>
 <body>
-<?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
+<?php
+$unreadAlerts = 0;
+if ($isAdmin) require_once __DIR__ . '/../../assets/layouts/admin/admin_sidebar.php';
+else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
+?>
 <main class="main">
     <div class="page-head">
         <h1>Team Status</h1>

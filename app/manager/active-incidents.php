@@ -10,7 +10,10 @@ function parseNeeds($s) {
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/functions.php';
 
-requireRole('manager');
+requireLogin();
+if (($_SESSION['role'] ?? '') === 'user') redirect('/app/responder/dashboard.php');
+requireRole(['admin', 'manager']);
+$isAdmin = (($_SESSION['role'] ?? '') === 'admin');
 
 // Show + clear flash from the previous request
 $flash = consumeFlash();
@@ -26,6 +29,7 @@ function outcomeStage($i) {
     return ['Accepted by ' . $i['hospital_name'], 'ok'];
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($isAdmin) { http_response_code(403); exit('Read-only for admin.'); }
     $action = $_POST['action'] ?? '';
     $msg = '';
   
@@ -207,7 +211,11 @@ try {
 </head>
 <body>
 
-<?php require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php'; ?>
+<?php
+$unreadAlerts = 0;
+if ($isAdmin) require_once __DIR__ . '/../../assets/layouts/admin/admin_sidebar.php';
+else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
+?>
 
 <main class="main">
     <?php if ($loadError): ?><div class="alert-banner alert-error"><?php echo htmlspecialchars($loadError, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
@@ -305,6 +313,7 @@ try {
         </div>
     <?php endif; ?>
 
+    <?php if (!$isAdmin): ?>
     <?php if ($inc['dispatch_status'] === 'on_site'): ?>
         <form method="POST" style="margin-left:auto;">
             <input type="hidden" name="action" value="resolve">
@@ -336,6 +345,7 @@ try {
         <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
         <button type="submit" class="btn-cancel-inc">Cancel incident</button>
     </form>
+    <?php endif; ?>
 <!-- /.incident-actions -->
             </div><!-- /.incident-card -->
             <?php endforeach; ?>

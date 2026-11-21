@@ -39,6 +39,13 @@ ob_start();
     Delay Reports
 </a>
 
+<div class="nav-section-label">Operations</div>
+<a class="nav-item <?php echo navActive('team-status', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/team-status.php">Team Status</a>
+<a class="nav-item <?php echo navActive('live-map', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/live-map.php">Live Map</a>
+<a class="nav-item <?php echo navActive('active-incidents', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/active-incidents.php">Active Incidents</a>
+<a class="nav-item <?php echo navActive('delay-alerts', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/delay-alerts.php">Delay Alerts</a>
+<a class="nav-item <?php echo navActive('incident-history', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/incident-history.php">Incident History</a>
+
 <div class="nav-section-label">Management</div>
 <a class="nav-item <?php echo navActive('users', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/admin/users.php">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
