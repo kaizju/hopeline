@@ -49,6 +49,10 @@ ob_start();
     Active Incidents
     <?php if ($unreadAlerts > 0): ?><span class="badge"><?php echo (int)$unreadAlerts; ?></span><?php endif; ?>
 </a>
+<a class="nav-item <?php echo navActive('team-status', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/team-status.php">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v1"/></svg>
+    Team Status
+</a>
 <a class="nav-item <?php echo navActive('delay-alerts', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/delay-alerts.php">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
     Delay Alerts
