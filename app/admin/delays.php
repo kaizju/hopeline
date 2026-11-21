@@ -64,8 +64,7 @@ $stmt->execute($params);
 $delays = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $reasonOptions = [
-    'Road obstruction/traffic', 'Vehicle breakdown/mechanical issue', 'Weather/flooding',
-    'Wrong/unclear location', 'Fuel issue', 'Waiting for backup unit', 'Unit unreachable', 'Other'
+    'Road obstruction/traffic', 'Rush hour', 'Weather/flooding'
 ];
 $totalPages = max(1, ceil($totalRows / $perPage));
 $unreadAlerts = 0;

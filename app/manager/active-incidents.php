@@ -19,10 +19,10 @@ $postFlashType = 'success';
 function outcomeStage($i) {
     if ($i['dispatch_status'] !== 'on_site') return null;
     if (empty($i['incident_photo'])) return ['Waiting for site photo', 'warn'];
-    if (empty($i['site_outcome'])) return ['Assessing patient — outcome pending', 'warn'];
-    if ($i['site_outcome'] === 'minor') return ['Minor case — treated on site', 'ok'];
+    if (empty($i['site_outcome'])) return ['Assessing patient Ã¢â‚¬â€ outcome pending', 'warn'];
+    if ($i['site_outcome'] === 'minor') return ['Minor case Ã¢â‚¬â€ treated on site', 'ok'];
     if (empty($i['hospital_arrived_at'])) return ['En route to ' . $i['hospital_name'], 'info'];
-    if (empty($i['hospital_accepted_at'])) return ['At ' . $i['hospital_name'] . ' — awaiting acceptance', 'warn'];
+    if (empty($i['hospital_accepted_at'])) return ['At ' . $i['hospital_name'] . ' Ã¢â‚¬â€ awaiting acceptance', 'warn'];
     return ['Accepted by ' . $i['hospital_name'], 'ok'];
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$active) {
                 $pdo->rollBack();
                 $postFlashType = 'error';
-                $msg = 'Can\'t resolve yet — the PTV hasn\'t arrived on site.';
+                $msg = 'Can\'t resolve yet Ã¢â‚¬â€ the PTV hasn\'t arrived on site.';
             } else {
                 $pdo->prepare("UPDATE clip_reports SET status='resolved' WHERE id=?")->execute([$clipId]);
                 foreach ($active as $d) {
@@ -201,7 +201,7 @@ try {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Active Incidents — HopeLine</title>
+<title>Active Incidents Ã¢â‚¬â€ HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 </head>
@@ -252,28 +252,29 @@ try {
                     <div class="incident-title-wrap">
                         <span class="sev-badge sev-<?php echo $inc['severity']; ?>"><?php echo $inc['severity']; ?></span>
                         <div>
-                            <div class="incident-title"><?php echo htmlspecialchars($inc['incident_type']); ?> — <?php echo htmlspecialchars($inc['barangay']); ?></div>
-                            <div class="clip-ref"><?php echo htmlspecialchars($inc['clip_ref']); ?> · <?php echo $mins; ?>m ago</div>
+                            <div class="incident-title"><?php echo htmlspecialchars($inc['incident_type']); ?> Ã¢â‚¬â€ <?php echo htmlspecialchars($inc['barangay']); ?></div>
+                            <div class="clip-ref"><?php echo htmlspecialchars($inc['clip_ref']); ?> Ã‚Â· <?php echo $mins; ?>m ago</div>
                         </div>
                     </div>
                     <span class="status-pill <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span>
                 </div>
 
                 <div class="incident-body">
+                    <div class="info-block"><div class="label">Patients</div><div class="value"><?php echo (int)$inc['patient_count']; ?></div></div>
                     <div class="info-block"><div class="label">Caller</div><div class="value"><?php echo htmlspecialchars($inc['caller_name']); ?></div></div>
-                    <div class="info-block"><div class="label">Received via</div><div class="value"><?php echo htmlspecialchars($inc['report_source'] ?: '—'); ?></div></div>
+                    <div class="info-block"><div class="label">Received via</div><div class="value"><?php echo htmlspecialchars($inc['report_source'] ?: 'Ã¢â‚¬â€'); ?></div></div>
                     <div class="info-block"><div class="label">Resources Needed</div><div class="value"><?php echo htmlspecialchars($inc['problem_resources']); ?></div></div>
                     <div class="info-block"><div class="label">Reported</div><div class="value"><?php echo date('H:i', strtotime($inc['created_at'])); ?></div></div>
                 </div>
 <?php if ($inc['active_delay_reason']): $activeDelayMins = max(0, round((time() - strtotime($inc['active_delay_started_at'])) / 60)); ?>
                 <div class="active-delay-banner" style="margin:12px 0;padding:12px 14px;border-left:4px solid var(--high);background:rgba(217,117,43,.12);border-radius:8px;">
-                    <strong>⚠️ Delay: <?php echo htmlspecialchars($inc['active_delay_reason']); ?></strong>
+                    <strong>Ã¢Å¡Â Ã¯Â¸Â Delay: <?php echo htmlspecialchars($inc['active_delay_reason']); ?></strong>
                     <span> +<?php echo $activeDelayMins; ?>m ongoing</span>
                     <?php if ($inc['active_delay_notes']): ?><div><?php echo htmlspecialchars($inc['active_delay_notes']); ?></div><?php endif; ?>
                     <?php if ($inc['predicted_eta_minutes'] !== null): ?><div>Adjusted ETA: <?php echo round((float)$inc['predicted_eta_minutes']) + (int)$inc['total_delay_minutes']; ?> min</div><?php endif; ?>
                 </div>
 <?php elseif ((int)$inc['delay_count'] > 0): ?>
-                <div class="delay-summary" style="margin:10px 0;color:var(--high);">⏱️ Total delay: +<?php echo (int)$inc['total_delay_minutes']; ?>m (<?php echo (int)$inc['delay_count']; ?> events)</div>
+                <div class="delay-summary" style="margin:10px 0;color:var(--high);">Ã¢ÂÂ±Ã¯Â¸Â Total delay: +<?php echo (int)$inc['total_delay_minutes']; ?>m (<?php echo (int)$inc['delay_count']; ?> events)</div>
 <?php endif; ?>
 <?php if (!empty($inc['incident_photo'])): ?>
 <div style="display:flex;gap:12px;align-items:flex-start;margin:12px 0;">
@@ -281,14 +282,14 @@ try {
         <img src="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" style="width:130px;height:96px;object-fit:cover;border-radius:8px;">
     </a>
     <div class="info-block">
-        <div class="label">Site photo<?php echo $inc['photo_taken_at'] ? ' · ' . date('H:i', strtotime($inc['photo_taken_at'])) : ''; ?></div>
+        <div class="label">Site photo<?php echo $inc['photo_taken_at'] ? ' Ã‚Â· ' . date('H:i', strtotime($inc['photo_taken_at'])) : ''; ?></div>
 <?php if ($inc['photo_lat']): ?>
     <div class="value">Incident coordinates (<?php echo htmlspecialchars(strtoupper($inc['photo_gps_source'])); ?>)</div>
-    <div class="value"><a href="https://www.openstreetmap.org/?mlat=<?php echo $inc['photo_lat']; ?>&mlon=<?php echo $inc['photo_lng']; ?>#map=18/<?php echo $inc['photo_lat']; ?>/<?php echo $inc['photo_lng']; ?>" target="_blank">📍 <?php echo round($inc['photo_lat'], 6) . ', ' . round($inc['photo_lng'], 6); ?></a></div>
+    <div class="value"><a href="https://www.openstreetmap.org/?mlat=<?php echo $inc['photo_lat']; ?>&mlon=<?php echo $inc['photo_lng']; ?>#map=18/<?php echo $inc['photo_lat']; ?>/<?php echo $inc['photo_lng']; ?>" target="_blank">Ã°Å¸â€œÂ <?php echo round($inc['photo_lat'], 6) . ', ' . round($inc['photo_lng'], 6); ?></a></div>
     <div class="value"><?php echo htmlspecialchars($inc['photo_location'] ?: ''); ?></div>
-<?php else: ?><div class="value" style="color:var(--high)">⚠ No GPS found in photo</div><?php endif; ?>
+<?php else: ?><div class="value" style="color:var(--high)">Ã¢Å¡Â  No GPS found in photo</div><?php endif; ?>
 <?php if ($inc['site_outcome'] === 'hospital'): ?>
-    <div class="value">🏥 <?php echo htmlspecialchars($inc['hospital_name'] ?: '—'); ?></div>
+    <div class="value">Ã°Å¸ÂÂ¥ <?php echo htmlspecialchars($inc['hospital_name'] ?: 'Ã¢â‚¬â€'); ?></div>
     <?php if ($inc['hospital_arrived_at']): ?><div class="value">Arrived <?php echo date('H:i', strtotime($inc['hospital_arrived_at'])); ?></div><?php endif; ?>
     <?php if ($inc['hospital_accepted_at']): ?><div class="value">Accepted <?php echo date('H:i', strtotime($inc['hospital_accepted_at'])); ?></div><?php endif; ?>
     <?php if ($d = json_decode($inc['declined_hospitals'] ?: '[]', true)): ?><div class="value">Declined: <?php echo htmlspecialchars(implode(', ', $d)); ?></div><?php endif; ?>
@@ -300,7 +301,7 @@ try {
                 <div class="incident-actions">
     <?php if ($inc['team_name']): ?>
         <div class="responder-tag" style="font-weight:600;">
-            ★ Assigned to <?php echo htmlspecialchars($inc['team_name']); ?><?php echo $inc['vehicles'] ? ' · ' . htmlspecialchars($inc['vehicles']) : ''; ?>
+            Ã¢Ëœâ€¦ Assigned to <?php echo htmlspecialchars($inc['team_name']); ?><?php echo $inc['vehicles'] ? ' Ã‚Â· ' . htmlspecialchars($inc['vehicles']) : ''; ?>
         </div>
     <?php endif; ?>
 
@@ -311,14 +312,14 @@ try {
             <button type="submit" class="btn btn-resolve">Mark Completed</button>
         </form>
     <?php else: ?>
-        <button type="button" class="btn btn-resolve" disabled style="margin-left:auto;opacity:.4;cursor:not-allowed;" title="Unlocks when the team arrives on site">🔒 Awaiting arrival</button>
+        <button type="button" class="btn btn-resolve" disabled style="margin-left:auto;opacity:.4;cursor:not-allowed;" title="Unlocks when the team arrives on site">Ã°Å¸â€â€™ Awaiting arrival</button>
 
         <?php if (!$inc['dispatch_id']): ?>
         <form method="POST" class="dispatch-form">
             <input type="hidden" name="action" value="dispatch">
             <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
             <select name="team_id" required>
-                <option value="">Assign a team…</option>
+                <option value="">Assign a teamÃ¢â‚¬Â¦</option>
                 <?php foreach ($teams as $t): $isBusy = in_array((int)$t['id'], $busyTeams, true); ?>
                     <option value="<?php echo $t['id']; ?>" <?php echo $isBusy ? 'disabled' : ''; ?>>
                         <?php echo htmlspecialchars($t['name']); ?><?php echo $isBusy ? ' (on dispatch)' : ''; ?>

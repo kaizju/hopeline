@@ -28,13 +28,15 @@ $landmark      = postStr('landmark', 255);
 $latitude      = postStr('latitude', 20);
 $longitude     = postStr('longitude', 20);
 $incidentType  = postStr('incident_type', 50);
+$patientCount = (int)($_POST['patient_count'] ?? 1);
+$patientCountRaw = $_POST['patient_count'] ?? 1;
 $problemNotes  = postStr('problem_notes', 2000);
 $resourcesRaw  = is_array($_POST['resources'] ?? null) ? $_POST['resources'] : [];
 $severity = postStr('severity', 20);
 if (!is_numeric($latitude)  || abs((float)$latitude)  > 90)  $latitude  = '';
 if (!is_numeric($longitude) || abs((float)$longitude) > 180) $longitude = '';
 
-    // Fleet caps — must match VEHICLE_FLEET in the JS below.
+    // Fleet caps Ã¢â‚¬â€ must match VEHICLE_FLEET in the JS below.
     
 
     // Save requested vehicle types even when those vehicles are currently busy.
@@ -52,6 +54,7 @@ if ($latitude === '' || $longitude === '') $errors[] = 'Drop a map pin on the in
     if (!in_array($barangay, purokList(), true)) $errors[] = 'Select a valid Purok from the list.';
 if ($incidentType !== '' && !in_array($incidentType, $validTypes, true)) $errors[] = 'Invalid incident type.';
 if (!in_array($severity, ['Critical','High','Moderate','Low'], true))    $errors[] = 'Severity is required.';
+if (filter_var($patientCountRaw, FILTER_VALIDATE_INT) === false || $patientCount < 1 || $patientCount > 50) $errors[] = 'Number of patients must be between 1 and 50.';
     
         if (empty($resources) && array_sum($vehicleFleet) > 0) {
         $errors[] = 'Select at least one vehicle type needed for this incident.';
@@ -69,11 +72,11 @@ if (!in_array($severity, ['Critical','High','Moderate','Low'], true))    $errors
 
         try {
             $stmt = $pdo->prepare("INSERT INTO clip_reports
-    (clip_ref, caller_name, caller_contact, barangay, report_source, landmark, latitude, longitude, incident_type, severity, problem_resources, problem_notes, predicted_eta_minutes, reported_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    (clip_ref, caller_name, caller_contact, barangay, report_source, landmark, latitude, longitude, incident_type, patient_count, severity, problem_resources, problem_notes, predicted_eta_minutes, reported_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 $stmt->execute([
     $clipRef, $callerName, $callerContact, $barangay, $reportSource, $landmark,
-    $latitude ?: null, $longitude ?: null, $incidentType, $severity,
+    $latitude ?: null, $longitude ?: null, $incidentType, $patientCount, $severity,
     $resourcesStr, $problemNotes,
     ($_POST['eta_minutes'] ?? '') !== '' ? (float)$_POST['eta_minutes'] : null,
     $reportedBy
@@ -100,7 +103,7 @@ $stmt->execute([
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>New CLIP Report — HopeLine</title>
+    <title>New CLIP Report Ã¢â‚¬â€ HopeLine</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/leaflet-routing-machine/leaflet-routing-machine.css" />
@@ -149,15 +152,15 @@ $stmt->execute([
 <main class="main main-1180">
     <div class="page-head">
         <h1>New CLIP Report</h1>
-        <p>Log every caller report using the Caller · Location · Incident · Problem framework.</p>
-        <span class="clip-ref-preview" id="clipRefPreview">Reference: generating on submit…</span>
+        <p>Log every caller report using the Caller Ã‚Â· Location Ã‚Â· Incident Ã‚Â· Problem framework.</p>
+        <span class="clip-ref-preview" id="clipRefPreview">Reference: generating on submitÃ¢â‚¬Â¦</span>
     </div>
 
     <?php if ($flash): ?>
         <div class="alert-banner alert-<?php echo $flashType === 'error' ? 'error' : 'success'; ?>"><?php echo htmlspecialchars($flash, ENT_QUOTES, 'UTF-8'); ?></div>
     <?php elseif ($success): ?>
         <div class="alert-banner alert-success">
-            ✅ CLIP report <strong><?php echo htmlspecialchars($lastClipRef); ?></strong> logged successfully. You can now dispatch a unit from <strong>Active Incidents</strong>.
+            Ã¢Å“â€¦ CLIP report <strong><?php echo htmlspecialchars($lastClipRef); ?></strong> logged successfully. You can now dispatch a unit from <strong>Active Incidents</strong>.
         </div>
     <?php elseif (!empty($errors)): ?>
         <div class="alert-banner alert-error">
@@ -203,7 +206,7 @@ $stmt->execute([
                     </div>
 
                     <div id="map"></div>
-                    <div class="coords-readout" id="coordsReadout">📍 No pin dropped yet — click the map or use GPS.</div>
+                    <div class="coords-readout" id="coordsReadout">Ã°Å¸â€œÂ No pin dropped yet Ã¢â‚¬â€ click the map or use GPS.</div>
 
                     <!-- ETA panel: shows PTV ETA computed from OSRM route -->
                     <div class="eta-panel eta-pending" id="etaPanel">
@@ -234,8 +237,8 @@ $stmt->execute([
                     <div class="field">
   <label>Report received via</label>
   <div class="incident-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));">
-    <div class="incident-option"><input type="radio" name="report_source" id="src_phone" value="Phone Call" checked><label for="src_phone">📞 Phone Call</label></div>
-    <div class="incident-option"><input type="radio" name="report_source" id="src_walk" value="Walk-in"><label for="src_walk">🚶 Walk-in</label></div>
+    <div class="incident-option"><input type="radio" name="report_source" id="src_phone" value="Phone Call" checked><label for="src_phone">Ã°Å¸â€œÅ¾ Phone Call</label></div>
+    <div class="incident-option"><input type="radio" name="report_source" id="src_walk" value="Walk-in"><label for="src_walk">Ã°Å¸Å¡Â¶ Walk-in</label></div>
   </div>
 </div>    
                     </div>
@@ -277,6 +280,14 @@ $stmt->execute([
                 <div class="sev-option sev-low"><input type="radio" name="severity" id="sev_low" value="Low"><label for="sev_low">Low</label></div>
     </div><!-- /.severity-grid -->
 </div><!-- /.severity-wrap -->
+<div class="field" style="margin-top:18px;">
+    <label for="patient_count">Number of Patients / Victims</label>
+    <div class="qty-control">
+        <button type="button" class="qty-btn" id="patientMinus" aria-label="Decrease number of patients">âˆ’</button>
+        <input type="number" class="qty-input" id="patient_count" name="patient_count" min="1" max="50" value="1" required>
+        <button type="button" class="qty-btn" id="patientPlus" aria-label="Increase number of patients">+</button>
+    </div>
+</div>
 </div><!-- /Incident .card -->
 </div><!-- /.col-main -->
 
@@ -286,7 +297,7 @@ $stmt->execute([
 <!-- P: Problem -->
 <div class="card">
     <div class="card-title"><div class="step-num">P</div><h2>Problem</h2></div>
-    <div class="card-sub">What does the caller need from LDRRMO? (auto-suggested from incident type — adjust as needed)</div>
+    <div class="card-sub">What does the caller need from LDRRMO? (auto-suggested from incident type Ã¢â‚¬â€ adjust as needed)</div>
 
     <div class="resource-grid" id="resourceGrid"></div>
 
@@ -316,6 +327,10 @@ $stmt->execute([
     <div class="summary-row">
         <div class="label">Incident</div>
         <div class="value empty" id="sumIncident">Not filled yet</div>
+    </div>
+    <div class="summary-row">
+        <div class="label">Patients</div>
+        <div class="value" id="sumPatients">1 patient</div>
     </div>
     <div class="summary-row">
         <div class="label">Resources Needed</div>
@@ -356,16 +371,16 @@ $stmt->execute([
     const lngInput = document.getElementById('longitude');
     const coordsReadout = document.getElementById('coordsReadout');
 
-    // LDRRMO Manolo Fortich office — confirmed PTV dispatch origin (Point A).
+    // LDRRMO Manolo Fortich office Ã¢â‚¬â€ confirmed PTV dispatch origin (Point A).
     const PTV_BASE = { lat: 8.371714652741774, lng: 124.85717564826615, label: 'LDRRMO Manolo Fortich (PTV Base)' };
 
     // OSRM HTTP routing service. Point this at your self-hosted OSRM
-    // instance (see Docker/osrm-backend setup) for production use — the
+    // instance (see Docker/osrm-backend setup) for production use Ã¢â‚¬â€ the
     // public demo server is rate-limited and not reliable for a live
     // dispatch system.
     const OSRM_SERVICE_URL = 'https://router.project-osrm.org/route/v1';
 
-    // ETA formula constants: ETA = Σ(distance / speed) + delays
+    // ETA formula constants: ETA = ÃŽÂ£(distance / speed) + delays
     const AVERAGE_SPEED_KMH = 40;
     const DISPATCH_DELAY_MIN = 5;
 function haversineDistance(lat1, lng1, lat2, lng2) {
@@ -390,7 +405,7 @@ function findNearestBarangay(lat, lng) {
     return minDist <= 3 ? nearest : null;
 }
     // Approximate barangay centers for Manolo Fortich, Bukidnon.
-    // ⚠️ PLACEHOLDER COORDINATES — verify against LGU/LDRRMO GIS data
+    // Ã¢Å¡Â Ã¯Â¸Â PLACEHOLDER COORDINATES Ã¢â‚¬â€ verify against LGU/LDRRMO GIS data
     // before using this for real dispatch.
     const barangayCoords = {
     'Kihare':           { lat: 8.359970, lng: 124.865290 },
@@ -429,10 +444,10 @@ Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].tota
         option.innerHTML =
             '<div class="resource-info">' +
                 '<span class="resource-name">' + vehicleName + '</span>' +
-                             '<span class="resource-available"><span><strong>' + avail + '</strong> of ' + total + ' available' + (avail === 0 ? ' · none free' : '') + '</span></span>' +
+                             '<span class="resource-available"><span><strong>' + avail + '</strong> of ' + total + ' available' + (avail === 0 ? ' Ã‚Â· none free' : '') + '</span></span>' +
             '</div>' +
             '<div class="qty-control">' +
-                '<button type="button" class="qty-btn qty-minus" aria-label="Decrease"' + (total === 0 ? ' disabled' : '') + '>−</button>' +
+                '<button type="button" class="qty-btn qty-minus" aria-label="Decrease"' + (total === 0 ? ' disabled' : '') + '>Ã¢Ë†â€™</button>' +
                 '<input type="text" inputmode="numeric" pattern="[0-9]*" class="qty-input" name="resources[' + vehicleName + ']" value="0" readonly>' +
                 '<button type="button" class="qty-btn qty-plus" aria-label="Increase"' + (total === 0 ? ' disabled' : '') + '>+</button>' +
             '</div>';
@@ -516,7 +531,7 @@ Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].tota
             routingControl = null;
         }
 
-        etaValueEl.textContent = 'Calculating route…';
+        etaValueEl.textContent = 'Calculating routeÃ¢â‚¬Â¦';
 
         routingControl = L.Routing.control({
             waypoints: [
@@ -576,18 +591,18 @@ Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].tota
     etaPanel.classList.remove('eta-pending');
     etaValueEl.innerHTML = formatEta(totalMinutes) + ' <span>estimated arrival</span>';
     etaBreakdownEl.innerHTML =
-        'Distance: <strong>' + distanceKm.toFixed(2) + ' km</strong> · ' +
-        'Travel: <strong>' + travelMinutes.toFixed(1) + ' min</strong> · ' +
+        'Distance: <strong>' + distanceKm.toFixed(2) + ' km</strong> Ã‚Â· ' +
+        'Travel: <strong>' + travelMinutes.toFixed(1) + ' min</strong> Ã‚Â· ' +
         'Dispatch: <strong>+' + DISPATCH_DELAY_MIN + ' min</strong>' +
-        (weatherDelay > 0 ? ` · Weather (${weatherCond}): <strong>+${weatherDelay} min</strong>` : '') +
-        (rushDelay > 0 ? ` · Rush hour: <strong>+${rushDelay} min</strong>` : '');
+        (weatherDelay > 0 ? ` Ã‚Â· Weather (${weatherCond}): <strong>+${weatherDelay} min</strong>` : '') +
+        (rushDelay > 0 ? ` Ã‚Â· Rush hour: <strong>+${rushDelay} min</strong>` : '');
 
                 etaMinutesInput.value = totalMinutes.toFixed(1);
             setSummary('sumEta', formatEta(totalMinutes));
             document.getElementById('sumEta').classList.add('eta-highlight');
         }).on('routingerror', function () {
             etaPanel.classList.add('eta-pending');
-            etaValueEl.textContent = 'Route unavailable — check connection to OSRM.';
+            etaValueEl.textContent = 'Route unavailable Ã¢â‚¬â€ check connection to OSRM.';
             etaBreakdownEl.innerHTML = '';
         }).addTo(map);
     } // <-- closed calculateRoute
@@ -606,7 +621,7 @@ Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].tota
      function setCoords(lat, lng, keepPurok) {
     latInput.value = lat.toFixed(6);
     lngInput.value = lng.toFixed(6);
-    coordsReadout.innerHTML = '📍 <strong>' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</strong> — pin set';
+    coordsReadout.innerHTML = 'Ã°Å¸â€œÂ <strong>' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</strong> Ã¢â‚¬â€ pin set';
 
     if (!keepPurok) {   // only auto-detect the purok when the pin was placed by hand/GPS
         const barangaySelect = document.getElementById('barangay');
@@ -629,17 +644,17 @@ Object.keys(VEHICLE_STOCK).forEach(k => VEHICLE_FLEET[k] = VEHICLE_STOCK[k].tota
             alert('Geolocation is not supported by this browser.');
             return;
         }
-        coordsReadout.textContent = '📡 Getting current location…';
+        coordsReadout.textContent = 'Ã°Å¸â€œÂ¡ Getting current locationÃ¢â‚¬Â¦';
         navigator.geolocation.getCurrentPosition(
             (pos) => dropPin(pos.coords.latitude, pos.coords.longitude),
-            () => { coordsReadout.textContent = '⚠️ Could not get location — drop a pin manually.'; }
+            () => { coordsReadout.textContent = 'Ã¢Å¡Â Ã¯Â¸Â Could not get location Ã¢â‚¬â€ drop a pin manually.'; }
         );
     });
 
     document.getElementById('btnClearPin').addEventListener('click', () => {
         if (marker) { map.removeLayer(marker); marker = null; }
         latInput.value = ''; lngInput.value = '';
-        coordsReadout.textContent = '📍 No pin dropped yet — click the map or use GPS.';
+        coordsReadout.textContent = 'Ã°Å¸â€œÂ No pin dropped yet Ã¢â‚¬â€ click the map or use GPS.';
         if (routingControl) { map.removeControl(routingControl); routingControl = null; }
         setEtaPending('Select a barangay or drop a pin');
         updateSummary();
@@ -703,6 +718,8 @@ if (sv) sv.checked = true;
 
         const incidentRadio = document.querySelector('input[name="incident_type"]:checked');
         setSummary('sumIncident', incidentRadio ? incidentRadio.value : '');
+        const patientCount = parseInt(document.getElementById('patient_count').value, 10) || 1;
+        setSummary('sumPatients', patientCount + (patientCount === 1 ? ' patient' : ' patients'));
         toggleCheck('chkIncident', !!incidentRadio);
 
                const resourceParts = [];
@@ -728,6 +745,15 @@ if (sv) sv.checked = true;
     ['caller_name','barangay'].forEach(id => {
         document.getElementById(id).addEventListener('input', updateSummary);
         document.getElementById(id).addEventListener('change', updateSummary);
+    });
+    document.getElementById('patient_count').addEventListener('input', updateSummary);
+    document.getElementById('patientMinus').addEventListener('click', () => {
+        const input = document.getElementById('patient_count');
+        input.value = Math.max(1, (parseInt(input.value, 10) || 1) - 1); updateSummary();
+    });
+    document.getElementById('patientPlus').addEventListener('click', () => {
+        const input = document.getElementById('patient_count');
+        input.value = Math.min(50, (parseInt(input.value, 10) || 1) + 1); updateSummary();
     });
     // Vehicle quantity changes are already handled by the qty-btn click
     // listener on #resourceGrid, which calls updateSummary() itself.

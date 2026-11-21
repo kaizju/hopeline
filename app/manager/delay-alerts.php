@@ -28,15 +28,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (($_POST['action'] ?? '') === 'log_manual_delay') {
-            $dispatchId = (int)($_POST['dispatch_id'] ?? 0);
-            $unitId     = (int)($_POST['unit_id'] ?? 0);
-            $reason     = trim($_POST['reason'] ?? '');
-            $notes      = trim($_POST['notes'] ?? '');
+    $dispatchId = (int)($_POST['dispatch_id'] ?? 0);
+    $unitId     = (int)($_POST['unit_id'] ?? 0);
+    $reason     = trim($_POST['reason'] ?? '');
+    $notes      = trim($_POST['notes'] ?? '');
 
-            $stmt = $pdo->prepare("INSERT INTO delay_logs (dispatch_id, unit_id, reason, notes, logged_by, is_manual) VALUES (?, ?, ?, ?, ?, 1)");
-            $stmt->execute([$dispatchId, $unitId, $reason, $notes, $_SESSION['user_id']]);
-            $flash = 'Manual delay logged.';
-        }
+    $allowed = ['Road obstruction/traffic', 'Rush hour', 'Weather/flooding'];
+    if (!in_array($reason, $allowed, true)) {
+        $postFlashType = 'error';
+        $flash = 'Invalid delay reason.';
+    } else {
+        $stmt = $pdo->prepare("INSERT INTO delay_logs (dispatch_id, unit_id, reason, notes, logged_by, is_manual) VALUES (?, ?, ?, ?, ?, 1)");
+        $stmt->execute([$dispatchId, $unitId, $reason, $notes, $_SESSION['user_id']]);
+        $flash = 'Manual delay logged.';
+    }
+}
     } catch (Throwable $e) {
         error_log('HopeLine delay alert action failed: ' . $e->getMessage());
         $postFlashType = 'error';
@@ -166,14 +172,12 @@ $activeDelayCount = count(array_filter($delays, fn($d) => $d['resolved_at'] === 
             </div>
             <div class="field">
                 <label for="reason">Reason</label>
-                <select name="reason" id="reason" required>
-                    <option value="Road obstruction/traffic">Road obstruction/traffic</option>
-                    <option value="Vehicle breakdown/mechanical issue">Vehicle breakdown/mechanical issue</option>
-                    <option value="Weather/flooding">Weather/flooding</option>
-                    <option value="Wrong/unclear location">Wrong/unclear location</option>
-                    <option value="Fuel issue">Fuel issue</option>
-                    <option value="Waiting for backup unit">Waiting for backup unit</option>
-                    <option value="Unit unreachable">Unit unreachable</option>
+                    <select name="reason" id="reason" required>
+                        <option value="Road obstruction/traffic">Road obstruction/traffic</option>
+    <option value="Rush hour">Rush hour</option>
+    <option value="Weather/flooding">Heavy Rain</option>
+                        <option value="Other">Other</option>
+                    </select>
                     <option value="Other">Other</option>
                 </select>
             </div>

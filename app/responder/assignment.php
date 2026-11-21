@@ -25,7 +25,7 @@ function stepClass($target, $current) {
 }
 
 /* ---------------------------------------------------------------
-   POST handling — unchanged from the previous version
+   POST handling Ã¢â‚¬â€ unchanged from the previous version
    --------------------------------------------------------------- */
 $flash = consumeFlash();
 $flashType = consumeFlashType();
@@ -46,7 +46,7 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($delayRow) {
                 $pdo->prepare("UPDATE delay_logs SET resolved_at=NOW() WHERE id=? AND resolved_at IS NULL")->execute([$delayRow]);
                 $pdo->commit();
-                $flash = 'Delay cleared — you are moving again.';
+                $flash = 'Delay cleared Ã¢â‚¬â€ you are moving again.';
             } else {
                 $pdo->rollBack();
                 $postFlashType = 'error';
@@ -260,7 +260,7 @@ if ($unit) {
                TIMESTAMPDIFF(SECOND, d.departed_at, NOW()) AS en_route_secs,
                TIMESTAMPDIFF(SECOND, d.resolved_at, NOW()) AS returning_secs,
                c.clip_ref, c.caller_name, c.caller_contact, c.barangay,
-               c.landmark, c.latitude, c.longitude, c.incident_type, c.severity,
+               c.landmark, c.latitude, c.longitude, c.incident_type, c.patient_count, c.severity,
                c.problem_resources, c.problem_notes, c.created_at AS reported_at
         FROM dispatch d
         JOIN clip_reports c ON c.id = d.clip_report_id
@@ -297,7 +297,7 @@ $nav = [
     'color'   => $sevColors[$dispatch['severity']] ?? '#b02029',
     'label'   => $isReturning
         ? 'LDRRMO Manolo Fortich (Command Center)'
-        : ($toHospital ? $dispatch['hospital_name'] : ($dispatch['incident_type'] . ' — ' . $dispatch['barangay'])),
+        : ($toHospital ? $dispatch['hospital_name'] : ($dispatch['incident_type'] . ' Ã¢â‚¬â€ ' . $dispatch['barangay'])),
 ];
     if (!empty($unit['current_lat']) && !empty($unit['current_lng'])) {
         $unitPos = ['lat' => (float)$unit['current_lat'], 'lng' => (float)$unit['current_lng']];
@@ -336,7 +336,7 @@ function hl_ico($n) {
 $steps = [];
 if ($dispatch) {
     $cur = $dispatch['status'];
-    $fmt = function ($t) { return $t ? date('H:i', strtotime($t)) : '—'; };
+    $fmt = function ($t) { return $t ? date('H:i', strtotime($t)) : 'Ã¢â‚¬â€'; };
     $ocCls = !empty($dispatch['outcome_at']) ? 'done' : ($cur === 'on_site' ? 'current' : ($cur === 'returning' ? 'done' : ''));
     $steps = [
         ['key' => 'assigned',  'label' => 'Assigned', 'time' => $fmt($dispatch['dispatched_at']), 'icon' => 'check', 'cls' => stepClass('assigned', $cur) ?: 'done'],
@@ -352,7 +352,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Assigned Incident — HopeLine</title>
+<title>Assigned Incident Ã¢â‚¬â€ HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
@@ -423,12 +423,12 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                 </form>
                 <?php if ($activeDelay): $delayMins = max(0, round((time() - strtotime($activeDelay['started_at'])) / 60)); ?>
                     <div class="active-delay-banner" style="padding:10px 12px;background:rgba(217,117,43,.14);border-left:4px solid var(--high);border-radius:8px;color:var(--high);font-weight:700;">
-                        ⚠️ Delay in effect: <?php echo hle($activeDelay['reason']); ?> (+<?php echo $delayMins; ?>m)
+                        Ã¢Å¡Â Ã¯Â¸Â Delay in effect: <?php echo hle($activeDelay['reason']); ?> (+<?php echo $delayMins; ?>m)
                         <form method="POST" style="margin-top:8px;">
                             <input type="hidden" name="action" value="resolve_delay">
                             <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
                             <input type="hidden" name="delay_id" value="<?php echo (int)$activeDelay['id']; ?>">
-                            <button type="submit" class="btn-action">Clear delay — moving again</button>
+                            <button type="submit" class="btn-action">Clear delay Ã¢â‚¬â€ moving again</button>
                         </form>
                     </div>
                 <?php else: ?>
@@ -450,7 +450,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
     <?php elseif (!$so): ?>
         <button type="button" class="btn-action" data-open-tab="outcome">Choose patient outcome</button>
     <?php elseif ($so === 'minor'): ?>
-        <button type="button" class="btn-action" disabled><?php echo hl_ico('lock'); ?> Minor case — waiting for command center</button>
+        <button type="button" class="btn-action" disabled><?php echo hl_ico('lock'); ?> Minor case Ã¢â‚¬â€ waiting for command center</button>
     <?php else:
         [$act, $label] = !$hArr ? ['hospital_arrived', 'Arrived at hospital']
                        : (!$hAcc ? ['hospital_accepted', 'Hospital accepted the patient']
@@ -486,17 +486,17 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
     <div class="hud-bottom">
         <div class="nav-hud">
             <div class="nav-banner">
-                <div class="nav-arrow" id="navArrow">↑</div>
+                <div class="nav-arrow" id="navArrow">Ã¢â€ â€˜</div>
                 <div>
-                    <div class="nav-instr" id="navInstr">Calculating route…</div>
+                    <div class="nav-instr" id="navInstr">Calculating routeÃ¢â‚¬Â¦</div>
                     <div class="nav-sub" id="navSub"></div>
                 </div>
             </div>
             <div class="nav-stats">
-                <div><div class="v" data-eta="time">—</div><div class="l">Time left</div></div>
-                <div><div class="v" data-eta="dist">—</div><div class="l">Distance</div></div>
-                <div><div class="v" data-eta="arrive">—</div><div class="l">Arrive at</div></div>
-                <div><span class="gps-chip" id="gpsChip"><span class="dot"></span><span id="gpsChipText">GPS…</span></span></div>
+                <div><div class="v" data-eta="time">Ã¢â‚¬â€</div><div class="l">Time left</div></div>
+                <div><div class="v" data-eta="dist">Ã¢â‚¬â€</div><div class="l">Distance</div></div>
+                <div><div class="v" data-eta="arrive">Ã¢â‚¬â€</div><div class="l">Arrive at</div></div>
+                <div><span class="gps-chip" id="gpsChip"><span class="dot"></span><span id="gpsChipText">GPSÃ¢â‚¬Â¦</span></span></div>
             </div>
             <div class="nav-note" id="navNote"></div>
         </div>
@@ -562,6 +562,14 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                 </div>
 
                 <div class="is-row">
+                    <div class="is-ico"><?php echo hl_ico('user'); ?></div>
+                    <div>
+                        <div class="is-k">Patients reported</div>
+                        <div class="is-v"><?php echo (int)$dispatch['patient_count']; ?></div>
+                    </div>
+                </div>
+
+                <div class="is-row">
                     <div class="is-ico"><?php echo hl_ico('kit'); ?></div>
                     <div>
                         <div class="is-k">Assistance needed</div>
@@ -578,8 +586,8 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
 
                 <div class="eta-card">
                     <div class="is-k">ETA (current)</div>
-                    <div class="eta-big"><span data-eta="time">—</span><span class="eta-sep"></span><span data-eta="dist">—</span></div>
-                    <div class="is-s"><span data-eta="via">Via —</span></div>
+                    <div class="eta-big"><span data-eta="time">Ã¢â‚¬â€</span><span class="eta-sep"></span><span data-eta="dist">Ã¢â‚¬â€</span></div>
+                    <div class="is-s"><span data-eta="via">Via Ã¢â‚¬â€</span></div>
                 </div>
             </section>
 
@@ -613,7 +621,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                     <?php if (!empty($dispatch['incident_photo'])): ?>
                         <img src="<?php echo BASE_URL . '/' . hle($dispatch['incident_photo']); ?>" alt="Saved incident photo" class="site-photo">
                         <?php if (!empty($dispatch['photo_lat'])): ?>
-    <div class="is-s">📍 <?php echo hle(round($dispatch['photo_lat'], 6) . ', ' . round($dispatch['photo_lng'], 6)); ?> (<?php echo hle($dispatch['photo_gps_source']); ?>)<br><?php echo hle($dispatch['photo_location']); ?></div>
+    <div class="is-s">Ã°Å¸â€œÂ <?php echo hle(round($dispatch['photo_lat'], 6) . ', ' . round($dispatch['photo_lng'], 6)); ?> (<?php echo hle($dispatch['photo_gps_source']); ?>)<br><?php echo hle($dispatch['photo_location']); ?></div>
 <?php endif; ?>
                     <?php endif; ?>
                     <button type="submit" class="btn-primary" style="margin-top:14px;width:100%;justify-content:center;">Save site report</button>
@@ -624,18 +632,18 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
             <!-- ---- Route ---- -->
             <section class="dpane" data-pane="route">
                 <div class="route-grid">
-                    <div class="rg"><div class="is-k">Current ETA</div><div class="rg-v" data-eta="time">—</div></div>
-                    <div class="rg"><div class="is-k">Distance remaining</div><div class="rg-v" data-eta="dist">—</div></div>
-                    <div class="rg"><div class="is-k">Estimated arrival</div><div class="rg-v" data-eta="arrive">—</div></div>
-                    <div class="rg"><div class="is-k">Dispatch estimate</div><div class="rg-v"><?php echo $dispatch['predicted_eta_minutes'] !== null ? round((float)$dispatch['predicted_eta_minutes']) . ' min' : '—'; ?></div></div>
+                    <div class="rg"><div class="is-k">Current ETA</div><div class="rg-v" data-eta="time">Ã¢â‚¬â€</div></div>
+                    <div class="rg"><div class="is-k">Distance remaining</div><div class="rg-v" data-eta="dist">Ã¢â‚¬â€</div></div>
+                    <div class="rg"><div class="is-k">Estimated arrival</div><div class="rg-v" data-eta="arrive">Ã¢â‚¬â€</div></div>
+                    <div class="rg"><div class="is-k">Dispatch estimate</div><div class="rg-v"><?php echo $dispatch['predicted_eta_minutes'] !== null ? round((float)$dispatch['predicted_eta_minutes']) . ' min' : 'Ã¢â‚¬â€'; ?></div></div>
                 </div>
 
                 <div class="is-row">
                     <div class="is-ico"><?php echo hl_ico('route'); ?></div>
                     <div>
                         <div class="is-k">Current route</div>
-                        <div class="is-v" data-eta="summary">—</div>
-                        <div class="is-s" data-eta="via">Via —</div>
+                        <div class="is-v" data-eta="summary">Ã¢â‚¬â€</div>
+                        <div class="is-s" data-eta="via">Via Ã¢â‚¬â€</div>
                     </div>
                 </div>
                 <div class="is-row">
@@ -649,7 +657,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                     <div class="is-ico"><?php echo hl_ico('locate'); ?></div>
                     <div>
                         <div class="is-k">Navigation status</div>
-                        <div class="is-v" data-eta="navstatus">Starting…</div>
+                        <div class="is-v" data-eta="navstatus">StartingÃ¢â‚¬Â¦</div>
                     </div>
                 </div>
             </section>
@@ -658,7 +666,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
     <div class="is-k">Patient outcome</div>
 
     <?php if (empty($dispatch['incident_photo'])): ?>
-        <div class="is-s">📷 Take the site photo first. Outcome unlocks after it is saved.</div>
+        <div class="is-s">Ã°Å¸â€œÂ· Take the site photo first. Outcome unlocks after it is saved.</div>
 
     <?php elseif ($dispatch['site_outcome'] === 'hospital' && $dispatch['hospital_name']):
         $hArrived  = !empty($dispatch['hospital_arrived_at']);
@@ -668,30 +676,30 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
         <div class="is-v"><?php echo hle($dispatch['hospital_name']); ?></div>
         <ol class="oc-steps">
             <li class="<?php echo $stage > 1 ? 'done' : 'current'; ?>">Heading to hospital</li>
-            <li class="<?php echo $stage > 2 ? 'done' : ($stage == 2 ? 'current' : ''); ?>">Arrived<?php echo $hArrived ? ' · ' . date('H:i', strtotime($dispatch['hospital_arrived_at'])) : ''; ?></li>
-            <li class="<?php echo $stage >= 3 ? 'done' : ''; ?>">Accepted<?php echo $hAccepted ? ' · ' . date('H:i', strtotime($dispatch['hospital_accepted_at'])) : ''; ?></li>
+            <li class="<?php echo $stage > 2 ? 'done' : ($stage == 2 ? 'current' : ''); ?>">Arrived<?php echo $hArrived ? ' Ã‚Â· ' . date('H:i', strtotime($dispatch['hospital_arrived_at'])) : ''; ?></li>
+            <li class="<?php echo $stage >= 3 ? 'done' : ''; ?>">Accepted<?php echo $hAccepted ? ' Ã‚Â· ' . date('H:i', strtotime($dispatch['hospital_accepted_at'])) : ''; ?></li>
         </ol>
         <form method="POST">
             <input type="hidden" name="action" value="<?php echo ['hospital_arrived','hospital_accepted','return_to_command'][$stage-1]; ?>">
             <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
-            <button type="submit" class="btn-action" style="width:100%;"><?php echo ['Arrived at hospital','✔ Hospital accepted the patient','Return to command center'][$stage-1]; ?></button>
+            <button type="submit" class="btn-action" style="width:100%;"><?php echo ['Arrived at hospital','Ã¢Å“â€ Hospital accepted the patient','Return to command center'][$stage-1]; ?></button>
         </form>
         <?php if (!$hAccepted): ?>
         <form method="POST" onsubmit="return confirm('Hospital declined the patient? You will pick another hospital.');">
             <input type="hidden" name="action" value="hospital_declined">
             <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
-            <button type="submit" class="btn-ghost-danger">Hospital declined — refer another</button>
+            <button type="submit" class="btn-ghost-danger">Hospital declined Ã¢â‚¬â€ refer another</button>
         </form>
         <?php endif; ?>
 
     <?php else: ?>
         <?php if ($declined): ?><div class="is-s">Declined: <?php echo hle(implode(', ', $declined)); ?></div><?php endif; ?>
-        <button type="button" class="btn-action" id="btnFindHosp" style="width:100%;margin-top:10px;">🏥 <?php echo $declined ? 'Find other hospitals' : 'Deliver to nearest hospital'; ?></button>
+        <button type="button" class="btn-action" id="btnFindHosp" style="width:100%;margin-top:10px;">Ã°Å¸ÂÂ¥ <?php echo $declined ? 'Find other hospitals' : 'Deliver to nearest hospital'; ?></button>
         <div id="hospList" style="margin-top:12px;"></div>
         <form method="POST" style="margin-top:14px;">
             <input type="hidden" name="action" value="choose_minor">
             <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
-            <button type="submit" class="btn-primary" style="width:100%;">Minor — bandage only</button>
+            <button type="submit" class="btn-primary" style="width:100%;">Minor Ã¢â‚¬â€ bandage only</button>
         </form>
         <?php if ($dispatch['site_outcome'] === 'minor'): ?><div class="is-s" style="margin-top:8px;">Currently logged: minor case.</div><?php endif; ?>
     <?php endif; ?>
@@ -851,7 +859,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
     function mirrorGps() {
         if (!pill) return;
         chip.className = 'gps-chip ' + pill.className;
-        chipText.textContent = pill.textContent || 'GPS…';
+        chipText.textContent = pill.textContent || 'GPSÃ¢â‚¬Â¦';
     }
     if (pill) {
         mirrorGps();
@@ -895,11 +903,11 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
         for (var i = 0; i < n.length; i++) n[i].textContent = val;
     }
 
-    var ARROWS = { 'left': '←', 'right': '→', 'straight': '↑', 'slight left': '↖', 'slight right': '↗', 'sharp left': '↙', 'sharp right': '↘', 'uturn': '↶' };
+    var ARROWS = { 'left': 'Ã¢â€ Â', 'right': 'Ã¢â€ â€™', 'straight': 'Ã¢â€ â€˜', 'slight left': 'Ã¢â€ â€“', 'slight right': 'Ã¢â€ â€”', 'sharp left': 'Ã¢â€ â„¢', 'sharp right': 'Ã¢â€ Ëœ', 'uturn': 'Ã¢â€ Â¶' };
     function arrowFor(m) {
-        if (m.type === 'arrive') return '⚑';
-        if (m.type === 'roundabout' || m.type === 'rotary') return '⟳';
-        return ARROWS[m.modifier] || '↑';
+        if (m.type === 'arrive') return 'Ã¢Å¡â€˜';
+        if (m.type === 'roundabout' || m.type === 'rotary') return 'Ã¢Å¸Â³';
+        return ARROWS[m.modifier] || 'Ã¢â€ â€˜';
     }
     function instruction(s) {
         var m = s.maneuver, mod = m.modifier || '', on = s.name ? ' onto ' + s.name : '';
@@ -925,7 +933,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
         put('dist', fmtDist(distM));
         put('time', fmtTime(sec));
        put('arrive', new Date(Date.now() + sec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }));
-        put('summary', fmtDist(distM) + ' • ' + fmtTime(sec));
+        put('summary', fmtDist(distM) + ' Ã¢â‚¬Â¢ ' + fmtTime(sec));
     }
 
     /* ---------- OSRM ---------- */
@@ -949,7 +957,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
                 if (s.name) roadLen[s.name] = (roadLen[s.name] || 0) + s.distance;
             });
             Object.keys(roadLen).forEach(function (k) { if (!via || roadLen[k] > roadLen[via]) via = k; });
-            put('via', via ? 'Via ' + via : 'Via —');
+            put('via', via ? 'Via ' + via : 'Via Ã¢â‚¬â€');
 
             route = { coords: coords, cum: cum, total: cum[cum.length - 1] || 1, duration: r0.duration, steps: steps, stepsTotal: acc };
             casing.setLatLngs(coords); line.setLatLngs(coords);
@@ -959,7 +967,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
             if (!live && myPos) fetchRoute(myPos, true); // replace the command-center preview with a route from where you are
         }).catch(function () {
             fetching = false;
-            setBanner('!', 'Route unavailable', 'Check your internet connection — retrying');
+            setBanner('!', 'Route unavailable', 'Check your internet connection Ã¢â‚¬â€ retrying');
             put('navstatus', 'Route unavailable');
         });
     }
@@ -969,8 +977,8 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
         if (!route) return;
         if (!myPos) {
             setStats(route.total, route.duration);
-            setBanner('↑', NAV.mode === 'return' ? 'Route back to command center' : 'Suggested route from command center', 'Waiting for your GPS…');
-            put('navstatus', 'Waiting for GPS — showing suggested route');
+            setBanner('Ã¢â€ â€˜', NAV.mode === 'return' ? 'Route back to command center' : 'Suggested route from command center', 'Waiting for your GPSÃ¢â‚¬Â¦');
+            put('navstatus', 'Waiting for GPS Ã¢â‚¬â€ showing suggested route');
             return;
         }
         var n = nearest(myPos, route.coords, route.cum);
@@ -984,7 +992,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
 
         // Drifted off the route? Ask OSRM for a new one
         if (n.dist > 60 && Date.now() - lastFetch > 10000) {
-            fetchRoute(myPos, true); setBanner('↻', 'Rerouting…', ''); put('navstatus', 'Rerouting…'); return;
+            fetchRoute(myPos, true); setBanner('Ã¢â€ Â»', 'ReroutingÃ¢â‚¬Â¦', ''); put('navstatus', 'ReroutingÃ¢â‚¬Â¦'); return;
         }
         put('navstatus', 'Live GPS navigation');
 
@@ -993,11 +1001,11 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
         while (k < route.steps.length - 1 && route.steps[k].end <= traveled) k++;
         var cur = route.steps[k], next = route.steps[k + 1];
 
-        if (!next) setBanner('⚑', 'Arrive at destination', fmtDist(remaining) + ' ahead');
+        if (!next) setBanner('Ã¢Å¡â€˜', 'Arrive at destination', fmtDist(remaining) + ' ahead');
         else setBanner(arrowFor(next.maneuver), instruction(next), 'in ' + fmtDist(Math.max(0, cur.end - traveled)));
 
         var note = $('navNote');
-        if (NAV.status === 'en_route' && remaining < 40) note.textContent = 'You are at the destination — tap "Mark as Arrived" above.';
+        if (NAV.status === 'en_route' && remaining < 40) note.textContent = 'You are at the destination Ã¢â‚¬â€ tap "Mark as Arrived" above.';
         else if (NAV.mode === 'return') note.textContent = 'Returning to the command center.';
         else note.textContent = '';
     }
@@ -1075,7 +1083,7 @@ function renderHospitals(list) {
     list.forEach(function (h) {
         var b = document.createElement('button');
         b.type = 'button'; b.className = 'btn-action'; b.style.cssText = 'width:100%;margin-bottom:8px;text-align:left;';
-        b.textContent = h.name + ' · ' + (h.sec != null ? fmtTime(h.sec) + ' · ' + fmtDist(h.m) : fmtDist(h.air) + ' (straight line)');
+        b.textContent = h.name + ' Ã‚Â· ' + (h.sec != null ? fmtTime(h.sec) + ' Ã‚Â· ' + fmtDist(h.m) : fmtDist(h.air) + ' (straight line)');
         b.addEventListener('click', function () {
             postAction({ action: 'choose_hospital', dispatch_id: DISPATCH_ID, hospital_name: h.name, hospital_lat: h.lat, hospital_lng: h.lng });
         });
@@ -1127,7 +1135,7 @@ if (hospBtn && DECLINED.length) findHospitals(); // after a decline, show the ne
         var msg = NAV.status === 'on_site'
             ? ['You are on site', 'Waiting for the command center to release your unit', 'On site']
             : ['No incident pin set', 'The command center did not drop a map pin for this incident', 'No destination pin'];
-        setBanner('⚑', msg[0], msg[1]);
+        setBanner('Ã¢Å¡â€˜', msg[0], msg[1]);
         put('navstatus', msg[2]);
     } else {
        fetchRoute(NAV.mode === 'hospital' && NAV.origin ? NAV.origin : BASE, false);

@@ -38,7 +38,7 @@ try {
     $totalRows = $totalRows->fetchColumn();
 
     $stmt = $pdo->prepare("
-       SELECT c.clip_ref, c.caller_name, c.barangay, c.incident_type, c.severity, c.status,
+       SELECT c.clip_ref, c.caller_name, c.barangay, c.incident_type, c.patient_count, c.severity, c.status,
        c.id AS clip_id, d.id AS dispatch_id,
        d.patient_name, d.patient_age_group, d.patient_sex, d.victim_count,
        d.vital_signs, d.alcohol_breath, d.closeout_remarks,
@@ -72,7 +72,7 @@ try {
 $totalPages = max(1, ceil($totalRows / $perPage));
 
 function fmtDuration($seconds) {
-    if ($seconds === null) return '—';
+    if ($seconds === null) return 'Ã¢â‚¬â€';
     $m = floor($seconds / 60);
     $s = $seconds % 60;
     return $m . 'm ' . $s . 's';
@@ -82,7 +82,7 @@ function fmtDuration($seconds) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Incident History — HopeLine</title>
+<title>Incident History Ã¢â‚¬â€ HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 </head>
@@ -130,6 +130,7 @@ function fmtDuration($seconds) {
                 <th>Caller</th>
                 <th>Purok</th>
                 <th>Incident</th>
+                <th>Patients</th>
                 <th>Severity</th>
                 <th>Unit</th>
                 <th>Dispatch Wait</th>
@@ -154,26 +155,27 @@ function fmtDuration($seconds) {
                 <td><?php echo htmlspecialchars($h['caller_name']); ?></td>
                 <td><?php echo htmlspecialchars($h['barangay']); ?></td>
                 <td><?php echo htmlspecialchars($h['incident_type']); ?></td>
+                <td><?php echo (int)$h['patient_count']; ?></td>
                 <td><span class="sev-badge sev-<?php echo $h['severity']; ?>"><?php echo $h['severity']; ?></span></td>
-                <td><?php echo htmlspecialchars($h['unit_name'] ?? '—'); ?></td>
+                <td><?php echo htmlspecialchars($h['unit_name'] ?? 'Ã¢â‚¬â€'); ?></td>
                 <td><?php echo fmtDuration($h['dispatch_wait_seconds']); ?></td>
                 <td><?php echo fmtDuration($h['turnout_seconds']); ?></td>
                 <td><?php echo date('M j, H:i', strtotime($h['report_received_at'])); ?></td>
-                <td><?php echo $h['departed_at'] ? date('H:i', strtotime($h['departed_at'])) : '—'; ?></td>
-                <td><?php echo $h['arrived_at'] ? date('H:i', strtotime($h['arrived_at'])) : '—'; ?></td>
+                <td><?php echo $h['departed_at'] ? date('H:i', strtotime($h['departed_at'])) : 'Ã¢â‚¬â€'; ?></td>
+                <td><?php echo $h['arrived_at'] ? date('H:i', strtotime($h['arrived_at'])) : 'Ã¢â‚¬â€'; ?></td>
                 <td><?php echo fmtDuration($h['travel_seconds']); ?></td>
                 <td><?php echo fmtDuration($h['total_response_seconds']); ?></td>
-                <td class="<?php echo $h['delay_count'] > 0 ? 'delay-flag' : 'no-delay'; ?>"><?php echo (int)$h['delay_count'] > 0 ? '+' . (int)$h['total_delay_minutes'] . 'm · ' . htmlspecialchars($h['primary_delay_reason'] ?: 'Delay') : '—'; ?></td>
-                <td><?php echo htmlspecialchars($h['hospital_name'] ?? '—'); ?></td>
-                <td><?php echo $h['hospital_arrived_at'] ? date('H:i', strtotime($h['hospital_arrived_at'])) : '—'; ?></td>
+                <td class="<?php echo $h['delay_count'] > 0 ? 'delay-flag' : 'no-delay'; ?>"><?php echo (int)$h['delay_count'] > 0 ? '+' . (int)$h['total_delay_minutes'] . 'm Ã‚Â· ' . htmlspecialchars($h['primary_delay_reason'] ?: 'Delay') : 'Ã¢â‚¬â€'; ?></td>
+                <td><?php echo htmlspecialchars($h['hospital_name'] ?? 'Ã¢â‚¬â€'); ?></td>
+                <td><?php echo $h['hospital_arrived_at'] ? date('H:i', strtotime($h['hospital_arrived_at'])) : 'Ã¢â‚¬â€'; ?></td>
                 <td>
                     <?php if (!empty($h['incident_photo'])): ?>
                         <a href="<?php echo BASE_URL . '/' . htmlspecialchars($h['incident_photo']); ?>" target="_blank">
                             <img src="<?php echo BASE_URL . '/' . htmlspecialchars($h['incident_photo']); ?>" style="width:44px;height:44px;object-fit:cover;border-radius:6px;">
                         </a>
-                    <?php else: ?>—<?php endif; ?>
+                    <?php else: ?>Ã¢â‚¬â€<?php endif; ?>
                 </td>
-                <td><?php if (canEditCloseout($h)) closeoutButton($h); else echo '—'; ?></td>
+                <td><?php if (canEditCloseout($h)) closeoutButton($h); else echo 'Ã¢â‚¬â€'; ?></td>
                 <td><span class="status-badge <?php echo $h['status'] === 'resolved' ? 'status-resolved' : ''; ?>"><?php echo statusLabel($h['status']); ?></span></td>
             </tr>
             <?php endforeach; ?>

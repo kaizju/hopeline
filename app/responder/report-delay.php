@@ -25,28 +25,33 @@ $postFlashType = 'success';
 if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     try {
-        if ($action === 'report_delay') {
+       if ($action === 'report_delay') {
     $dispatchId = (int)($_POST['dispatch_id'] ?? 0);
     $reason = trim($_POST['reason'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
 
-    $u = $pdo->prepare("SELECT unit_id FROM dispatch WHERE id = ? AND team_id = ?");
-    $u->execute([$dispatchId, $myTeamId]);
-    $unitId = (int)$u->fetchColumn();
-
-    if ($unitId) {
-        $stmt = $pdo->prepare("INSERT INTO delay_logs (dispatch_id, unit_id, reason, notes, logged_by, is_manual) VALUES (?, ?, ?, ?, ?, 0)");
-        $stmt->execute([$dispatchId, $unitId, $reason, $notes, $_SESSION['user_id']]);
-        if (function_exists('logActivity')) {
-            logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'delay_reported', 'success');
-        }
-        $flash = 'Delay reported. The command center has been notified.';
-    } else {
+    $allowed = ['Road obstruction/traffic', 'Rush hour', 'Weather/flooding'];
+    if (!in_array($reason, $allowed, true)) {
         $postFlashType = 'error';
-        $flash = 'This dispatch is no longer assigned to your team.';
+        $flash = 'Invalid delay reason.';
+    } else {
+        $u = $pdo->prepare("SELECT unit_id FROM dispatch WHERE id = ? AND team_id = ?");
+        $u->execute([$dispatchId, $myTeamId]);
+        $unitId = (int)$u->fetchColumn();
+
+        if ($unitId) {
+            $stmt = $pdo->prepare("INSERT INTO delay_logs (dispatch_id, unit_id, reason, notes, logged_by, is_manual) VALUES (?, ?, ?, ?, ?, 0)");
+            $stmt->execute([$dispatchId, $unitId, $reason, $notes, $_SESSION['user_id']]);
+            if (function_exists('logActivity')) {
+                logActivity($pdo, $_SESSION['user_id'], $_SESSION['email'], 'delay_reported', 'success');
+            }
+            $flash = 'Delay reported. The command center has been notified.';
+        } else {
+            $postFlashType = 'error';
+            $flash = 'This dispatch is no longer assigned to your team.';
+        }
     }
 }
-
         if ($action === 'resolve_delay') {
             $delayId = (int)($_POST['delay_id'] ?? 0);
             $resolve = $pdo->prepare("UPDATE delay_logs SET resolved_at = NOW() WHERE id = ? AND resolved_at IS NULL AND dispatch_id IN (SELECT id FROM dispatch WHERE team_id = ?)");
@@ -143,11 +148,8 @@ $unreadAlerts = 0;
                     <label for="reason">Reason for Delay</label>
                     <select name="reason" id="reason" required>
                         <option value="Road obstruction/traffic">Road obstruction/traffic</option>
-                        <option value="Vehicle breakdown/mechanical issue">Vehicle breakdown/mechanical issue</option>
-                        <option value="Weather/flooding">Weather/flooding</option>
-                        <option value="Wrong/unclear location">Wrong/unclear location</option>
-                        <option value="Fuel issue">Fuel issue</option>
-                        <option value="Waiting for backup unit">Waiting for backup unit</option>
+    <option value="Rush hour">Rush hour</option>
+    <option value="Weather/flooding">Heavy Rain</option>
                         <option value="Other">Other</option>
                     </select>
 
