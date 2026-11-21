@@ -57,16 +57,16 @@ foreach ($teams as $team) {
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
     <style>
         .team-summary, .team-filters { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0; }
-        .team-count, .team-filter { border:1px solid var(--border, #d8dee5); border-radius:999px; padding:8px 14px; background:var(--surface, #fff); }
-        .team-filter { cursor:pointer; color:inherit; }
-        .team-filter.active { background:var(--primary, #1769aa); color:#fff; }
+        .team-count, .team-filter { border:1px solid rgba(var(--border-rgb), .25); border-radius:999px; padding:8px 14px; background:rgba(var(--surface-rgb), .04); color:var(--macadamia); }
+        .team-filter { cursor:pointer; }
+        .team-filter.active { background:var(--burnt-umber); border-color:var(--burnt-umber); color:#fff; }
         .team-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; }
-        .team-card { background:var(--surface, #fff); border:1px solid var(--border, #d8dee5); border-radius:14px; padding:18px; }
-        .team-card h2 { margin:0 0 8px; font-size:1.15rem; }
+        .team-card { background:rgba(var(--surface-rgb), .04); border:1px solid rgba(var(--border-rgb), .18); border-radius:10px; padding:18px; color:var(--macadamia); }
+        .team-card h2 { margin:0 0 8px; font-size:1.15rem; color:var(--macadamia); }
         .team-card p { margin:7px 0; }
-        .team-state { display:inline-block; border-radius:999px; padding:5px 10px; font-weight:700; background:rgba(76,175,125,.15); }
-        .team-state.busy { background:rgba(217,117,43,.15); }
-        .team-delay { color:var(--high, #b45309); font-weight:600; }
+        .team-state { display:inline-block; border-radius:999px; padding:5px 10px; font-weight:700; background:rgba(63,122,92,.2); color:var(--low); }
+        .team-state.busy { background:rgba(217,117,43,.2); color:var(--high); }
+        .team-delay { color:var(--high); font-weight:600; }
     </style>
 </head>
 <body>
@@ -115,7 +115,7 @@ foreach ($teams as $team) {
                             <p><strong>Severity:</strong> <?php echo htmlspecialchars($team['severity'] ?? '—', ENT_QUOTES, 'UTF-8'); ?></p>
                             <p><strong>Vehicles:</strong> <?php echo htmlspecialchars($team['vehicles'] ?: '—', ENT_QUOTES, 'UTF-8'); ?></p>
                             <p><strong>Departed:</strong> <?php echo $team['departed_at'] ? htmlspecialchars(date('M j, H:i', strtotime($team['departed_at'])), ENT_QUOTES, 'UTF-8') : 'Not departed'; ?></p>
-                            <p><strong>Elapsed:</strong> <?php echo htmlspecialchars($elapsedLabel, ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p><strong>Total time since departure:</strong> <?php echo $team['departed_at'] ? htmlspecialchars($elapsedLabel, ENT_QUOTES, 'UTF-8') : 'Not started'; ?></p>
                             <?php if ($team['active_delay_reason']): ?>
                                 <p class="team-delay"><strong>Active delay:</strong> <?php echo htmlspecialchars($team['active_delay_reason'], ENT_QUOTES, 'UTF-8'); ?></p>
                             <?php endif; ?>
