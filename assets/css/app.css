@@ -109,6 +109,8 @@ select option { background: var(--cool-blue); color: var(--macadamia); }
 }
 .header-icon:hover { background: rgba(var(--border-rgb), 0.14); color: var(--macadamia); }
 .header-icon svg { width: 16px; height: 16px; }
+.header-icon .alert-count-badge { position:absolute; top:-5px; right:-7px; min-width:16px; height:16px; padding:0 4px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; background:var(--redwood); border:1px solid var(--bg-page); color:#fff; font-size:9px; font-weight:700; line-height:1; }
+.header-icon .alert-count-badge[hidden] { display:none; }
 
 .notif-dot { position: absolute; top: 5px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--redwood); border: 1.5px solid var(--bg-page); }
 

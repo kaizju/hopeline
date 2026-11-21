@@ -423,7 +423,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                 </form>
                 <?php if ($activeDelay): $delayMins = max(0, round((time() - strtotime($activeDelay['started_at'])) / 60)); ?>
                     <div class="active-delay-banner" style="padding:10px 12px;background:rgba(217,117,43,.14);border-left:4px solid var(--high);border-radius:8px;color:var(--high);font-weight:700;">
-                        Ã¢Å¡Â Ã¯Â¸Â Delay in effect: <?php echo hle($activeDelay['reason']); ?> (+<?php echo $delayMins; ?>m)
+                        ⚠️ Delay in effect: <?php echo hle($activeDelay['reason']); ?> (+<?php echo $delayMins; ?>m)
                         <form method="POST" style="margin-top:8px;">
                             <input type="hidden" name="action" value="resolve_delay">
                             <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
@@ -486,9 +486,9 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
     <div class="hud-bottom">
         <div class="nav-hud">
             <div class="nav-banner">
-                <div class="nav-arrow" id="navArrow">Ã¢â€ â€˜</div>
+                <div class="nav-arrow" id="navArrow">↑</div>
                 <div>
-                    <div class="nav-instr" id="navInstr">Calculating routeÃ¢â‚¬Â¦</div>
+                    <div class="nav-instr" id="navInstr">Calculating route…</div>
                     <div class="nav-sub" id="navSub"></div>
                 </div>
             </div>
@@ -496,7 +496,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                 <div><div class="v" data-eta="time">—</div><div class="l">Time left</div></div>
                 <div><div class="v" data-eta="dist">—</div><div class="l">Distance</div></div>
                 <div><div class="v" data-eta="arrive">—</div><div class="l">Arrive at</div></div>
-                <div><span class="gps-chip" id="gpsChip"><span class="dot"></span><span id="gpsChipText">GPSÃ¢â‚¬Â¦</span></span></div>
+                <div><span class="gps-chip" id="gpsChip"><span class="dot"></span><span id="gpsChipText">GPS…</span></span></div>
             </div>
             <div class="nav-note" id="navNote"></div>
         </div>
@@ -621,7 +621,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                     <?php if (!empty($dispatch['incident_photo'])): ?>
                         <img src="<?php echo BASE_URL . '/' . hle($dispatch['incident_photo']); ?>" alt="Saved incident photo" class="site-photo">
                         <?php if (!empty($dispatch['photo_lat'])): ?>
-    <div class="is-s">Ã°Å¸â€œÂ <?php echo hle(round($dispatch['photo_lat'], 6) . ', ' . round($dispatch['photo_lng'], 6)); ?> (<?php echo hle($dispatch['photo_gps_source']); ?>)<br><?php echo hle($dispatch['photo_location']); ?></div>
+    <div class="is-s">📍 <?php echo hle(round($dispatch['photo_lat'], 6) . ', ' . round($dispatch['photo_lng'], 6)); ?> (<?php echo hle($dispatch['photo_gps_source']); ?>)<br><?php echo hle($dispatch['photo_location']); ?></div>
 <?php endif; ?>
                     <?php endif; ?>
                     <button type="submit" class="btn-primary" style="margin-top:14px;width:100%;justify-content:center;">Save site report</button>
@@ -657,7 +657,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
                     <div class="is-ico"><?php echo hl_ico('locate'); ?></div>
                     <div>
                         <div class="is-k">Navigation status</div>
-                        <div class="is-v" data-eta="navstatus">StartingÃ¢â‚¬Â¦</div>
+                        <div class="is-v" data-eta="navstatus">Starting…</div>
                     </div>
                 </div>
             </section>
@@ -666,7 +666,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
     <div class="is-k">Patient outcome</div>
 
     <?php if (empty($dispatch['incident_photo'])): ?>
-        <div class="is-s">Ã°Å¸â€œÂ· Take the site photo first. Outcome unlocks after it is saved.</div>
+        <div class="is-s">📷 Take the site photo first. Outcome unlocks after it is saved.</div>
 
     <?php elseif ($dispatch['site_outcome'] === 'hospital' && $dispatch['hospital_name']):
         $hArrived  = !empty($dispatch['hospital_arrived_at']);
@@ -682,7 +682,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
         <form method="POST">
             <input type="hidden" name="action" value="<?php echo ['hospital_arrived','hospital_accepted','return_to_command'][$stage-1]; ?>">
             <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
-            <button type="submit" class="btn-action" style="width:100%;"><?php echo ['Arrived at hospital','Ã¢Å“â€ Hospital accepted the patient','Return to command center'][$stage-1]; ?></button>
+            <button type="submit" class="btn-action" style="width:100%;"><?php echo ['Arrived at hospital','✔ Hospital accepted the patient','Return to command center'][$stage-1]; ?></button>
         </form>
         <?php if (!$hAccepted): ?>
         <form method="POST" onsubmit="return confirm('Hospital declined the patient? You will pick another hospital.');">
@@ -694,7 +694,7 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
 
     <?php else: ?>
         <?php if ($declined): ?><div class="is-s">Declined: <?php echo hle(implode(', ', $declined)); ?></div><?php endif; ?>
-        <button type="button" class="btn-action" id="btnFindHosp" style="width:100%;margin-top:10px;">Ã°Å¸ÂÂ¥ <?php echo $declined ? 'Find other hospitals' : 'Deliver to nearest hospital'; ?></button>
+        <button type="button" class="btn-action" id="btnFindHosp" style="width:100%;margin-top:10px;">🏥 <?php echo $declined ? 'Find other hospitals' : 'Deliver to nearest hospital'; ?></button>
         <div id="hospList" style="margin-top:12px;"></div>
         <form method="POST" style="margin-top:14px;">
             <input type="hidden" name="action" value="choose_minor">
@@ -859,7 +859,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
     function mirrorGps() {
         if (!pill) return;
         chip.className = 'gps-chip ' + pill.className;
-        chipText.textContent = pill.textContent || 'GPSÃ¢â‚¬Â¦';
+        chipText.textContent = pill.textContent || 'GPS…';
     }
     if (pill) {
         mirrorGps();
@@ -903,11 +903,11 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
         for (var i = 0; i < n.length; i++) n[i].textContent = val;
     }
 
-    var ARROWS = { 'left': 'Ã¢â€ Â', 'right': 'Ã¢â€ â€™', 'straight': 'Ã¢â€ â€˜', 'slight left': 'Ã¢â€ â€“', 'slight right': 'Ã¢â€ â€”', 'sharp left': 'Ã¢â€ â„¢', 'sharp right': 'Ã¢â€ Ëœ', 'uturn': 'Ã¢â€ Â¶' };
+    var ARROWS = { 'left': '←', 'right': '→', 'straight': '↑', 'slight left': '↖', 'slight right': '↗', 'sharp left': '↙', 'sharp right': '↘', 'uturn': '↶' };
     function arrowFor(m) {
-        if (m.type === 'arrive') return 'Ã¢Å¡â€˜';
-        if (m.type === 'roundabout' || m.type === 'rotary') return 'Ã¢Å¸Â³';
-        return ARROWS[m.modifier] || 'Ã¢â€ â€˜';
+        if (m.type === 'arrive') return '⚑';
+        if (m.type === 'roundabout' || m.type === 'rotary') return '⟳';
+        return ARROWS[m.modifier] || '↑';
     }
     function instruction(s) {
         var m = s.maneuver, mod = m.modifier || '', on = s.name ? ' onto ' + s.name : '';
@@ -933,7 +933,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
         put('dist', fmtDist(distM));
         put('time', fmtTime(sec));
        put('arrive', new Date(Date.now() + sec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }));
-        put('summary', fmtDist(distM) + ' Ã¢â‚¬Â¢ ' + fmtTime(sec));
+        put('summary', fmtDist(distM) + ' • ' + fmtTime(sec));
     }
 
     /* ---------- OSRM ---------- */
@@ -977,7 +977,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
         if (!route) return;
         if (!myPos) {
             setStats(route.total, route.duration);
-            setBanner('Ã¢â€ â€˜', NAV.mode === 'return' ? 'Route back to command center' : 'Suggested route from command center', 'Waiting for your GPSÃ¢â‚¬Â¦');
+            setBanner('↑', NAV.mode === 'return' ? 'Route back to command center' : 'Suggested route from command center', 'Waiting for your GPS…');
             put('navstatus', 'Waiting for GPS — showing suggested route');
             return;
         }
@@ -992,7 +992,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
 
         // Drifted off the route? Ask OSRM for a new one
         if (n.dist > 60 && Date.now() - lastFetch > 10000) {
-            fetchRoute(myPos, true); setBanner('Ã¢â€ Â»', 'ReroutingÃ¢â‚¬Â¦', ''); put('navstatus', 'ReroutingÃ¢â‚¬Â¦'); return;
+            fetchRoute(myPos, true); setBanner('↻', 'Rerouting…', ''); put('navstatus', 'Rerouting…'); return;
         }
         put('navstatus', 'Live GPS navigation');
 
@@ -1001,7 +1001,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function
         while (k < route.steps.length - 1 && route.steps[k].end <= traveled) k++;
         var cur = route.steps[k], next = route.steps[k + 1];
 
-        if (!next) setBanner('Ã¢Å¡â€˜', 'Arrive at destination', fmtDist(remaining) + ' ahead');
+        if (!next) setBanner('⚑', 'Arrive at destination', fmtDist(remaining) + ' ahead');
         else setBanner(arrowFor(next.maneuver), instruction(next), 'in ' + fmtDist(Math.max(0, cur.end - traveled)));
 
         var note = $('navNote');
@@ -1135,7 +1135,7 @@ if (hospBtn && DECLINED.length) findHospitals(); // after a decline, show the ne
         var msg = NAV.status === 'on_site'
             ? ['You are on site', 'Waiting for the command center to release your unit', 'On site']
             : ['No incident pin set', 'The command center did not drop a map pin for this incident', 'No destination pin'];
-        setBanner('Ã¢Å¡â€˜', msg[0], msg[1]);
+        setBanner('⚑', msg[0], msg[1]);
         put('navstatus', msg[2]);
     } else {
        fetchRoute(NAV.mode === 'hospital' && NAV.origin ? NAV.origin : BASE, false);

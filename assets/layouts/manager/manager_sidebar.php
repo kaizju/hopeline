@@ -8,6 +8,7 @@
  */
 
 require_once __DIR__ . '/../sidebar_shell.php';
+require_once __DIR__ . '/../../../config/alerts.php';
 
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 
@@ -15,16 +16,17 @@ function navActive($page, $current) {
     return $page === $current ? 'active' : '';
 }
 
-$unreadAlerts = $unreadAlerts ?? 0;
+if (empty($unreadAlertsCounted)) $unreadAlerts = countUnreadAlerts($pdo, 'manager', (int)($_SESSION['user_id'] ?? 0));
+$alertBadgeText = $unreadAlerts > 9 ? '9+' : (string)$unreadAlerts;
 $managerEmail = $_SESSION['email'] ?? 'manager@hopeline.local';
 
 $headerIcon = '
-<a class="header-icon" href="' . BASE_URL . '/app/manager/alerts.php" title="Delay Alerts">
+<a class="header-icon" href="' . BASE_URL . '/app/manager/alerts.php" title="Alerts">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
         <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
     </svg>
-    ' . ($unreadAlerts > 0 ? '<div class="notif-dot"></div>' : '') . '
+    <span class="alert-count-badge" data-alert-badge' . ($unreadAlerts === 0 ? ' hidden' : '') . '>' . htmlspecialchars($alertBadgeText, ENT_QUOTES, 'UTF-8') . '</span>
 </a>';
 
 ob_start();
@@ -47,7 +49,11 @@ ob_start();
 <a class="nav-item <?php echo navActive('active-incidents', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/active-incidents.php">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15V7a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M12 11v4M12 8h.01"/></svg>
     Active Incidents
-    <?php if ($unreadAlerts > 0): ?><span class="badge"><?php echo (int)$unreadAlerts; ?></span><?php endif; ?>
+</a>
+<a class="nav-item <?php echo navActive('alerts', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/alerts.php">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="m4 7 8 6 8-6"/></svg>
+    Alerts
+    <?php if ($unreadAlerts > 0): ?><span class="badge"><?php echo htmlspecialchars($alertBadgeText, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
 </a>
 <a class="nav-item <?php echo navActive('team-status', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/team-status.php">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v1"/></svg>

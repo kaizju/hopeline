@@ -276,13 +276,13 @@ else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
                 </div>
 <?php if ($inc['active_delay_reason']): $activeDelayMins = max(0, round((time() - strtotime($inc['active_delay_started_at'])) / 60)); ?>
                 <div class="active-delay-banner" style="margin:12px 0;padding:12px 14px;border-left:4px solid var(--high);background:rgba(217,117,43,.12);border-radius:8px;">
-                    <strong>Ã¢Å¡Â Ã¯Â¸Â Delay: <?php echo htmlspecialchars($inc['active_delay_reason']); ?></strong>
+                    <strong>Delay: <?php echo htmlspecialchars($inc['active_delay_reason']); ?></strong>
                     <span> +<?php echo $activeDelayMins; ?>m ongoing</span>
                     <?php if ($inc['active_delay_notes']): ?><div><?php echo htmlspecialchars($inc['active_delay_notes']); ?></div><?php endif; ?>
                     <?php if ($inc['predicted_eta_minutes'] !== null): ?><div>Adjusted ETA: <?php echo round((float)$inc['predicted_eta_minutes']) + (int)$inc['total_delay_minutes']; ?> min</div><?php endif; ?>
                 </div>
 <?php elseif ((int)$inc['delay_count'] > 0): ?>
-                <div class="delay-summary" style="margin:10px 0;color:var(--high);">Ã¢ÂÂ±Ã¯Â¸Â Total delay: +<?php echo (int)$inc['total_delay_minutes']; ?>m (<?php echo (int)$inc['delay_count']; ?> events)</div>
+                <div class="delay-summary" style="margin:10px 0;color:var(--high);">Total delay: +<?php echo (int)$inc['total_delay_minutes']; ?>m (<?php echo (int)$inc['delay_count']; ?> events)</div>
 <?php endif; ?>
 <?php if (!empty($inc['incident_photo'])): ?>
 <div style="display:flex;gap:12px;align-items:flex-start;margin:12px 0;">
@@ -293,11 +293,11 @@ else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
         <div class="label">Site photo<?php echo $inc['photo_taken_at'] ? ' · ' . date('H:i', strtotime($inc['photo_taken_at'])) : ''; ?></div>
 <?php if ($inc['photo_lat']): ?>
     <div class="value">Incident coordinates (<?php echo htmlspecialchars(strtoupper($inc['photo_gps_source'])); ?>)</div>
-    <div class="value"><a href="https://www.openstreetmap.org/?mlat=<?php echo $inc['photo_lat']; ?>&mlon=<?php echo $inc['photo_lng']; ?>#map=18/<?php echo $inc['photo_lat']; ?>/<?php echo $inc['photo_lng']; ?>" target="_blank">Ã°Å¸â€œÂ <?php echo round($inc['photo_lat'], 6) . ', ' . round($inc['photo_lng'], 6); ?></a></div>
+    <div class="value"><a href="https://www.openstreetmap.org/?mlat=<?php echo $inc['photo_lat']; ?>&mlon=<?php echo $inc['photo_lng']; ?>#map=18/<?php echo $inc['photo_lat']; ?>/<?php echo $inc['photo_lng']; ?>" target="_blank"><?php echo round($inc['photo_lat'], 6) . ', ' . round($inc['photo_lng'], 6); ?></a></div>
     <div class="value"><?php echo htmlspecialchars($inc['photo_location'] ?: ''); ?></div>
-<?php else: ?><div class="value" style="color:var(--high)">Ã¢Å¡Â  No GPS found in photo</div><?php endif; ?>
+<?php else: ?><div class="value" style="color:var(--high)">No GPS found in photo</div><?php endif; ?>
 <?php if ($inc['site_outcome'] === 'hospital'): ?>
-    <div class="value">Ã°Å¸ÂÂ¥ <?php echo htmlspecialchars($inc['hospital_name'] ?: '—'); ?></div>
+    <div class="value">Hospital: <?php echo htmlspecialchars($inc['hospital_name'] ?: '—'); ?></div>
     <?php if ($inc['hospital_arrived_at']): ?><div class="value">Arrived <?php echo date('H:i', strtotime($inc['hospital_arrived_at'])); ?></div><?php endif; ?>
     <?php if ($inc['hospital_accepted_at']): ?><div class="value">Accepted <?php echo date('H:i', strtotime($inc['hospital_accepted_at'])); ?></div><?php endif; ?>
     <?php if ($d = json_decode($inc['declined_hospitals'] ?: '[]', true)): ?><div class="value">Declined: <?php echo htmlspecialchars(implode(', ', $d)); ?></div><?php endif; ?>
@@ -305,11 +305,10 @@ else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
     </div>
 </div>
 <?php endif; ?>
-<?php if ($os = outcomeStage($inc)): ?><div class="outcome-pill os-<?php echo $os[1]; ?>"><?php echo htmlspecialchars($os[0]); ?></div><?php endif; ?>
                 <div class="incident-actions">
     <?php if ($inc['team_name']): ?>
         <div class="responder-tag" style="font-weight:600;">
-            Ã¢Ëœâ€¦ Assigned to <?php echo htmlspecialchars($inc['team_name']); ?><?php echo $inc['vehicles'] ? ' · ' . htmlspecialchars($inc['vehicles']) : ''; ?>
+            Assigned to <?php echo htmlspecialchars($inc['team_name']); ?><?php echo $inc['vehicles'] ? ' · ' . htmlspecialchars($inc['vehicles']) : ''; ?>
         </div>
     <?php endif; ?>
 
@@ -321,14 +320,14 @@ else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
             <button type="submit" class="btn btn-resolve">Mark Completed</button>
         </form>
     <?php else: ?>
-        <button type="button" class="btn btn-resolve" disabled style="margin-left:auto;opacity:.4;cursor:not-allowed;" title="Unlocks when the team arrives on site">Ã°Å¸â€â€™ Awaiting arrival</button>
+        <button type="button" class="btn btn-resolve" disabled style="margin-left:auto;opacity:.4;cursor:not-allowed;" title="Unlocks when the team arrives on site">Awaiting arrival</button>
 
         <?php if (!$inc['dispatch_id']): ?>
         <form method="POST" class="dispatch-form">
             <input type="hidden" name="action" value="dispatch">
             <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
             <select name="team_id" required>
-                <option value="">Assign a teamÃ¢â‚¬Â¦</option>
+                <option value="">Assign a team...</option>
                 <?php foreach ($teams as $t): $isBusy = in_array((int)$t['id'], $busyTeams, true); ?>
                     <option value="<?php echo $t['id']; ?>" <?php echo $isBusy ? 'disabled' : ''; ?>>
                         <?php echo htmlspecialchars($t['name']); ?><?php echo $isBusy ? ' (on dispatch)' : ''; ?>
@@ -339,13 +338,13 @@ else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
         </form>
                 <?php endif; ?>
     <?php endif; ?>
-</div>
     <form method="POST" onsubmit="return confirm('Cancel this incident? Assigned vehicles will be released and the team stood down.');">
         <input type="hidden" name="action" value="cancel_incident">
         <input type="hidden" name="clip_report_id" value="<?php echo $inc['id']; ?>">
         <button type="submit" class="btn-cancel-inc">Cancel incident</button>
     </form>
     <?php endif; ?>
+</div>
 <!-- /.incident-actions -->
             </div><!-- /.incident-card -->
             <?php endforeach; ?>
