@@ -76,7 +76,7 @@ try {
 $totalPages = max(1, ceil($totalRows / $perPage));
 
 function fmtDuration($seconds) {
-    if ($seconds === null) return 'Ã¢â‚¬â€';
+    if ($seconds === null) return '—';
     $m = floor($seconds / 60);
     $s = $seconds % 60;
     return $m . 'm ' . $s . 's';
@@ -86,7 +86,7 @@ function fmtDuration($seconds) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Incident History Ã¢â‚¬â€ HopeLine</title>
+<title>Incident History — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 </head>
@@ -165,23 +165,23 @@ else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
                 <td><?php echo htmlspecialchars($h['incident_type']); ?></td>
                 <td><?php echo (int)$h['patient_count']; ?></td>
                 <td><span class="sev-badge sev-<?php echo $h['severity']; ?>"><?php echo $h['severity']; ?></span></td>
-                <td><?php echo htmlspecialchars($h['unit_name'] ?? 'Ã¢â‚¬â€'); ?></td>
+                <td><?php echo htmlspecialchars($h['unit_name'] ?? '—'); ?></td>
                 <td><?php echo fmtDuration($h['dispatch_wait_seconds']); ?></td>
                 <td><?php echo fmtDuration($h['turnout_seconds']); ?></td>
                 <td><?php echo date('M j, H:i', strtotime($h['report_received_at'])); ?></td>
-                <td><?php echo $h['departed_at'] ? date('H:i', strtotime($h['departed_at'])) : 'Ã¢â‚¬â€'; ?></td>
-                <td><?php echo $h['arrived_at'] ? date('H:i', strtotime($h['arrived_at'])) : 'Ã¢â‚¬â€'; ?></td>
+                <td><?php echo $h['departed_at'] ? date('H:i', strtotime($h['departed_at'])) : '—'; ?></td>
+                <td><?php echo $h['arrived_at'] ? date('H:i', strtotime($h['arrived_at'])) : '—'; ?></td>
                 <td><?php echo fmtDuration($h['travel_seconds']); ?></td>
                 <td><?php echo fmtDuration($h['total_response_seconds']); ?></td>
-                <td class="<?php echo $h['delay_count'] > 0 ? 'delay-flag' : 'no-delay'; ?>"><?php echo (int)$h['delay_count'] > 0 ? '+' . (int)$h['total_delay_minutes'] . 'm Ã‚Â· ' . htmlspecialchars($h['primary_delay_reason'] ?: 'Delay') : 'Ã¢â‚¬â€'; ?></td>
-                <td><?php echo htmlspecialchars($h['hospital_name'] ?? 'Ã¢â‚¬â€'); ?></td>
-                <td><?php echo $h['hospital_arrived_at'] ? date('H:i', strtotime($h['hospital_arrived_at'])) : 'Ã¢â‚¬â€'; ?></td>
+                <td class="<?php echo $h['delay_count'] > 0 ? 'delay-flag' : 'no-delay'; ?>"><?php echo (int)$h['delay_count'] > 0 ? '+' . (int)$h['total_delay_minutes'] . 'm · ' . htmlspecialchars($h['primary_delay_reason'] ?: 'Delay') : '—'; ?></td>
+                <td><?php echo htmlspecialchars($h['hospital_name'] ?? '—'); ?></td>
+                <td><?php echo $h['hospital_arrived_at'] ? date('H:i', strtotime($h['hospital_arrived_at'])) : '—'; ?></td>
                 <td>
                     <?php if (!empty($h['incident_photo'])): ?>
                         <a href="<?php echo BASE_URL . '/' . htmlspecialchars($h['incident_photo']); ?>" target="_blank">
                             <img src="<?php echo BASE_URL . '/' . htmlspecialchars($h['incident_photo']); ?>" style="width:44px;height:44px;object-fit:cover;border-radius:6px;">
                         </a>
-                    <?php else: ?>Ã¢â‚¬â€<?php endif; ?>
+                    <?php else: ?>—<?php endif; ?>
                 </td>
                 <?php if (!$isAdmin): ?><td><?php if (canEditCloseout($h)) closeoutButton($h); else echo '—'; ?></td><?php endif; ?>
                 <td><span class="status-badge <?php echo $h['status'] === 'resolved' ? 'status-resolved' : ''; ?>"><?php echo statusLabel($h['status']); ?></span></td>

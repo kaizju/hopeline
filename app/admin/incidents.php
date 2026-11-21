@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-    // ---- Archive (replaces Delete) Ã¢â‚¬â€ only resolved/cancelled incidents can be archived ----
+    // ---- Archive (replaces Delete) — only resolved/cancelled incidents can be archived ----
     if ($action === 'archive_incident') {
         $id = (int)($_POST['clip_report_id'] ?? 0);
         $stmt = $pdo->prepare("SELECT status FROM clip_reports WHERE id = ?");
@@ -133,7 +133,7 @@ $unreadAlerts = 0;
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Incident Records Ã¢â‚¬â€ HopeLine</title>
+<title>Incident Records — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 </head>
@@ -145,7 +145,7 @@ $unreadAlerts = 0;
     <div class="page-head page-head--flex">
         <div>
             <h1>Incident Records</h1>
-            <p>Full log of every CLIP report system-wide Ã¢â‚¬â€ <?php echo $totalRows; ?> <?php echo $view; ?>.</p>
+            <p>Full log of every CLIP report system-wide — <?php echo $totalRows; ?> <?php echo $view; ?>.</p>
         </div>
       <?php echo exportPeriodForm(BASE_URL . '/app/admin/export-cases.php', array_diff_key($_GET, array_flip(['period','ref','from','to','page']))); ?>
     </div>
@@ -201,7 +201,7 @@ $unreadAlerts = 0;
                 <td><?php echo htmlspecialchars($inc['incident_type']); ?></td>
                 <td><?php echo (int)$inc['patient_count']; ?></td>
                 <td><span class="sev-badge sev-<?php echo $inc['severity']; ?>"><?php echo $inc['severity']; ?></span></td>
-                <td><?php echo htmlspecialchars($inc['unit_name'] ?? 'Ã¢â‚¬â€'); ?></td>
+                <td><?php echo htmlspecialchars($inc['unit_name'] ?? '—'); ?></td>
                 <td><?php echo date('M j, H:i', strtotime($inc['created_at'])); ?></td>
                 <td><span class="status-badge status-<?php echo $inc['status']; ?>"><?php echo statusLabel($inc['status']); ?></span></td>
 
@@ -211,13 +211,13 @@ $unreadAlerts = 0;
                         <a href="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" target="_blank">
                             <img src="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" style="width:44px;height:44px;object-fit:cover;border-radius:6px;">
                         </a>
-                    <?php else: ?>Ã¢â‚¬â€<?php endif; ?>
+                    <?php else: ?>—<?php endif; ?>
                 </td>
 
                 <!-- Case Details (this cell was missing) -->
                 <!-- Case Details -->
 <td>
-    <?php if (canEditCloseout($inc)): closeoutButton($inc); else: ?>Ã¢â‚¬â€<?php endif; ?>
+    <?php if (canEditCloseout($inc)): closeoutButton($inc); else: ?>—<?php endif; ?>
 </td>
 
                 <!-- Actions -->

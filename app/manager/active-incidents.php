@@ -22,10 +22,10 @@ $postFlashType = 'success';
 function outcomeStage($i) {
     if ($i['dispatch_status'] !== 'on_site') return null;
     if (empty($i['incident_photo'])) return ['Waiting for site photo', 'warn'];
-    if (empty($i['site_outcome'])) return ['Assessing patient Ã¢â‚¬â€ outcome pending', 'warn'];
-    if ($i['site_outcome'] === 'minor') return ['Minor case Ã¢â‚¬â€ treated on site', 'ok'];
+    if (empty($i['site_outcome'])) return ['Assessing patient — outcome pending', 'warn'];
+    if ($i['site_outcome'] === 'minor') return ['Minor case — treated on site', 'ok'];
     if (empty($i['hospital_arrived_at'])) return ['En route to ' . $i['hospital_name'], 'info'];
-    if (empty($i['hospital_accepted_at'])) return ['At ' . $i['hospital_name'] . ' Ã¢â‚¬â€ awaiting acceptance', 'warn'];
+    if (empty($i['hospital_accepted_at'])) return ['At ' . $i['hospital_name'] . ' — awaiting acceptance', 'warn'];
     return ['Accepted by ' . $i['hospital_name'], 'ok'];
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$active) {
                 $pdo->rollBack();
                 $postFlashType = 'error';
-                $msg = 'Can\'t resolve yet Ã¢â‚¬â€ the PTV hasn\'t arrived on site.';
+                $msg = 'Can\'t resolve yet — the PTV hasn\'t arrived on site.';
             } else {
                 $pdo->prepare("UPDATE clip_reports SET status='resolved' WHERE id=?")->execute([$clipId]);
                 foreach ($active as $d) {
@@ -205,7 +205,7 @@ try {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Active Incidents Ã¢â‚¬â€ HopeLine</title>
+<title>Active Incidents — HopeLine</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/app.css">
 </head>
@@ -260,8 +260,8 @@ else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
                     <div class="incident-title-wrap">
                         <span class="sev-badge sev-<?php echo $inc['severity']; ?>"><?php echo $inc['severity']; ?></span>
                         <div>
-                            <div class="incident-title"><?php echo htmlspecialchars($inc['incident_type']); ?> Ã¢â‚¬â€ <?php echo htmlspecialchars($inc['barangay']); ?></div>
-                            <div class="clip-ref"><?php echo htmlspecialchars($inc['clip_ref']); ?> Ã‚Â· <?php echo $mins; ?>m ago</div>
+                            <div class="incident-title"><?php echo htmlspecialchars($inc['incident_type']); ?> — <?php echo htmlspecialchars($inc['barangay']); ?></div>
+                            <div class="clip-ref"><?php echo htmlspecialchars($inc['clip_ref']); ?> · <?php echo $mins; ?>m ago</div>
                         </div>
                     </div>
                     <span class="status-pill <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></span>
@@ -270,7 +270,7 @@ else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
                 <div class="incident-body">
                     <div class="info-block"><div class="label">Patients</div><div class="value"><?php echo (int)$inc['patient_count']; ?></div></div>
                     <div class="info-block"><div class="label">Caller</div><div class="value"><?php echo htmlspecialchars($inc['caller_name']); ?></div></div>
-                    <div class="info-block"><div class="label">Received via</div><div class="value"><?php echo htmlspecialchars($inc['report_source'] ?: 'Ã¢â‚¬â€'); ?></div></div>
+                    <div class="info-block"><div class="label">Received via</div><div class="value"><?php echo htmlspecialchars($inc['report_source'] ?: '—'); ?></div></div>
                     <div class="info-block"><div class="label">Resources Needed</div><div class="value"><?php echo htmlspecialchars($inc['problem_resources']); ?></div></div>
                     <div class="info-block"><div class="label">Reported</div><div class="value"><?php echo date('H:i', strtotime($inc['created_at'])); ?></div></div>
                 </div>
@@ -290,14 +290,14 @@ else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
         <img src="<?php echo BASE_URL . '/' . htmlspecialchars($inc['incident_photo']); ?>" style="width:130px;height:96px;object-fit:cover;border-radius:8px;">
     </a>
     <div class="info-block">
-        <div class="label">Site photo<?php echo $inc['photo_taken_at'] ? ' Ã‚Â· ' . date('H:i', strtotime($inc['photo_taken_at'])) : ''; ?></div>
+        <div class="label">Site photo<?php echo $inc['photo_taken_at'] ? ' · ' . date('H:i', strtotime($inc['photo_taken_at'])) : ''; ?></div>
 <?php if ($inc['photo_lat']): ?>
     <div class="value">Incident coordinates (<?php echo htmlspecialchars(strtoupper($inc['photo_gps_source'])); ?>)</div>
     <div class="value"><a href="https://www.openstreetmap.org/?mlat=<?php echo $inc['photo_lat']; ?>&mlon=<?php echo $inc['photo_lng']; ?>#map=18/<?php echo $inc['photo_lat']; ?>/<?php echo $inc['photo_lng']; ?>" target="_blank">Ã°Å¸â€œÂ <?php echo round($inc['photo_lat'], 6) . ', ' . round($inc['photo_lng'], 6); ?></a></div>
     <div class="value"><?php echo htmlspecialchars($inc['photo_location'] ?: ''); ?></div>
 <?php else: ?><div class="value" style="color:var(--high)">Ã¢Å¡Â  No GPS found in photo</div><?php endif; ?>
 <?php if ($inc['site_outcome'] === 'hospital'): ?>
-    <div class="value">Ã°Å¸ÂÂ¥ <?php echo htmlspecialchars($inc['hospital_name'] ?: 'Ã¢â‚¬â€'); ?></div>
+    <div class="value">Ã°Å¸ÂÂ¥ <?php echo htmlspecialchars($inc['hospital_name'] ?: '—'); ?></div>
     <?php if ($inc['hospital_arrived_at']): ?><div class="value">Arrived <?php echo date('H:i', strtotime($inc['hospital_arrived_at'])); ?></div><?php endif; ?>
     <?php if ($inc['hospital_accepted_at']): ?><div class="value">Accepted <?php echo date('H:i', strtotime($inc['hospital_accepted_at'])); ?></div><?php endif; ?>
     <?php if ($d = json_decode($inc['declined_hospitals'] ?: '[]', true)): ?><div class="value">Declined: <?php echo htmlspecialchars(implode(', ', $d)); ?></div><?php endif; ?>
@@ -309,7 +309,7 @@ else require_once __DIR__ . '/../../assets/layouts/manager/manager_sidebar.php';
                 <div class="incident-actions">
     <?php if ($inc['team_name']): ?>
         <div class="responder-tag" style="font-weight:600;">
-            Ã¢Ëœâ€¦ Assigned to <?php echo htmlspecialchars($inc['team_name']); ?><?php echo $inc['vehicles'] ? ' Ã‚Â· ' . htmlspecialchars($inc['vehicles']) : ''; ?>
+            Ã¢Ëœâ€¦ Assigned to <?php echo htmlspecialchars($inc['team_name']); ?><?php echo $inc['vehicles'] ? ' · ' . htmlspecialchars($inc['vehicles']) : ''; ?>
         </div>
     <?php endif; ?>
 

@@ -40,11 +40,14 @@ ob_start();
 </a>
 
 <div class="nav-section-label">Operations</div>
-<a class="nav-item <?php echo navActive('team-status', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/team-status.php">Team Status</a>
-<a class="nav-item <?php echo navActive('live-map', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/live-map.php">Live Map</a>
-<a class="nav-item <?php echo navActive('active-incidents', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/active-incidents.php">Active Incidents</a>
-<a class="nav-item <?php echo navActive('delay-alerts', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/delay-alerts.php">Delay Alerts</a>
-<a class="nav-item <?php echo navActive('incident-history', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/incident-history.php">Incident History</a>
+<a class="nav-item <?php echo navActive('team-status', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/team-status.php">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v1"/></svg>
+    Team Status
+</a>
+<a class="nav-item <?php echo navActive('live-map', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/manager/live-map.php">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4z"/><path d="M8 2v16M16 6v16"/></svg>
+    Live Map
+</a>
 
 <div class="nav-section-label">Management</div>
 <a class="nav-item <?php echo navActive('users', $currentPage); ?>" href="<?php echo BASE_URL; ?>/app/admin/users.php">
