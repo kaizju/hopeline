@@ -54,7 +54,7 @@ if ($latitude === '' || $longitude === '') $errors[] = 'Drop a map pin on the in
     if (!in_array($barangay, purokList(), true)) $errors[] = 'Select a valid Purok from the list.';
 if ($incidentType !== '' && !in_array($incidentType, $validTypes, true)) $errors[] = 'Invalid incident type.';
 if (!in_array($severity, ['Critical','High','Moderate','Low'], true))    $errors[] = 'Severity is required.';
-if (filter_var($patientCountRaw, FILTER_VALIDATE_INT) === false || $patientCount < 1 || $patientCount > 50) $errors[] = 'Number of patients must be between 1 and 50.';
+if (!is_scalar($patientCountRaw) || filter_var($patientCountRaw, FILTER_VALIDATE_INT) === false || $patientCount < 1 || $patientCount > 50) $errors[] = 'Number of patients must be between 1 and 50.';
     
         if (empty($resources) && array_sum($vehicleFleet) > 0) {
         $errors[] = 'Select at least one vehicle type needed for this incident.';
@@ -121,7 +121,8 @@ $stmt->execute([
             cursor: pointer;
         }
         .qty-btn:hover { background: #f2f4f7; }
-        #resourceGrid .qty-input {
+        #resourceGrid .qty-input,
+        .patient-qty .qty-input {
             display: inline-block !important;
             visibility: visible !important;
             width: 34px !important;
@@ -282,8 +283,8 @@ $stmt->execute([
 </div><!-- /.severity-wrap -->
 <div class="field" style="margin-top:18px;">
     <label for="patient_count">Number of Patients / Victims</label>
-    <div class="qty-control">
-        <button type="button" class="qty-btn" id="patientMinus" aria-label="Decrease number of patients">âˆ’</button>
+    <div class="qty-control patient-qty">
+        <button type="button" class="qty-btn" id="patientMinus" aria-label="Decrease number of patients">&#8722;</button>
         <input type="number" class="qty-input" id="patient_count" name="patient_count" min="1" max="50" value="1" required>
         <button type="button" class="qty-btn" id="patientPlus" aria-label="Increase number of patients">+</button>
     </div>
