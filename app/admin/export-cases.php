@@ -41,7 +41,11 @@ ORDER BY c.created_at DESC
 ");
 $stmt->execute($params);
 set_time_limit(0);
-$rows = array_map(function ($r) use ($pdo) { return fillGeo($pdo, $r); }, $stmt->fetchAll(PDO::FETCH_ASSOC));
+$geoStart = time();
+$rows = array_map(function ($r) use ($pdo, $geoStart) {
+    if (time() - $geoStart > 10) return $r;   // stop live geocoding after 10s; remaining rows export with blank geo
+    return fillGeo($pdo, $r);
+}, $stmt->fetchAll(PDO::FETCH_ASSOC));
 
 function csvSafe($v) { $v = (string)$v; return preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v; }
 function mins($s) { return $s === null ? '' : round($s / 60, 1); }
