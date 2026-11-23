@@ -28,6 +28,13 @@ $s = q($pdo, "SELECT COUNT(*) total,
      FROM clip_reports c LEFT JOIN dispatch d ON d.id = $last
      WHERE c.created_at BETWEEN ? AND ?", $p)[0];
 
+$live = q($pdo, "SELECT AVG(ABS(TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) / 60 - d.live_eta_minutes)) avg_abs,
+        AVG(TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) / 60 - d.live_eta_minutes) avg_bias,
+        AVG(CASE WHEN ABS(TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) / 60 - d.live_eta_minutes) <= " . ETA_ON_TIME_TOLERANCE_MIN . " THEN 100.0 ELSE 0.0 END) pct_on_time,
+        COUNT(*) sample_size
+     FROM dispatch d JOIN clip_reports c ON c.id = d.clip_report_id
+     WHERE c.created_at BETWEEN ? AND ? AND d.live_eta_minutes IS NOT NULL AND d.arrived_at IS NOT NULL AND d.departed_at IS NOT NULL", $p)[0];
+
 $byPurok = q($pdo, "SELECT c.barangay, COUNT(*) n, AVG(TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at)) resp
      FROM clip_reports c LEFT JOIN dispatch d ON d.id = $last
      WHERE c.created_at BETWEEN ? AND ? AND c.barangay IN ($in) GROUP BY c.barangay ORDER BY n DESC", $p);
@@ -57,6 +64,10 @@ sec($out, 'SUMMARY', ['Metric', 'Value'], [
     ['Avg ETA variance (min)', $s['eta_var'] !== null ? round($s['eta_var'], 1) : ''],
     ['Avg ETA bias (min)', $s['eta_bias'] !== null ? round($s['eta_bias'], 1) : ''],
     ['% On Time', $s['eta_pct'] !== null ? round($s['eta_pct'], 1) : ''],
+    ['Live ETA avg abs variance (min)', $live['avg_abs'] !== null ? round($live['avg_abs'], 1) : ''],
+    ['Live ETA avg bias (min)', $live['avg_bias'] !== null ? round($live['avg_bias'], 1) : ''],
+    ['Live ETA % on time', $live['pct_on_time'] !== null ? round($live['pct_on_time'], 1) : ''],
+    ['Live ETA sample size', $live['sample_size']],
 ]);
 sec($out, 'BY PUROK', ['Purok', 'Incidents', 'Avg response (min)'],
     array_map(fn($r) => [$r['barangay'], $r['n'], mm($r['resp'])], $byPurok));

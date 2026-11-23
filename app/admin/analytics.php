@@ -50,6 +50,13 @@ $etaAccuracy = $pdo->query("SELECT AVG(ABS(TIMESTAMPDIFF(SECOND, c.created_at, d
     FROM clip_reports c JOIN dispatch d ON d.id = $lastArrived
     WHERE c.predicted_eta_minutes IS NOT NULL")->fetch(PDO::FETCH_ASSOC);
 
+$liveEtaAccuracy = $pdo->query("SELECT AVG(ABS(TIMESTAMPDIFF(SECOND, departed_at, arrived_at) / 60 - live_eta_minutes)) AS avg_abs_variance,
+        AVG(TIMESTAMPDIFF(SECOND, departed_at, arrived_at) / 60 - live_eta_minutes) AS avg_bias,
+        AVG(CASE WHEN ABS(TIMESTAMPDIFF(SECOND, departed_at, arrived_at) / 60 - live_eta_minutes) <= " . ETA_ON_TIME_TOLERANCE_MIN . " THEN 100.0 ELSE 0.0 END) AS pct_on_time,
+        COUNT(*) AS sample_size
+    FROM dispatch
+    WHERE live_eta_minutes IS NOT NULL AND arrived_at IS NOT NULL AND departed_at IS NOT NULL")->fetch(PDO::FETCH_ASSOC);
+
 // ---- Vehicle Utilization: how much each PTV unit is actually being used ----
 $vehicleUsage = $pdo->query("
     SELECT
@@ -126,6 +133,22 @@ function fmtHours($seconds) {
         <div class="stat-card">
             <div class="stat-value"><?php echo isset($etaAccuracy['pct_on_time']) && $etaAccuracy['pct_on_time'] !== null ? round($etaAccuracy['pct_on_time'], 1) . '%' : '—'; ?></div>
             <div class="stat-label">% On Time</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value"><?php echo isset($liveEtaAccuracy['avg_abs_variance']) && $liveEtaAccuracy['avg_abs_variance'] !== null ? round($liveEtaAccuracy['avg_abs_variance'], 1) . ' min' : '—'; ?></div>
+            <div class="stat-label">Live ETA Avg Abs Variance (<?php echo (int)$liveEtaAccuracy['sample_size']; ?> samples)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value"><?php echo isset($liveEtaAccuracy['avg_bias']) && $liveEtaAccuracy['avg_bias'] !== null ? sprintf('%+.1f min', $liveEtaAccuracy['avg_bias']) : '—'; ?></div>
+            <div class="stat-label"><?php echo isset($liveEtaAccuracy['avg_bias']) && $liveEtaAccuracy['avg_bias'] !== null ? ($liveEtaAccuracy['avg_bias'] >= 0 ? 'Live ETA Underestimates' : 'Live ETA Overestimates') : 'Live ETA Avg Bias'; ?></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value"><?php echo isset($liveEtaAccuracy['pct_on_time']) && $liveEtaAccuracy['pct_on_time'] !== null ? round($liveEtaAccuracy['pct_on_time'], 1) . '%' : '—'; ?></div>
+            <div class="stat-label">Live ETA % On Time</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value"><?php echo (int)($liveEtaAccuracy['sample_size'] ?? 0); ?></div>
+            <div class="stat-label">Live ETA Samples</div>
         </div>
     </div>
 
