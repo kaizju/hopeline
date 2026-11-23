@@ -110,6 +110,9 @@ $totalRows = $totalStmt->fetchColumn();
 
 $stmt = $pdo->prepare("
     SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.departed_at, d.arrived_at,
+           c.predicted_eta_minutes, TIMESTAMPDIFF(SECOND, c.created_at, da.arrived_at) AS ata_s,
+           (SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, dl.started_at, COALESCE(dl.resolved_at, NOW()))),0)
+              FROM delay_logs dl JOIN dispatch dd ON dd.id = dl.dispatch_id WHERE dd.clip_report_id = c.id) AS delay_min,
            (SELECT GROUP_CONCAT(u2.unit_name ORDER BY u2.unit_name SEPARATOR ', ')
               FROM dispatch dx JOIN ptv_units u2 ON u2.id = dx.unit_id
               WHERE dx.clip_report_id = c.id AND dx.status <> 'cancelled') AS unit_name,
@@ -117,12 +120,24 @@ $stmt = $pdo->prepare("
            d.alcohol_breath, d.incident_details, d.incident_photo, d.closeout_remarks
     FROM clip_reports c
     LEFT JOIN dispatch d ON d.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id)
+    LEFT JOIN dispatch da ON da.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id AND d2.arrived_at IS NOT NULL)
     $where
     ORDER BY c.created_at DESC
     LIMIT $perPage OFFSET $offset
 ");
 $stmt->execute($params);
 $incidents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$etaStatsStmt = $pdo->prepare("SELECT AVG(c.predicted_eta_minutes) AS avg_eta,
+    AVG(TIMESTAMPDIFF(SECOND, c.created_at, da.arrived_at) / 60) AS avg_ata,
+    AVG(TIMESTAMPDIFF(SECOND, c.created_at, da.arrived_at) / 60 - c.predicted_eta_minutes) AS avg_variance,
+    SUM(CASE WHEN ABS(TIMESTAMPDIFF(SECOND, c.created_at, da.arrived_at) / 60 - c.predicted_eta_minutes) <= ? THEN 1 ELSE 0 END) / COUNT(*) * 100 AS pct_ontime,
+    COUNT(*) AS sample_size
+    FROM clip_reports c
+    JOIN dispatch da ON da.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id AND d2.arrived_at IS NOT NULL)
+    $where AND c.predicted_eta_minutes IS NOT NULL");
+$etaStatsStmt->execute(array_merge([ETA_ON_TIME_TOLERANCE_MIN], $params));
+$etaStats = $etaStatsStmt->fetch(PDO::FETCH_ASSOC);
 
 $archivedCount = $pdo->query("SELECT COUNT(*) FROM clip_reports WHERE archived_at IS NOT NULL")->fetchColumn();
 $barangays = purokList();
@@ -155,6 +170,13 @@ $unreadAlerts = 0;
     <div class="tabs">
         <a href="?view=active" class="tab <?php echo $view === 'active' ? 'active' : ''; ?>" style="text-decoration:none;">Active</a>
         <a href="?view=archived" class="tab <?php echo $view === 'archived' ? 'active' : ''; ?>" style="text-decoration:none;">Archived (<?php echo $archivedCount; ?>)</a>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value"><?php echo $etaStats['sample_size'] ? round($etaStats['avg_eta'], 1) . ' min' : '—'; ?></div><div class="stat-label">Avg ETA</div></div>
+        <div class="stat-card"><div class="stat-value"><?php echo $etaStats['sample_size'] ? round($etaStats['avg_ata'], 1) . ' min' : '—'; ?></div><div class="stat-label">Avg ATA</div></div>
+        <div class="stat-card"><div class="stat-value"><?php echo $etaStats['sample_size'] ? sprintf('%+.1f min', $etaStats['avg_variance']) : '—'; ?></div><div class="stat-label">Avg Variance</div></div>
+        <div class="stat-card"><div class="stat-value"><?php echo $etaStats['sample_size'] ? round($etaStats['pct_ontime'], 1) . '%' : '—'; ?></div><div class="stat-label">% Arrived On Time</div></div>
     </div>
 
     <form method="GET" class="filter-bar">
@@ -190,7 +212,7 @@ $unreadAlerts = 0;
     <table>
         <thead><tr>
             <th>CLIP Ref</th><th>Caller</th><th>Purok</th><th>Incident</th><th>Patients</th><th>Severity</th>
-            <th>Unit</th><th>Reported</th><th>Status</th><th>Photo</th><th>Case Details</th><th>Actions</th>
+            <th>Unit</th><th>Reported</th><th>ETA</th><th>ATA</th><th>Variance</th><th>Timing</th><th>Status</th><th>Photo</th><th>Case Details</th><th>Actions</th>
         </tr></thead>
         <tbody>
                <?php foreach ($incidents as $inc): ?>
@@ -203,6 +225,13 @@ $unreadAlerts = 0;
                 <td><span class="sev-badge sev-<?php echo $inc['severity']; ?>"><?php echo $inc['severity']; ?></span></td>
                 <td><?php echo htmlspecialchars($inc['unit_name'] ?? '—'); ?></td>
                 <td><?php echo date('M j, H:i', strtotime($inc['created_at'])); ?></td>
+                <?php $timing = etaStatus($inc['predicted_eta_minutes'] === null ? null : (float)$inc['predicted_eta_minutes'], $inc['ata_s'] === null ? null : (float)$inc['ata_s'] / 60); ?>
+                <td><?php echo $inc['predicted_eta_minutes'] === null ? '—' : htmlspecialchars((string)$inc['predicted_eta_minutes']) . ' min'; ?></td>
+                <td><?php echo $inc['ata_s'] === null ? '—' : round($inc['ata_s'] / 60, 1) . ' min'; ?></td>
+                <td><?php echo $timing ? sprintf('%+.1f min', $timing['variance']) : '—'; ?>
+                    <?php if ($timing && $timing['label'] === 'Late' && (float)$inc['delay_min'] > 0): ?><small style="display:block;">Reported delay: <?php echo (int)$inc['delay_min']; ?> min<?php if ((float)$inc['delay_min'] >= $timing['variance']): ?> (explains delay)<?php endif; ?></small><?php endif; ?>
+                </td>
+                <td><?php echo $timing ? '<span class="status-badge ' . htmlspecialchars($timing['class']) . '">' . htmlspecialchars($timing['label']) . '</span>' : '—'; ?></td>
                 <td><span class="status-badge status-<?php echo $inc['status']; ?>"><?php echo statusLabel($inc['status']); ?></span></td>
 
                 <!-- Photo -->

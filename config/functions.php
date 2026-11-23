@@ -105,6 +105,21 @@ if (!defined('PTV_BASE_LAT')) {            // shared base coordinates (#7, #9)
     define('PTV_BASE_LAT', 8.371714652741774);
     define('PTV_BASE_LNG', 124.85717564826615);
 }
+if (!defined('ETA_ON_TIME_TOLERANCE_MIN')) {
+    define('ETA_ON_TIME_TOLERANCE_MIN', 3);
+}
+
+function etaStatus(?float $eta, ?float $ata): ?array {
+    if ($eta === null || $ata === null) return null;
+    $variance = $ata - $eta;
+    if ($variance < -ETA_ON_TIME_TOLERANCE_MIN) {
+        return ['variance' => $variance, 'label' => 'Early', 'class' => 'eta-early'];
+    }
+    if ($variance > ETA_ON_TIME_TOLERANCE_MIN) {
+        return ['variance' => $variance, 'label' => 'Late', 'class' => 'eta-late'];
+    }
+    return ['variance' => $variance, 'label' => 'On time', 'class' => 'eta-ontime'];
+}
 
 function csrfToken(): string {
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();

@@ -30,14 +30,6 @@ $byBarangay = $pdo->query("
     GROUP BY c.barangay ORDER BY avg_response DESC LIMIT 8
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-$etaAccuracy = $pdo->query("
-    SELECT AVG(ABS(d.predicted_eta_minutes - (TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) / 60))) AS avg_variance,
-           COUNT(*) AS sample_size
-    FROM dispatch d
-    WHERE d.predicted_eta_minutes IS NOT NULL
-      AND d.id IN ($perIncident)
-")->fetch(PDO::FETCH_ASSOC);
-
 // Incidents by severity
 $bySeverity = $pdo->query("SELECT severity, COUNT(*) AS total FROM clip_reports GROUP BY severity")->fetchAll(PDO::FETCH_KEY_PAIR);
 $totalIncidents = array_sum($bySeverity);
@@ -50,13 +42,13 @@ $maxTypeCount = max(array_column($byType, 'total') ?: [1]);
 $delayByReason = $pdo->query("SELECT reason, COUNT(*) AS total FROM delay_logs GROUP BY reason ORDER BY total DESC LIMIT 6")->fetchAll(PDO::FETCH_ASSOC);
 $maxDelayCount = max(array_column($delayByReason, 'total') ?: [1]);
 
-// Predicted vs actual ETA accuracy (only where both exist)
-$etaAccuracy = $pdo->query("
-    SELECT AVG(ABS(d.predicted_eta_minutes - (TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) / 60))) AS avg_variance,
-           COUNT(*) AS sample_size
-    FROM dispatch d
-    WHERE d.predicted_eta_minutes IS NOT NULL AND d.departed_at IS NOT NULL AND d.arrived_at IS NOT NULL
-")->fetch(PDO::FETCH_ASSOC);
+// Predicted vs actual ETA accuracy (CLIP report time to latest arrival)
+$etaAccuracy = $pdo->query("SELECT AVG(ABS(TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at) / 60 - c.predicted_eta_minutes)) AS avg_abs_variance,
+        AVG(TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at) / 60 - c.predicted_eta_minutes) AS avg_bias,
+        COUNT(*) AS sample_size,
+        AVG(CASE WHEN ABS(TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at) / 60 - c.predicted_eta_minutes) <= " . ETA_ON_TIME_TOLERANCE_MIN . " THEN 100.0 ELSE 0.0 END) AS pct_on_time
+    FROM clip_reports c JOIN dispatch d ON d.id = $lastArrived
+    WHERE c.predicted_eta_minutes IS NOT NULL")->fetch(PDO::FETCH_ASSOC);
 
 // ---- Vehicle Utilization: how much each PTV unit is actually being used ----
 $vehicleUsage = $pdo->query("
@@ -124,8 +116,16 @@ function fmtHours($seconds) {
             <div class="stat-label">Avg. Travel Time<br>(departure → arrival)</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value"><?php echo $etaAccuracy['avg_variance'] ? round($etaAccuracy['avg_variance'], 1) . ' min' : '—'; ?></div>
+            <div class="stat-value"><?php echo isset($etaAccuracy['avg_abs_variance']) && $etaAccuracy['avg_abs_variance'] !== null ? round($etaAccuracy['avg_abs_variance'], 1) . ' min' : '—'; ?></div>
             <div class="stat-label">Avg. ETA Prediction Variance<br>(<?php echo (int)($etaAccuracy['sample_size'] ?? 0); ?> samples)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value"><?php echo isset($etaAccuracy['avg_bias']) && $etaAccuracy['avg_bias'] !== null ? sprintf('%+.1f min', $etaAccuracy['avg_bias']) : '—'; ?></div>
+            <div class="stat-label"><?php echo isset($etaAccuracy['avg_bias']) && $etaAccuracy['avg_bias'] !== null ? ($etaAccuracy['avg_bias'] >= 0 ? 'Underestimates' : 'Overestimates') : 'Avg Bias'; ?></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value"><?php echo isset($etaAccuracy['pct_on_time']) && $etaAccuracy['pct_on_time'] !== null ? round($etaAccuracy['pct_on_time'], 1) . '%' : '—'; ?></div>
+            <div class="stat-label">% On Time</div>
         </div>
     </div>
 

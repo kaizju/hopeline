@@ -18,7 +18,7 @@ if ($to !== '')   { $where .= " AND c.created_at <= ?"; $params[] = $to . ' 23:5
 
 $stmt = $pdo->prepare("
     SELECT c.clip_ref, c.created_at, c.caller_name, c.caller_contact, c.barangay, c.report_source, c.landmark,
-       c.incident_type, c.patient_count, c.severity, c.status, c.problem_resources,
+       c.incident_type, c.patient_count, c.severity, c.status, c.problem_resources, c.predicted_eta_minutes,
        c.id, c.latitude, c.longitude, c.geo_barangay, c.geo_purok, c.geo_address,
 d.photo_lat, d.photo_lng, d.photo_location, d.photo_taken_at, d.site_outcome, d.hospital_name, d.declined_hospitals,
        (SELECT GROUP_CONCAT(u2.unit_name ORDER BY u2.unit_name SEPARATOR ', ')
@@ -29,11 +29,13 @@ d.photo_lat, d.photo_lng, d.photo_location, d.photo_taken_at, d.site_outcome, d.
           WHERE dx.clip_report_id = c.id AND dx.status <> 'cancelled') AS plate_no,
        d.dispatched_at, d.departed_at, d.arrived_at, d.returned_at,
        TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) AS travel_s,
-       TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at)  AS response_s,
+       TIMESTAMPDIFF(SECOND, c.created_at, da.arrived_at) AS response_s,
+       (SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, dl.started_at, COALESCE(dl.resolved_at, NOW()))),0) FROM delay_logs dl JOIN dispatch dd ON dd.id = dl.dispatch_id WHERE dd.clip_report_id = c.id) AS delay_min,
        d.patient_name, d.patient_age_group, d.patient_sex, d.victim_count, d.vital_signs, d.alcohol_breath,
        d.closeout_remarks, d.incident_details, d.incident_photo
 FROM clip_reports c
 LEFT JOIN dispatch d ON d.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id)
+LEFT JOIN dispatch da ON da.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id AND d2.arrived_at IS NOT NULL)
 $where
 ORDER BY c.created_at DESC
 ");
@@ -52,7 +54,7 @@ $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF"); // UTF-8 BOM so Excel reads it correctly
 fputcsv($out, ['CLIP Ref','Date Reported','Caller','Contact','Barangay','Received Via','Landmark','Incident Type','Patients (reported)','Severity','Status',
     'Resources','Unit','Plate','Dispatched','Departed','Arrived','Returned','Travel (min)','Total Response (min)',
-    'Patient Name','Age Group','Sex','# Victims','Vital Signs','Alcohol Breath','Remarks','Incident Details','Photo URL','Incident Lat','Incident Lng','Detected Barangay','Detected Purok','Detected Address','Photo Lat','Photo Lng','Photo Location','Photo Taken','Outcome','Hospital','Declined Hospitals'], ',', '"', '');
+    'Patient Name','Age Group','Sex','# Victims','Vital Signs','Alcohol Breath','Remarks','Incident Details','Photo URL','Incident Lat','Incident Lng','Detected Barangay','Detected Purok','Detected Address','Photo Lat','Photo Lng','Photo Location','Photo Taken','Outcome','Hospital','Declined Hospitals', 'ETA (min)', 'ATA (min)', 'ETA Variance (min)', 'ETA Status', 'Reported Delay (min)'], ',', '"', '');
 
 
 $base = rtrim(BASE_URL, '/') . '/';
@@ -66,7 +68,11 @@ foreach ($rows as $r) {
         $r['vital_signs'], $r['alcohol_breath'], $r['closeout_remarks'], $r['incident_details'],
         $r['incident_photo'] ? $base . $r['incident_photo'] : '',$r['latitude'], $r['longitude'], $r['geo_barangay'], $r['geo_purok'], $r['geo_address'],
 $r['photo_lat'], $r['photo_lng'], $r['photo_location'], $r['photo_taken_at'],
-$r['site_outcome'], $r['hospital_name'], implode('; ', json_decode($r['declined_hospitals'] ?: '[]', true) ?: [])
+        $r['site_outcome'], $r['hospital_name'], implode('; ', json_decode($r['declined_hospitals'] ?: '[]', true) ?: []),
+        $r['predicted_eta_minutes'] === null ? '' : $r['predicted_eta_minutes'],
+        mins($r['response_s']),
+        ($eta = etaStatus($r['predicted_eta_minutes'] === null ? null : (float)$r['predicted_eta_minutes'], $r['response_s'] === null ? null : (float)$r['response_s'] / 60)) ? round($eta['variance'], 1) : '',
+        $eta['label'] ?? '', $r['delay_min']
     ]), ',', '"', '');
 }
 fclose($out);

@@ -281,6 +281,9 @@ label .optional { color: var(--light-grayish); font-weight: 400; font-size: 10.5
 .status-cancelled { background: rgba(var(--border-rgb), 0.15); color: var(--light-grayish); text-decoration: line-through; }
 .status-failed { background: rgba(176,32,41,0.2); color: var(--redwood); }
 .status-inactive { background: rgba(var(--border-rgb), 0.2); color: var(--light-grayish); }
+.eta-early { background: rgba(63,122,92,0.2); color: #3f7a5c; }
+.eta-ontime { background: rgba(var(--border-rgb), 0.2); color: var(--light-grayish); }
+.eta-late { background: rgba(176,32,41,0.2); color: var(--redwood); }
 
 .role-admin { background: rgba(176,32,41,0.2); color: var(--redwood); }
 .role-manager { background: rgba(217,117,43,0.2); color: var(--high); }
