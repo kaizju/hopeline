@@ -30,6 +30,7 @@ function statusLabel($s) {
 /* Coordinates -> readable location (OSM Nominatim) */
 
 function reverseGeocode(float $lat, float $lng): ?array {
+    ini_set('default_socket_timeout', '4');
     $url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&lat=' . $lat . '&lon=' . $lng;
     $ctx = stream_context_create(['http' => ['timeout' => 6, 'header' => "User-Agent: HopeLine-LDRRMO/1.0 (you@yourdomain.com)\r\n"]]);
     $raw = @file_get_contents($url, false, $ctx);
