@@ -22,7 +22,9 @@ $last = "(SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id AND 
 $s = q($pdo, "SELECT COUNT(*) total,
         AVG(TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at)) resp,
         AVG(TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at)) trav,
-        AVG(ABS(d.predicted_eta_minutes - TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) / 60)) eta_var
+        AVG(CASE WHEN c.predicted_eta_minutes IS NOT NULL THEN ABS(TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at) / 60 - c.predicted_eta_minutes) END) eta_var,
+        AVG(CASE WHEN c.predicted_eta_minutes IS NOT NULL THEN TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at) / 60 - c.predicted_eta_minutes END) eta_bias,
+        AVG(CASE WHEN c.predicted_eta_minutes IS NOT NULL AND d.arrived_at IS NOT NULL THEN CASE WHEN ABS(TIMESTAMPDIFF(SECOND, c.created_at, d.arrived_at) / 60 - c.predicted_eta_minutes) <= " . ETA_ON_TIME_TOLERANCE_MIN . " THEN 100.0 ELSE 0.0 END END) eta_pct
      FROM clip_reports c LEFT JOIN dispatch d ON d.id = $last
      WHERE c.created_at BETWEEN ? AND ?", $p)[0];
 
@@ -53,6 +55,8 @@ sec($out, 'SUMMARY', ['Metric', 'Value'], [
     ['Avg total response (min)', mm($s['resp'])],
     ['Avg travel time (min)', mm($s['trav'])],
     ['Avg ETA variance (min)', $s['eta_var'] !== null ? round($s['eta_var'], 1) : ''],
+    ['Avg ETA bias (min)', $s['eta_bias'] !== null ? round($s['eta_bias'], 1) : ''],
+    ['% On Time', $s['eta_pct'] !== null ? round($s['eta_pct'], 1) : ''],
 ]);
 sec($out, 'BY PUROK', ['Purok', 'Incidents', 'Avg response (min)'],
     array_map(fn($r) => [$r['barangay'], $r['n'], mm($r['resp'])], $byPurok));
