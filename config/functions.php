@@ -122,6 +122,43 @@ function etaStatus(?float $eta, ?float $ata): ?array {
     return ['variance' => $variance, 'label' => 'On time', 'class' => 'eta-ontime'];
 }
 
+function liveEtaCompute(float $aLat, float $aLng, float $bLat, float $bLng): array {
+    global $pdo;
+    $minutes = null; $km = null; $method = 'estimate';
+    $url = 'https://router.project-osrm.org/route/v1/driving/' . $aLng . ',' . $aLat . ';' . $bLng . ',' . $bLat . '?overview=false';
+    $ctx = stream_context_create(['http' => ['timeout' => 4, 'ignore_errors' => true]]);
+    $raw = @file_get_contents($url, false, $ctx);
+    $route = $raw ? json_decode($raw, true) : null;
+    if (($route['code'] ?? '') === 'Ok' && isset($route['routes'][0]['duration'], $route['routes'][0]['distance'])) {
+        $minutes = (float)$route['routes'][0]['duration'] / 60;
+        $km = (float)$route['routes'][0]['distance'] / 1000;
+        $method = 'osrm';
+    } else {
+        $rad = M_PI / 180;
+        $a = sin(($bLat - $aLat) * $rad / 2) ** 2 + cos($aLat * $rad) * cos($bLat * $rad) * sin(($bLng - $aLng) * $rad / 2) ** 2;
+        $km = 6371 * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        $speed = 40.0;
+        try {
+            if ($pdo instanceof PDO) {
+                $setting = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'default_avg_speed_kmh'")->fetchColumn();
+                if (is_numeric($setting) && (float)$setting > 0) $speed = (float)$setting;
+            }
+        } catch (Throwable $e) { }
+        $minutes = ($km / $speed) * 60;
+    }
+
+    $delay = 0.0;
+    $socketTimeout = ini_get('default_socket_timeout');
+    try {
+        ini_set('default_socket_timeout', '4');
+        require_once __DIR__ . '/delay_factors.php';
+        $factors = calculateDelayFactors($bLat, $bLng);
+        $delay = (float)($factors['total_delay_min'] ?? 0);
+    } catch (Throwable $e) { $delay = 0.0; }
+    finally { if ($socketTimeout !== false) ini_set('default_socket_timeout', (string)$socketTimeout); }
+    return ['minutes' => round($minutes + $delay, 2), 'km' => round($km, 2), 'method' => $method];
+}
+
 function csrfToken(): string {
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
     if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32));

@@ -75,6 +75,36 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
         'return_to_base' => ['from' => 'returning', 'to' => 'resolved', 'col' => 'returned_at', 'unit' => 'Available', 'msg' => 'Welcome back! Units marked Available.'],
     ][$action];
 
+    $liveEtaCapture = null;
+    if ($action === 'depart') {
+        try {
+            $point = $pdo->prepare("SELECT c.latitude, c.longitude, u.current_lat, u.current_lng
+                FROM dispatch d JOIN ptv_units u ON u.id = d.unit_id
+                JOIN clip_reports c ON c.id = d.clip_report_id
+                WHERE d.id = ? AND d.team_id = ?");
+            $point->execute([$dispatchId, $myTeamId]);
+            $point = $point->fetch(PDO::FETCH_ASSOC);
+            $valid = function ($lat, $lng) {
+                return is_numeric($lat) && is_numeric($lng) && (float)$lat >= -90 && (float)$lat <= 90
+                    && (float)$lng >= -180 && (float)$lng <= 180;
+            };
+            if ($point && $valid($point['latitude'], $point['longitude'])) {
+                if ($valid($_POST['client_lat'] ?? null, $_POST['client_lng'] ?? null)) {
+                    $aLat = (float)$_POST['client_lat']; $aLng = (float)$_POST['client_lng']; $source = 'device';
+                } elseif ($valid($point['current_lat'], $point['current_lng'])) {
+                    $aLat = (float)$point['current_lat']; $aLng = (float)$point['current_lng']; $source = 'unit';
+                } else {
+                    $aLat = PTV_BASE_LAT; $aLng = PTV_BASE_LNG; $source = 'base';
+                }
+                $computed = liveEtaCompute($aLat, $aLng, (float)$point['latitude'], (float)$point['longitude']);
+                $liveEtaCapture = [$computed['minutes'], $aLat, $aLng, $computed['km'], $source, $computed['method']];
+            }
+        } catch (Throwable $e) {
+            error_log('HopeLine Live ETA capture failed: ' . $e->getMessage());
+            $liveEtaCapture = null;
+        }
+    }
+
     $pdo->beginTransaction();
     $sel = $pdo->prepare("SELECT d.id, d.unit_id FROM dispatch d
         JOIN dispatch me ON me.id = ? AND me.clip_report_id = d.clip_report_id
@@ -94,6 +124,17 @@ if ($unit && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $pdo->prepare("UPDATE dispatch SET status = ?, {$map['col']} = NOW() WHERE id IN ($inD)")
             ->execute(array_merge([$map['to']], $ids));
+
+        if ($action === 'depart' && $liveEtaCapture !== null) {
+            try {
+                $pdo->prepare("UPDATE dispatch SET live_eta_minutes = ?, live_eta_origin_lat = ?, live_eta_origin_lng = ?,
+                    live_eta_distance_km = ?, live_eta_source = ?, live_eta_method = ?
+                    WHERE id IN ($inD) AND live_eta_minutes IS NULL")
+                    ->execute(array_merge($liveEtaCapture, $ids));
+            } catch (Throwable $e) {
+                error_log('HopeLine Live ETA save failed: ' . $e->getMessage());
+            }
+        }
 
         if ($action === 'return_to_base') {
             $pdo->prepare("UPDATE ptv_units SET status = 'Available', current_lat = ?, current_lng = ? WHERE id IN ($inU)")
@@ -407,9 +448,10 @@ $prioLabel = $dispatch ? strtoupper($dispatch['severity'] ?: 'Moderate') . ' PRI
 
             <div class="hud-actions">
             <?php if ($step === 'assigned'): ?>
-                <form method="POST">
+                <form method="POST" id="departForm">
                     <input type="hidden" name="action" value="depart">
                     <input type="hidden" name="dispatch_id" value="<?php echo (int)$dispatch['id']; ?>">
+                    <input type="hidden" name="client_lat"><input type="hidden" name="client_lng">
                     <button type="submit" class="btn-action"><?php echo hl_ico('arrow'); ?> Depart Now</button>
                 </form>
 
@@ -1050,6 +1092,11 @@ var af = $('arriveForm');
 if (af) af.addEventListener('submit', function () {
     var f = myPos || (window.HopeGPS && window.HopeGPS.getLast && window.HopeGPS.getLast());
     if (f) { af.elements.client_lat.value = f.lat; af.elements.client_lng.value = f.lng; }
+});
+var df = $('departForm');
+if (df) df.addEventListener('submit', function () {
+    var f = myPos || (window.HopeGPS && window.HopeGPS.getLast && window.HopeGPS.getLast());
+    if (f) { df.elements.client_lat.value = f.lat; df.elements.client_lng.value = f.lng; }
 });
 var sr = document.querySelector('.site-report');
 if (sr) sr.addEventListener('submit', function (event) {

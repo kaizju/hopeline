@@ -111,6 +111,8 @@ $totalRows = $totalStmt->fetchColumn();
 $stmt = $pdo->prepare("
     SELECT c.*, d.id AS dispatch_id, d.status AS dispatch_status, d.departed_at, d.arrived_at,
            c.predicted_eta_minutes, TIMESTAMPDIFF(SECOND, c.created_at, da.arrived_at) AS ata_s,
+           d.live_eta_minutes, d.live_eta_source, d.live_eta_method,
+           TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) AS travel_s,
            (SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, dl.started_at, COALESCE(dl.resolved_at, NOW()))),0)
               FROM delay_logs dl JOIN dispatch dd ON dd.id = dl.dispatch_id WHERE dd.clip_report_id = c.id) AS delay_min,
            (SELECT GROUP_CONCAT(u2.unit_name ORDER BY u2.unit_name SEPARATOR ', ')
@@ -138,6 +140,15 @@ $etaStatsStmt = $pdo->prepare("SELECT AVG(c.predicted_eta_minutes) AS avg_eta,
     $where AND c.predicted_eta_minutes IS NOT NULL");
 $etaStatsStmt->execute(array_merge([ETA_ON_TIME_TOLERANCE_MIN], $params));
 $etaStats = $etaStatsStmt->fetch(PDO::FETCH_ASSOC);
+
+$liveStatsStmt = $pdo->prepare("SELECT AVG(d.live_eta_minutes) AS avg_live_eta,
+    AVG(TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) / 60) AS avg_travel_ata,
+    AVG(CASE WHEN ABS(TIMESTAMPDIFF(SECOND, d.departed_at, d.arrived_at) / 60 - d.live_eta_minutes) <= " . ETA_ON_TIME_TOLERANCE_MIN . " THEN 100.0 ELSE 0.0 END) AS pct_live_ontime,
+    COUNT(*) AS sample_size
+    FROM clip_reports c JOIN dispatch d ON d.id = (SELECT MAX(d2.id) FROM dispatch d2 WHERE d2.clip_report_id = c.id)
+    $where AND d.live_eta_minutes IS NOT NULL AND d.arrived_at IS NOT NULL AND d.departed_at IS NOT NULL");
+$liveStatsStmt->execute($params);
+$liveStats = $liveStatsStmt->fetch(PDO::FETCH_ASSOC);
 
 $archivedCount = $pdo->query("SELECT COUNT(*) FROM clip_reports WHERE archived_at IS NOT NULL")->fetchColumn();
 $barangays = purokList();
@@ -177,6 +188,8 @@ $unreadAlerts = 0;
         <div class="stat-card"><div class="stat-value"><?php echo $etaStats['sample_size'] ? round($etaStats['avg_ata'], 1) . ' min' : '—'; ?></div><div class="stat-label">Avg ATA</div></div>
         <div class="stat-card"><div class="stat-value"><?php echo $etaStats['sample_size'] ? sprintf('%+.1f min', $etaStats['avg_variance']) : '—'; ?></div><div class="stat-label">Avg Variance</div></div>
         <div class="stat-card"><div class="stat-value"><?php echo $etaStats['sample_size'] ? round($etaStats['pct_ontime'], 1) . '%' : '—'; ?></div><div class="stat-label">% Arrived On Time</div></div>
+        <div class="stat-card"><div class="stat-value"><?php echo $liveStats['sample_size'] ? round($liveStats['avg_live_eta'], 1) . ' / ' . round($liveStats['avg_travel_ata'], 1) . ' min' : '—'; ?></div><div class="stat-label">Avg Live ETA / Avg Travel ATA (min)</div></div>
+        <div class="stat-card"><div class="stat-value"><?php echo $liveStats['sample_size'] ? round($liveStats['pct_live_ontime'], 1) . '%' : '—'; ?></div><div class="stat-label">% Live ETA On Time</div></div>
     </div>
 
     <form method="GET" class="filter-bar">
@@ -212,7 +225,7 @@ $unreadAlerts = 0;
     <table>
         <thead><tr>
             <th>CLIP Ref</th><th>Caller</th><th>Purok</th><th>Incident</th><th>Patients</th><th>Severity</th>
-            <th>Unit</th><th>Reported</th><th>ETA</th><th>ATA</th><th>Variance</th><th>Timing</th><th>Status</th><th>Photo</th><th>Case Details</th><th>Actions</th>
+            <th>Unit</th><th>Reported</th><th>ETA</th><th>ATA</th><th>Variance</th><th>Timing</th><th>Live ETA</th><th>Travel ATA</th><th>Live Variance</th><th>Live Timing</th><th>Status</th><th>Photo</th><th>Case Details</th><th>Actions</th>
         </tr></thead>
         <tbody>
                <?php foreach ($incidents as $inc): ?>
@@ -232,6 +245,15 @@ $unreadAlerts = 0;
                     <?php if ($timing && $timing['label'] === 'Late' && (float)$inc['delay_min'] > 0): ?><small style="display:block;">Reported delay: <?php echo (int)$inc['delay_min']; ?> min<?php if ((float)$inc['delay_min'] >= $timing['variance']): ?> (explains delay)<?php endif; ?></small><?php endif; ?>
                 </td>
                 <td><?php echo $timing ? '<span class="status-badge ' . htmlspecialchars($timing['class']) . '">' . htmlspecialchars($timing['label']) . '</span>' : '—'; ?></td>
+                <?php $liveTravel = $inc['travel_s'] === null ? null : (float)$inc['travel_s'] / 60; $liveTiming = etaStatus($inc['live_eta_minutes'] === null ? null : (float)$inc['live_eta_minutes'], $liveTravel); ?>
+                <td><?php if ($inc['live_eta_minutes'] === null): ?>—<?php else: ?><?php echo round($inc['live_eta_minutes'], 1); ?> min
+                    <?php $sourceTag = ['device' => 'GPS', 'unit' => 'Unit', 'base' => 'Base*'][$inc['live_eta_source']] ?? ''; ?>
+                    <?php if ($sourceTag): ?><small class="live-eta-source"<?php if ($inc['live_eta_source'] === 'base'): ?> title="Responder GPS unavailable; base used"<?php endif; ?>><?php echo htmlspecialchars($sourceTag); ?></small><?php endif; ?>
+                    <?php if ($inc['live_eta_method'] === 'estimate'): ?><small title="Estimated (routing unavailable)">~</small><?php endif; ?>
+                <?php endif; ?></td>
+                <td><?php echo $liveTravel === null ? '—' : round($liveTravel, 1) . ' min'; ?></td>
+                <td><?php echo $liveTiming ? sprintf('%+.1f min', $liveTiming['variance']) : '—'; ?></td>
+                <td><?php echo $liveTiming ? '<span class="status-badge ' . htmlspecialchars($liveTiming['class']) . '">' . htmlspecialchars($liveTiming['label']) . '</span>' : '—'; ?></td>
                 <td><span class="status-badge status-<?php echo $inc['status']; ?>"><?php echo statusLabel($inc['status']); ?></span></td>
 
                 <!-- Photo -->
